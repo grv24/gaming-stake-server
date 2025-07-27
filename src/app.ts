@@ -1,36 +1,42 @@
-import express, { Application } from 'express';
+import express from 'express'; 
 import cors from 'cors';
-import helmet from 'helmet';
+import dotenv from 'dotenv';
 import { ApolloServer } from 'apollo-server-express';
-import { buildSchema } from 'type-graphql';
-// import routes from './routes';
-import { UserResolver } from './resolvers/User';
+import { typeDefs } from './graphql/rootTypeDefs';
+import { resolvers } from './graphql/rootResolvers';
+import userRoutes from './routes/userRoutes';
+import prisma from './utils/prismaClient'; 
 
-const app: Application = express(); 
+dotenv.config();
 
-// Middlewares
-app.use(cors({ origin: '*', credentials: true }));
-app.use(helmet());
+const app: any = express();
+app.use(cors());
 app.use(express.json());
 
-// REST Routes
-// app.use('/api', routes);
+// REST
+app.use('/api', userRoutes);
 
-const setupGraphQL = async () => {
-    const schema = await buildSchema({
-        resolvers: [UserResolver],
-        validate: false, 
-    });
+// DB Connect before GraphQL init
+async function connectToDB() {
+  try {
+    await prisma.$connect();
+    console.log('Database connected');
+  } catch (err) {
+    console.error('Failed to connect to DB:', err);
+    process.exit(1);
+  }
+}
 
-    const apolloServer = new ApolloServer({
-        schema,
-        context: ({ req, res }) => ({ req, res }),
-    });
+// GraphQL init
+async function initGraphQL() {
+  const server = new ApolloServer({ typeDefs, resolvers });
+  await server.start();
+  server.applyMiddleware({ app, path: '/graphql' });
+}
 
-    await apolloServer.start();
-    apolloServer.applyMiddleware({ app: app as any, path: '/graphql', cors: false });
-};
-
-setupGraphQL();
+(async function bootstrap() {
+  await connectToDB();    // Connect DB first
+  await initGraphQL();    // Then start Apollo
+})();
 
 export default app;

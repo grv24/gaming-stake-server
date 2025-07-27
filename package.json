@@ -4,11 +4,10 @@
   "description": "initially commit",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/server.ts",
-    "dev": "nodemon src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "serve": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/server.js",
+    "prisma": "prisma"
   },
   "repository": {
     "type": "git",
@@ -21,6 +20,7 @@
   },
   "homepage": "https://github.com/grv24/gaming-stake-server#readme",
   "dependencies": {
+    "@prisma/client": "^6.12.0",
     "apollo-server-express": "^3.13.0",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
@@ -33,18 +33,19 @@
     "jsonwebtoken": "^9.0.2",
     "nodemon": "^3.1.10",
     "pg": "^8.16.1",
+    "prisma": "^6.12.0",
     "redis": "^4.7.1",
-    "reflect-metadata": "^0.2.2",
     "type-graphql": "^2.0.0-rc.2",
-    "typeorm": "^0.3.24",
     "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
-    "@types/express": "^4.17.23",
+    "@types/connect": "^3.4.38",
+    "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.0.3",
+    "@types/node": "^24.0.15",
     "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
   }
 }
