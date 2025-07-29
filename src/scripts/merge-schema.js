@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const basePath = path.join(__dirname, '../prisma/base.prisma');
-const modelsDir = path.join(__dirname, '../prisma/models');
-const outputPath = path.join(__dirname, '../prisma/schema.prisma');
+const basePath = path.join(__dirname, '../../prisma/base.prisma');
+const modelsDir = path.join(__dirname, '../../prisma/models');
+const outputPath = path.join(__dirname, '../../prisma/schema.prisma');
 
 let merged = fs.readFileSync(basePath, 'utf8') + '\n\n';
 
