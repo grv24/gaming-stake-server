@@ -10,7 +10,7 @@ datasource db {
 // --- AdminUser.prisma ---
 model Admin {
   id       String   @id @default(uuid())
-  name     String
+  firstname     String
   email    String   @unique
   role     String
 }

@@ -4,5 +4,5 @@ const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`GraphQL available at http://localhost:${PORT}/graphql`);
+  // console.log(`GraphQL available at http://localhost:${PORT}/graphql`);
 });
