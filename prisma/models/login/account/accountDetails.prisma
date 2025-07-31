@@ -1,0 +1,8 @@
+model AccountDetails {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance   Float   @default(0)
+  currency  String
+}

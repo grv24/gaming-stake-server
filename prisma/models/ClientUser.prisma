@@ -1,5 +1,0 @@
-model client {
-  id       String   @id @default(uuid())
-  username String   @unique
-  points    Int
-}

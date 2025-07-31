@@ -1,0 +1,19 @@
+model LoginReport {
+  id        String   @id @default(uuid())
+  ip        String
+  location  String?
+  device    String?
+  timestamp DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model IpAddress {
+  id        String   @id @default(uuid())
+  ip        String
+  recordedAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

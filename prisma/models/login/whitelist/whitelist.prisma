@@ -1,0 +1,65 @@
+model Whitelist {
+  id                              String        @id @default(uuid())
+  
+  // Domain Whitelisting
+  isDomainWhiteListedForSportScore Boolean     @default(false)
+  isDomainWhiteListedForSportVideos Boolean    @default(false)
+  isDomainWhiteListedForCasinoVideos Boolean   @default(false)
+  isDomainWhiteListedForIntCasinoGames Boolean @default(false)
+  
+  // URLs
+  TechAdminUrl                    String       @default("")
+  AdminUrl                        String       @default("")
+  ClientUrl                       String       @default("")
+  CommonName                      String       @default("")
+  websiteTitle                    String       @default("")
+  
+  // Meta Tags
+  websiteMetaTags                 Json?
+  
+  // Website Theme
+  primaryBackground               String       @default("#0D7A8E")
+  primaryBackground90             String       @default("#0D7A8E")
+  secondaryBackground             String       @default("#04303e")
+  secondaryBackground70           String       @default("#AE4600B3")
+  secondaryBackground85           String       @default("#AE4600E6")
+  textPrimary                     String       @default("#FFFFFF")
+  textSecondary                   String       @default("#CCCCCC")
+  
+  // Sports Settings
+  matchOdd                        String[]     @default(["Back", "Lay"])
+  matchOddOptions                 String[][]   @default([["b3", "b2", "b1"], ["l1", "l2", "l3"]])
+  bookMakerOdd                    String[]     @default(["Back", "Lay"])
+  normalOdd                       String[]     @default(["No", "Yes"])
+  
+  // Refund Options
+  refundOptionIsActive            Boolean      @default(false) @map("sportsSettings.refundOption.isActive")
+  refundPercentage                Float        @default(0) @map("sportsSettings.refundOption.refundPercentage")
+  refundLimit                     Float        @default(0) @map("sportsSettings.refundOption.refundLimit")
+  minDeposit                      Float        @default(100) @map("sportsSettings.refundOption.minDeposit")
+  
+  // Website Access Settings
+  autoSignUpFeature               Boolean      @default(false) @map("websiteAccessSettings.autoSignUpFeature")
+  autoSignUpAssignedUplineId      String?      @map("websiteAccessSettings.autoSignUpAssignedUpline")
+  autoSignUpAssignedUpline        BaseUser?    @relation(fields: [autoSignUpAssignedUplineId], references: [id])
+  whatsappNumber                  Boolean      @default(false) @map("websiteAccessSettings.whatsappNumber")
+  googleAnalyticsTrackingId       String       @default("") @map("websiteAccessSettings.googleAnalyticsTrackingId")
+  loginWithDemoIdFeature          Boolean      @default(false) @map("websiteAccessSettings.loginWithDemoIdFeature")
+  
+  // Status
+  isActive                        Boolean      @default(true)
+  Logo                            String       @default("")
+  
+  // Creator
+  createdById                     String       @map("createdBy")
+  createdBy                       BaseUser     @relation(fields: [createdById], references: [id])
+  
+  // Timestamps
+  createdAt                       DateTime     @default(now())
+  updatedAt                       DateTime     @updatedAt
+
+  // Relations
+  baseUsers                       BaseUser[]
+
+  @@map("whitelists")
+}

@@ -10,6 +10,9 @@ import prisma from './utils/prismaClient';
 dotenv.config();
 
 const app: any = express();
+
+app.set('trust proxy', true);
+
 app.use(cors());
 app.use(express.json());
 

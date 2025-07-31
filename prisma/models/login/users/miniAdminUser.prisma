@@ -1,0 +1,46 @@
+model MiniAdmin {
+  id                      String               @id @default(uuid())
+  baseUserId              String               @unique
+  baseUser                BaseUser             @relation(fields: [baseUserId], references: [id])
+  
+  // Account Details
+  liability               Float                @default(0)
+  balance                 Float                @default(0) @map("Balance")
+  profitLoss              Float                @default(0)
+  freeChips               Float                @default(0)
+  totalSettledAmount      Float                @default(0)
+  exposure                Float                @default(0) @map("Exposure")
+  exposureLimit           Float                @default(10000000) @map("ExposureLimit")
+  
+  // Feature Access Permissions
+  whiteListAccess         Boolean              @default(false) @map("featureAccessPermissions.whiteList")
+  depositWithdrawlAccess  Boolean              @default(false) @map("featureAccessPermissions.depositWithdrawl")
+  canDeleteBets           Boolean              @default(false)
+  canDeleteUsers          Boolean              @default(false)
+  specialPermissions      Boolean              @default(false)
+  enableMultipleLogin     Boolean              @default(false)
+  autoSignUpFeature       Boolean              @default(false)
+  displayUsersOnlineStatus Boolean             @default(false)
+  refundOptionFeature     Boolean              @default(false)
+  canDeclareResultAsOperator Boolean           @default(false)
+  
+  // User Limits
+  allowedNoOfUsers        Int                  @default(8)
+  createdUsersCount       Int                  @default(0)
+  
+  // Commission Settings
+  percentageWiseCommission Boolean            @default(true) @map("commissionSettings.percentageWise")
+  partnerShipWiseCommission Boolean           @default(false) @map("commissionSettings.partnerShipWise")
+  commissionLena          Boolean              @default(true) @map("commissionLenaYaDena.commissionLena")
+  commissionDena          Boolean              @default(false) @map("commissionLenaYaDena.commissionDena")
+  
+  // Sports Settings (using JSON for complex nested structures)
+  soccerSettings          Json?                @map("sportsSettings.Soccer")
+  tennisSettings          Json?                @map("sportsSettings.Tennis")
+  cricketSettings         Json?                @map("sportsSettings.Cricket")
+  matkaSettings           Json?                @map("sportsSettings.Matka")
+  casinoSettings          Json?                @map("sportsSettings.Casino")
+  diamondCasinoSettings   Json?                @map("sportsSettings.DiamondCasino")
+
+  @@map("mini_admins")
+}

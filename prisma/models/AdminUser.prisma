@@ -1,6 +1,0 @@
-model Admin {
-  id       String   @id @default(uuid())
-  firstname     String
-  email    String   @unique
-  role     String
-}

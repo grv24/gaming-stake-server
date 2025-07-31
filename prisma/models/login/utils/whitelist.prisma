@@ -1,0 +1,5 @@
+model WhiteList {
+  id        String   @id @default(uuid())
+  clientUrl String   @unique
+  users     User[]
+}

@@ -7,18 +7,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- AdminUser.prisma ---
-model Admin {
-  id       String   @id @default(uuid())
-  firstname     String
-  email    String   @unique
-  role     String
+// --- login/account/accountDetails.prisma ---
+model AccountDetails {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance   Float   @default(0)
+  currency  String
 }
 
 
-// --- ClientUser.prisma ---
-model client {
-  id       String   @id @default(uuid())
-  username String   @unique
-  points    Int
+// --- login/users/clientUser.prisma ---
+model clientUser {
+  id           String   @id @default(uuid())
+  loginId      String   @unique
+  passwordHash String
+  salt         String?
+  isLocked     Boolean  @default(false)
+  role         String   // client, agent, etc.
+  type         String?  // __type
+  groupId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  clientDetails   ClientDetails?
+  ipAddressLogs   IpAddress[]
+  loginReports    LoginReport[]
+  whiteListId     String?
+  whiteList       WhiteList? @relation(fields: [whiteListId], references: [id])
+}
+ 
+model ClientDetails {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bettingLocked   Boolean  @default(false)
+  fancyLocked     Boolean  @default(false)
+  closedAccounts  Boolean  @default(false)
+}
+
+
+
+// --- login/utils/loginReport.prisma ---
+model LoginReport {
+  id        String   @id @default(uuid())
+  ip        String
+  location  String?
+  device    String?
+  timestamp DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model IpAddress {
+  id        String   @id @default(uuid())
+  ip        String
+  recordedAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+// --- login/utils/whitelist.prisma ---
+model WhiteList {
+  id        String   @id @default(uuid())
+  clientUrl String   @unique
+  users     User[]
 }

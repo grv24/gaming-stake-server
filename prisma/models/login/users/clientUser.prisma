@@ -1,0 +1,50 @@
+model Client {
+  id                      String               @id @default(uuid())
+  baseUserId              String               @unique
+  baseUser                BaseUser             @relation(fields: [baseUserId], references: [id])
+  
+  // Account Details
+  liability               Float                @default(0)
+  balance                 Float                @default(0) @map("Balance")
+  profitLoss              Float                @default(0)
+  freeChips               Float                @default(0)
+  totalSettledAmount      Float                @default(0)
+  exposure                Float                @default(0) @map("Exposure")
+  exposureLimit           Float                @default(1000000) @map("ExposureLimit")
+  
+  // Bonus Details
+  bonusAmount             Float                @default(0) @map("AccountDetails.bonus.amount")
+  bonusWageringRequired   Float                @default(0) @map("AccountDetails.bonus.wageringRequired")
+  bonusWageringProgress   Float                @default(0) @map("AccountDetails.bonus.wageringProgress")
+  bonusExpiresAt          DateTime?            @map("AccountDetails.bonus.expiresAt")
+  bonusActive             Boolean              @default(false) @map("AccountDetails.bonus.active")
+  
+  // Feature Access Permissions
+  depositWithdrawlAccess  Boolean              @default(false) @map("featureAccessPermissions.depositWithdrawl")
+  
+  // Permissions
+  canBypassCasinoBet      Boolean              @default(false) @map("permissions.canBypassCasinoBet")
+  canBypassSportBet       Boolean              @default(false) @map("permissions.canBypassSportBet")
+  
+  // Casino Buttons
+  casinoButtons           Json?                @map("casinoButtons")
+  
+  // Game Buttons
+  gameButtons             Json?                @map("gameButtons")
+  
+  // Commission Settings
+  percentageWiseCommission Boolean            @default(true) @map("commissionSettings.percentageWise")
+  partnerShipWiseCommission Boolean           @default(false) @map("commissionSettings.partnerShipWise")
+  commissionLena          Boolean              @default(true) @map("commissionLenaYaDena.commissionLena")
+  commissionDena          Boolean              @default(false) @map("commissionLenaYaDena.commissionDena")
+  
+  // Sports Settings (using JSON for complex nested structures)
+  soccerSettings          Json?                @map("sportsSettings.Soccer")
+  tennisSettings          Json?                @map("sportsSettings.Tennis")
+  cricketSettings         Json?                @map("sportsSettings.Cricket")
+  matkaSettings           Json?                @map("sportsSettings.Matka")
+  casinoSettings          Json?                @map("sportsSettings.Casino")
+  diamondCasinoSettings   Json?                @map("sportsSettings.DiamondCasino")
+
+  @@map("clients")
+}

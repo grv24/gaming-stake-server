@@ -1,0 +1,61 @@
+model BaseUser {
+  id                      String           @id @default(uuid())
+  groupID                 String?
+  transactionPassword     String?
+  referallCode            String?
+  
+  // Personal Details (flattened for better queryability)
+  userName                String?          @db.VarChar(32)
+  loginId                 String           @unique
+  salt                    String?
+  user_password           String?
+  encry_password          String?
+  countryCode             String?
+  mobile                  String?
+  idIsActive              Boolean          @default(false)
+  isAutoRegisteredUser    Boolean          @default(false)
+  
+  IpAddress               String?
+  remarks                 String?
+  
+  // Relations
+  uplineId                String?          @map("upline")
+  upline                  BaseUser?        @relation("BaseUserUpline", fields: [uplineId], references: [id])
+  
+  fancyLocked             Boolean          @default(false)
+  bettingLocked           Boolean          @default(false)
+  userLocked              Boolean          @default(false)
+  closedAccounts          Boolean          @default(false)
+  
+  whiteListId             String?          @map("whiteList")
+  whiteList               Whitelist?       @relation(fields: [whiteListId], references: [id])
+  
+  // Sub-schemas
+  whatsappNumber          Int?             @map("socialContacts.whatsappNumber")
+  topBarRunningMessage    String?          @map("websiteSettings.topBarRunningMessage")
+  
+  // Login Reports (as JSON array)
+  loginReports            Json?
+  
+  // Timestamps
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  
+  // Discriminator field for inheritance
+  __type                  String?
+  
+  // Relations for child models
+  developer               Developer?
+  techAdmin               TechAdmin?
+  admin                   Admin?
+  miniAdmin               MiniAdmin?
+  superMaster             SuperMaster?
+  master                  Master?
+  superAgent              SuperAgent?
+  agent                   Agent?
+  client                  Client?
+
+  // Indexes
+  @@unique([loginId, whiteListId], name: "BaseUser_loginId_whiteList_unique")
+  @@map("users")
+}
