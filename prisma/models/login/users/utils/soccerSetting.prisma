@@ -1,0 +1,47 @@
+model SoccerSettings {
+  id                   String    @id @default(uuid())
+  
+  // Basic Settings
+  isWhiteListed        Boolean   @default(false)
+  minOddsToBet         Float     @default(1.01)
+  maxOddsToBet         Float     @default(24)
+  
+  // Sport Reference
+  sportId              String?   
+  sport                DefaultSport? @relation(fields: [sportId], references: [id])
+  
+  // Betting Delays
+  betDelay             Int       @default(1)
+  bookMakerDelay       Int       @default(1)
+  
+  // Stake Limits
+  minMatchStake        Float     @default(100)
+  maxMatchStake        Float     @default(100)
+  minBookMakerStake    Float     @default(100)
+  maxBookMakerStake    Float     @default(1)
+  
+  // Profit/Loss Limits
+  maxProfit            Float     @default(0)
+  maxLoss              Float     @default(0)
+  minExposure          Float     @default(0)
+  maxExposure          Float     @default(0)
+  winningLimit         Float     @default(0)
+
+  // Timestamps
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Relations
+  userSettings         UserSettings? @relation(fields: [userSettingsId], references: [id])
+  userSettingsId       String?   @unique
+
+  // Match Commission - One-to-one relationship
+  matchCommissionId    String?   @unique
+  matchCommission      MatchCommission? @relation(fields: [matchCommissionId], references: [id])
+
+  // Partnership - One-to-one relationship  
+  partnershipId        String?   @unique
+  partnership          Partnership? @relation(fields: [partnershipId], references: [id])
+
+  @@map("soccer_settings")
+}

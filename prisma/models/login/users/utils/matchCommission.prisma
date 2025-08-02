@@ -1,0 +1,31 @@
+model MatchCommission {
+  id              String   @id @default(uuid())
+  
+  // Commission Details
+  matchCommission Float    @default(0)
+  commissionType  String   @default("percentage") // percentage, fixed, etc.
+  isActive        Boolean  @default(true)
+  
+  // Hierarchy Information
+  userType        String   // client, agent, superAgent, master, superMaster, etc.
+  hierarchyLevel  Int      @default(0) // 0 = client, 1 = agent, 2 = superAgent, etc.
+  isDefault       Boolean  @default(false) // Whether this is the default commission for this user type
+  
+  // Commission Scope
+  appliesToUserType String? // Which user type this commission applies to (null = all below)
+  appliesToUserId  String?  // Specific user this commission applies to (null = all users below)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  userId          String
+  user            BaseUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // One-to-one with SoccerSettings
+  soccerSettings  SoccerSettings? @relation(fields: [soccerSettingsId], references: [id])
+  soccerSettingsId String? @unique
+
+  @@map("match_commissions")
+}

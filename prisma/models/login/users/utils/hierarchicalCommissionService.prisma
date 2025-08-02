@@ -1,0 +1,29 @@
+// This is a service layer model to handle hierarchical commission calculations
+// It's not a database model but a service structure for the application
+
+model HierarchicalCommissionService {
+  // This model represents the service layer for handling hierarchical commissions
+  // It's not stored in the database but used for business logic
+  
+  // User Hierarchy Levels (for reference)
+  // 0: Client
+  // 1: Agent  
+  // 2: SuperAgent
+  // 3: Master
+  // 4: SuperMaster
+  // 5: MiniAdmin
+  // 6: Admin
+  // 7: TechAdmin
+  // 8: Developer
+  
+  // Commission Calculation Methods
+  // calculateHierarchicalCommission(userId, userType, hierarchyLevel)
+  // calculateHierarchicalPartnership(userId, userType, hierarchyLevel)
+  // getUplineCommissionStructure(userId)
+  // applyCommissionToUpline(userId, commissionAmount)
+  
+  // Partnership Calculation Methods
+  // calculateHierarchicalPartnership(userId, userType, hierarchyLevel)
+  // getUplinePartnershipStructure(userId)
+  // applyPartnershipToUpline(userId, partnershipAmount)
+} 

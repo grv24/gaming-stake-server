@@ -17,7 +17,7 @@ model Whitelist {
   // Meta Tags
   websiteMetaTags                 Json?
   
-  // Website Theme
+  // Website Theme ( client )
   primaryBackground               String       @default("#0D7A8E")
   primaryBackground90             String       @default("#0D7A8E")
   secondaryBackground             String       @default("#04303e")

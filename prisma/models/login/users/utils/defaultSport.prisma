@@ -1,0 +1,13 @@
+model DefaultSport {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  soccerSettings SoccerSettings[]
+
+  @@map("default_sports")
+}

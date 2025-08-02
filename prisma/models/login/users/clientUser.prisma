@@ -38,8 +38,7 @@ model Client {
   commissionLena          Boolean              @default(true) @map("commissionLenaYaDena.commissionLena")
   commissionDena          Boolean              @default(false) @map("commissionLenaYaDena.commissionDena")
   
-  // Sports Settings (using JSON for complex nested structures)
-  soccerSettings          Json?                @map("sportsSettings.Soccer")
+  // Sports Settings - Now handled through UserSettings
   tennisSettings          Json?                @map("sportsSettings.Tennis")
   cricketSettings         Json?                @map("sportsSettings.Cricket")
   matkaSettings           Json?                @map("sportsSettings.Matka")

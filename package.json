@@ -21,6 +21,7 @@
   "homepage": "https://github.com/grv24/gaming-stake-server#readme",
   "dependencies": {
     "@prisma/client": "^6.12.0",
+    "@types/socket.io": "^3.0.2",
     "apollo-server-express": "^3.13.0",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
@@ -35,6 +36,7 @@
     "pg": "^8.16.1",
     "prisma": "^6.12.0",
     "redis": "^4.7.1",
+    "socket.io": "^4.8.1",
     "type-graphql": "^2.0.0-rc.2",
     "zod": "^3.25.67"
   },

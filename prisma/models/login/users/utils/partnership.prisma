@@ -1,0 +1,31 @@
+model Partnership {
+  id           String   @id @default(uuid())
+  
+  // Partnership Details
+  partnership  Float    @default(0)
+  partnershipType String @default("percentage") // percentage, fixed, etc.
+  isActive     Boolean  @default(true)
+  
+  // Hierarchy Information
+  userType     String   // client, agent, superAgent, master, superMaster, etc.
+  hierarchyLevel Int    @default(0) // 0 = client, 1 = agent, 2 = superAgent, etc.
+  isDefault    Boolean  @default(false) // Whether this is the default partnership for this user type
+  
+  // Partnership Scope
+  appliesToUserType String? // Which user type this partnership applies to (null = all below)
+  appliesToUserId  String?  // Specific user this partnership applies to (null = all users below)
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  userId       String
+  user         BaseUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // One-to-one with SoccerSettings
+  soccerSettings SoccerSettings? @relation(fields: [soccerSettingsId], references: [id])
+  soccerSettingsId String? @unique
+
+  @@map("partnerships")
+}

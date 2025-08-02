@@ -1,0 +1,22 @@
+model UserSettings {
+  id              String         @id @default(uuid())
+  baseUserId      String         @unique
+  baseUser        BaseUser       @relation(fields: [baseUserId], references: [id], onDelete: Cascade)
+  
+  // Sports Settings - One-to-one relationships
+  soccerSettingsId String?
+  soccerSettings  SoccerSettings? @relation(fields: [soccerSettingsId], references: [id])
+  
+  // Add other sports settings as needed
+  // tennisSettingsId String?
+  // tennisSettings  TennisSettings? @relation(fields: [tennisSettingsId], references: [id])
+  
+  // cricketSettingsId String?
+  // cricketSettings CricketSettings? @relation(fields: [cricketSettingsId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("user_settings")
+}

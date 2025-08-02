@@ -43,6 +43,13 @@ model BaseUser {
   
   // Discriminator field for inheritance
   __type                  String?
+
+  // User Settings - One-to-one relationship
+  userSettings UserSettings?
+
+  // Commission and Partnership - One-to-many relationships
+  matchCommissions MatchCommission[]
+  partnerships Partnership[]
   
   // Relations for child models
   developer               Developer?
