@@ -5,7 +5,6 @@ import app from './app';
 dotenv.config();
 
 import { DataSource } from 'typeorm';
-// import { User } from './entities/User'; // Example entity
 
 export const AppDataSource = new DataSource({
     type: 'postgres',
@@ -15,7 +14,7 @@ export const AppDataSource = new DataSource({
     password: process.env.POSTGRES_PASSWORD,
     database: process.env.POSTGRES_DATABASE,
     entities: [],
-    synchronize: true, 
+    synchronize: false, 
 });
 
 const startServer = async () => {
@@ -27,7 +26,6 @@ const startServer = async () => {
 
         app.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
-            console.log(`GraphQL endpoint: http://localhost:${PORT}/graphql`);
         });
     } catch (error) {
         console.error('Database connection failed:', error);
