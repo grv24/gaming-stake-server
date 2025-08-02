@@ -1,16 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { SoccerSettings } from './SoccerSetting';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('default_sports')
 export class DefaultSport {
+  
   @PrimaryGeneratedColumn('uuid')
   id !: string;
 
-  @Column({ unique: true })
+  @Column({ type: "varchar", unique: true })
   name !: string;
 
-  @Column({ unique: true })
+  @Column({ type:"varchar" , unique: true })
   code !: string;
+
+  @Column({ type: "text", nullable: true })
+  slug!: string | null;
 
   @Column({ default: true })
   isActive !: boolean;
@@ -20,7 +23,4 @@ export class DefaultSport {
 
   @UpdateDateColumn()
   updatedAt !: Date;
-
-  @OneToMany(() => SoccerSettings, settings => settings.sport)
-  soccerSettings !: SoccerSettings[];
 }

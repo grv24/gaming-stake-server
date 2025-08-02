@@ -1,53 +1,35 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
-import { BaseUser } from '../BaseUser';
-import { SoccerSettings } from './SoccerSetting';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('match_commissions')
 export class MatchCommission {
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'float', default: 0 })
-  matchCommission!: number;
+  @Column({ type: "uuid", unique: true })
+  baseUserId!: string;
 
-  @Column({ default: 'percentage' })
-  commissionType!: string;
+  @Column({ type: "varchar", enum: ["soccer", "tennis", "cricket", "casino", "matka", "diamondCasino"] })
+  sportType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  sportTypeId!: string;
+
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
+  commissionToType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  commissionToUserId !: string;
+
+  @Column({ type: 'int', default: 0 })
+  matchCommission!: number;
 
   @Column({ default: true })
   isActive!: boolean;
-
-  @Column()
-  userType!: string;
-
-  @Column({ default: 0 })
-  hierarchyLevel!: number;
-
-  @Column({ default: false })
-  isDefault!: boolean;
-
-  @Column({ nullable: true })
-  appliesToUserType!: string;
-
-  @Column({ nullable: true })
-  appliesToUserId!: string;
 
   @CreateDateColumn()
   createdAt!: Date;
 
   @UpdateDateColumn()
   updatedAt!: Date;
-
-  @Column()
-  userId!: string;
-
-  @ManyToOne(() => BaseUser, user => user.matchCommissions, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user!: BaseUser;
-
-  @Column({ nullable: true, unique: true })
-  soccerSettingsId!: string;
-
-  @OneToOne(() => SoccerSettings)
-  @JoinColumn({ name: 'soccerSettingsId' })
-  soccerSettings!: SoccerSettings;
 }

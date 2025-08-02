@@ -1,17 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
-import { BaseUser } from './BaseUser';
 
 @Entity('clients')
 export class Client {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true })
+  @Column({ type: "uuid", unique: true })
   baseUserId!: string;
-
-  @OneToOne(() => BaseUser, baseUser => baseUser.client)
-  @JoinColumn({ name: 'baseUserId' })
-  baseUser!: BaseUser;
 
   @Column({ default: 0 })
   liability!: number;
@@ -76,18 +71,21 @@ export class Client {
   @Column({ default: false, name: 'commissionLenaYaDena.commissionDena' })
   commissionDena!: boolean;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Tennis' })
-  tennisSettings: any;
+  @Column({ type: "uuid" })
+  soccerSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Cricket' })
-  cricketSettings: any;
+  @Column({ type: "uuid" })
+  tennisSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Matka' })
-  matkaSettings: any;
+  @Column({ type: "uuid" })
+  cricketSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Casino' })
-  casinoSettings: any;
+  @Column({ type: "uuid" })
+  matkaSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.DiamondCasino' })
-  diamondCasinoSettings: any;
+  @Column({ type: "uuid" })
+  casinoSettingId !: string;
+
+  @Column({ type: "uuid" })
+  diamondCasinoSettingId !: string;
 }

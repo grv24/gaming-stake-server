@@ -1,8 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
 
-@Entity('soccer_settings')
-export class SoccerSettings {
-
+@Entity('tennis_settings')
+export class TennisSettings {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 

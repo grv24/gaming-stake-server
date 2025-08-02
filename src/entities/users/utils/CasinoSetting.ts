@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
 
-@Entity('soccer_settings')
-export class SoccerSettings {
-
+@Entity('casino_settings')
+export class CasinoSettings {
+  
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -18,26 +18,14 @@ export class SoccerSettings {
   @Column({ type: 'float', default: 24 })
   maxOddsToBet!: number;
 
-  @Column({ type: "uuid", nullable: true })
-  sportId!: string;
-
   @Column({ default: 1 })
   betDelay!: number;
-
-  @Column({ default: 1 })
-  bookMakerDelay!: number;
 
   @Column({ type: 'float', default: 100 })
   minMatchStake!: number;
 
   @Column({ type: 'float', default: 100 })
   maxMatchStake!: number;
-
-  @Column({ type: 'float', default: 100 })
-  minBookMakerStake!: number;
-
-  @Column({ type: 'float', default: 1 })
-  maxBookMakerStake!: number;
 
   @Column({ type: 'float', default: 0 })
   maxProfit!: number;
@@ -59,4 +47,5 @@ export class SoccerSettings {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+  
 }

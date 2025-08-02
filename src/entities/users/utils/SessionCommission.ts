@@ -1,7 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('partnerships')
-export class Partnership {
+@Entity('session_commissions')
+export class SessionCommission {
 
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -16,13 +16,13 @@ export class Partnership {
   sportTypeId!: string;
 
   @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
-  partnershipToType !: string;
+  commissionToType !: string;
 
   @Column({ type: "uuid", nullable: true })
-  partnershipToUserId !: string;
+  commissionToUserId !: string;
 
   @Column({ type: 'int', default: 0 })
-  partnership !: number;
+  sessionCommission!: number;
 
   @Column({ default: true })
   isActive!: boolean;
@@ -32,5 +32,4 @@ export class Partnership {
 
   @UpdateDateColumn()
   updatedAt!: Date;
-  
 }

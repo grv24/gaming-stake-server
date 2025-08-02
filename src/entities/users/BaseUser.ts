@@ -1,4 +1,3 @@
-// BaseUser.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,15 +9,17 @@ import {
   ManyToOne,
   JoinColumn
 } from 'typeorm';
-import { UserSettings } from './utils/UserSetting';
-import { MatchCommission } from './utils/MatchCommission';
-import { Partnership } from './utils/Partnership';
-import { Client } from './ClientUser';
 
 @Entity('users')
 export class BaseUser {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ type: "uuid", nullable: true })
+  uplineId!: string;
+
+  @Column({ type: "uuid" })
+  whiteListId!: string;
 
   @Column({ nullable: true })
   groupID!: string;
@@ -62,13 +63,6 @@ export class BaseUser {
   @Column({ nullable: true })
   remarks!: string;
 
-  @Column({ nullable: true })
-  uplineId!: string;
-
-  @ManyToOne(() => BaseUser)
-  @JoinColumn({ name: 'uplineId' })
-  upline!: BaseUser;
-
   @Column({ default: false })
   fancyLocked!: boolean;
 
@@ -81,17 +75,14 @@ export class BaseUser {
   @Column({ default: false })
   closedAccounts!: boolean;
 
-  @Column({ nullable: true })
-  whiteListId!: string;
-
-  @Column({ type: 'int', nullable: true, name: 'socialContacts.whatsappNumber' })
+  @Column({ type: 'int', nullable: true })
   whatsappNumber!: number;
 
-  @Column({ nullable: true, name: 'websiteSettings.topBarRunningMessage' })
+  @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ type: 'json', nullable: true })
-  loginReports: any;
+  @Column({ nullable: true })
+  __type!: string;
 
   @CreateDateColumn()
   createdAt!: Date;
@@ -99,18 +90,5 @@ export class BaseUser {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @Column({ nullable: true })
-  __type!: string;
-
-  @OneToOne(() => UserSettings, userSettings => userSettings.baseUser)
-  userSettings!: UserSettings;
-
-  @OneToMany(() => MatchCommission, match => match.user)
-  matchCommissions!: MatchCommission[];
-
-  @OneToMany(() => Partnership, partner => partner.user)
-  partnerships!: Partnership[];
-
-  @OneToOne(() => Client, client => client.baseUser)
-  client!: Client;
 }
+
