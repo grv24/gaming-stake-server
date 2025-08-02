@@ -1,0 +1,144 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { BaseUser } from '../users/BaseUser';
+
+@Entity({ name: 'whitelists' })
+export class Whitelist {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  // Domain Whitelisting
+  @Column({ default: false })
+  isDomainWhiteListedForSportScore!: boolean;
+
+  @Column({ default: false })
+  isDomainWhiteListedForSportVideos!: boolean;
+
+  @Column({ default: false })
+  isDomainWhiteListedForCasinoVideos!: boolean;
+
+  @Column({ default: false })
+  isDomainWhiteListedForIntCasinoGames!: boolean;
+
+  // URLs
+  @Column({ default: '' })
+  TechAdminUrl!: string;
+
+  @Column({ default: '' })
+  AdminUrl!: string;
+
+  @Column({ default: '' })
+  ClientUrl!: string;
+
+  @Column({ default: '' })
+  CommonName!: string;
+
+  @Column({ default: '' })
+  websiteTitle!: string;
+
+  // Meta Tags
+  @Column({ type: 'json', nullable: true })
+  websiteMetaTags!: any;
+
+  // Website Theme ( client )
+  @Column({ default: '#0D7A8E' })
+  primaryBackground!: string;
+
+  @Column({ default: '#0D7A8E' })
+  primaryBackground90!: string;
+
+  @Column({ default: '#04303e' })
+  secondaryBackground!: string;
+
+  @Column({ default: '#AE4600B3' })
+  secondaryBackground70!: string;
+
+  @Column({ default: '#AE4600E6' })
+  secondaryBackground85!: string;
+
+  @Column({ default: '#FFFFFF' })
+  textPrimary!: string;
+
+  @Column({ default: '#CCCCCC' })
+  textSecondary!: string;
+
+  // Sports Settings
+  @Column("text", { array: true, default: ['Back', 'Lay'] })
+  matchOdd!: string[];
+
+  @Column("text", { array: true, default: [['b3', 'b2', 'b1'], ['l1', 'l2', 'l3']] })
+  matchOddOptions!: string[][];
+
+  @Column("text", { array: true, default: ['Back', 'Lay'] })
+  bookMakerOdd!: string[];
+
+  @Column("text", { array: true, default: ['No', 'Yes'] })
+  normalOdd!: string[];
+
+  // Refund Options
+  @Column({ name: 'sportsSettings.refundOption.isActive', default: false })
+  refundOptionIsActive!: boolean;
+
+  @Column({ name: 'sportsSettings.refundOption.refundPercentage', type: 'float', default: 0 })
+  refundPercentage!: number;
+
+  @Column({ name: 'sportsSettings.refundOption.refundLimit', type: 'float', default: 0 })
+  refundLimit!: number;
+
+  @Column({ name: 'sportsSettings.refundOption.minDeposit', type: 'float', default: 100 })
+  minDeposit!: number;
+
+  // Website Access Settings
+  @Column({ name: 'websiteAccessSettings.autoSignUpFeature', default: false })
+  autoSignUpFeature!: boolean;
+
+  @Column({ name: 'websiteAccessSettings.autoSignUpAssignedUpline', nullable: true })
+  autoSignUpAssignedUplineId!: string | null;
+
+  @ManyToOne(() => BaseUser, { nullable: true })
+  @JoinColumn({ name: 'websiteAccessSettings.autoSignUpAssignedUpline' })
+  autoSignUpAssignedUpline!: BaseUser | null;
+
+  @Column({ name: 'websiteAccessSettings.whatsappNumber', default: false })
+  whatsappNumber!: boolean;
+
+  @Column({ name: 'websiteAccessSettings.googleAnalyticsTrackingId', default: '' })
+  googleAnalyticsTrackingId!: string;
+
+  @Column({ name: 'websiteAccessSettings.loginWithDemoIdFeature', default: false })
+  loginWithDemoIdFeature!: boolean;
+
+  // Status
+  @Column({ default: true })
+  isActive!: boolean;
+
+  @Column({ default: '' })
+  Logo!: string;
+
+  // Creator
+  @Column({ name: 'createdBy' })
+  createdById!: string;
+
+  @ManyToOne(() => BaseUser)
+  @JoinColumn({ name: 'createdBy' })
+  createdBy!: BaseUser;
+
+  // Timestamps
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  // Relations
+  @OneToMany(() => BaseUser, (user) => user.whiteListId)
+  baseUsers!: BaseUser[];
+}
