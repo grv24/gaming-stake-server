@@ -1,132 +1,119 @@
 import { Request, Response } from 'express';
-import { getConnection } from 'typeorm';
+import { AppDataSource } from '../../server';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
-import { BaseUser } from '../../entities/users/BaseUser';
 
-export const addNewWhiteListDomain = async (req: Request, res: Response) => {
-    // Start TypeORM transaction
-    const queryRunner = getConnection().createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+export const getWhitelists = async (req: Request, res: Response) => {
+  try {
+    const whitelistRepo = AppDataSource.getRepository(Whitelist);
+    const { id } = req.params;
 
-    try {
-        // Validate request body
-        const {
-            TechAdminUrl,
-            AdminUrl,
-            ClientUrl,
-            CommonName,
-            primaryBackground,
-            primaryBackground90,
-            secondaryBackground,
-            secondaryBackground70,
-            secondaryBackground85,
-            textPrimary,
-            textSecondary,
-            sportsSettings,
-        } = req.body;
-
-        // Early validation for required fields
-        if (!TechAdminUrl || !AdminUrl || !ClientUrl || !CommonName) {
-            return res.status(400).json({
-                success: false,
-                error: `Missing ${!TechAdminUrl
-                        ? "TechAdminUrl"
-                        : !AdminUrl
-                            ? "AdminUrl"
-                            : !ClientUrl
-                                ? "ClientUrl"
-                                : "CommonName"
-                    }`,
-            });
-        }
-
-        // Function to extract base URL
-        const extractBaseUrl = (url: string) => {
-            try {
-                const urlObj = new URL(url);
-                return `${urlObj.protocol}//${urlObj.hostname}`;
-            } catch (error) {
-                return null;
-            }
-        };
-
-        // Extract base URLs
-        const baseTechAdminUrl = extractBaseUrl(TechAdminUrl);
-        const baseAdminUrl = extractBaseUrl(AdminUrl);
-        const baseClientUrl = extractBaseUrl(ClientUrl);
-
-        // Check if the whitelist already exists
-        const existingWhiteListData = await queryRunner.manager
-            .createQueryBuilder(Whitelist, 'whitelist')
-            .where('whitelist.TechAdminUrl LIKE :techAdminUrl', { techAdminUrl: `${baseTechAdminUrl}%` })
-            .orWhere('whitelist.AdminUrl LIKE :adminUrl', { adminUrl: `${baseAdminUrl}%` })
-            .orWhere('whitelist.ClientUrl LIKE :clientUrl', { clientUrl: `${baseClientUrl}%` })
-            .getOne();
-
-        if (existingWhiteListData) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: "Whitelist Already Exists.",
-            });
-        }
-
-        // Create a new whitelist entry
-        const whitelist = new Whitelist();
-        whitelist.TechAdminUrl = TechAdminUrl;
-        whitelist.AdminUrl = AdminUrl;
-        whitelist.ClientUrl = ClientUrl;
-        whitelist.CommonName = CommonName;
-        whitelist.sportsSettings = sportsSettings;
-        whitelist.primaryBackground = primaryBackground || "#0D7A8E";
-        whitelist.primaryBackground90 = primaryBackground90 || "#0D7A8E";
-        whitelist.secondaryBackground = secondaryBackground || "#04303e";
-        whitelist.secondaryBackground70 = secondaryBackground70 || "#AE4600B3";
-        whitelist.secondaryBackground85 = secondaryBackground85 || "#AE4600E6";
-        whitelist.textPrimary = textPrimary || "#FFFFFF";
-        whitelist.textSecondary = textSecondary || "#CCCCCC";
-        whitelist.createdBy = req.profile as BaseUser;
-
-        // Save the whitelist
-        await queryRunner.manager.save(whitelist);
-
-        // If there is a file (logo), update the whitelist with the file path
-        if (req?.file?.path) {
-            whitelist.Logo = req.file.path;
-            await queryRunner.manager.save(whitelist);
-        }
-
-        // Commit the transaction
-        await queryRunner.commitTransaction();
-
-        // Return success response
-        return res.status(200).json({
-            success: true,
-            msg: "New Whitelist Added",
-        });
-    } catch (error: any) {
-        // In case of an error, abort the transaction
-        if (queryRunner.isTransactionActive) {
-            await queryRunner.rollbackTransaction();
-        }
-
-        // Log the error
-        console.error("Error in adding whitelist:", error);
-
-        // Return detailed error response
-        return res.status(500).json({
-            success: false,
-            error: error.message,
-            name: error.name,
-            stack: error.stack,
-            message: error.message,
-            code: error.code,
-        });
-    } finally {
-        // Release the query runner
-        if (queryRunner.isReleased === false) {
-            await queryRunner.release();
-        }
+    var whitelists;
+    if (id) {
+      whitelists = await whitelistRepo.findOneBy({ id });
+    } else {
+      whitelists = await whitelistRepo.find();
     }
+
+    if (!whitelists) {
+      return res.status(204).json({ status: "success", message: 'Whitelist not found' });
+    }
+
+    return res.status(200).json({ status: "success", message: "Whitelist fetched successfully", data: { whitelists } });
+  } catch (err) {
+    console.error('Error fetching whitelist:', err);
+    return res.status(500).json({ status: "error", message: 'Internal Server Error' });
+  }
 };
+
+export const saveWhitelist = async (req: Request, res: Response) => {
+  try {
+    const whitelistRepo = AppDataSource.getRepository(Whitelist);
+    const { id } = req.params;
+    const whitelistData = req.body;
+    const createdById = req.user?.id; // Assuming user ID is available in request
+
+    // Validate required fields
+    if (!whitelistData.TechAdminUrl || !whitelistData.AdminUrl || !whitelistData.ClientUrl) {
+      return res.status(400).json({ status: "error", message: 'TechAdminUrl, AdminUrl, and ClientUrl are required' });
+    }
+
+    // Validate URLs
+    if (!isValidUrl(whitelistData.TechAdminUrl) || !isValidUrl(whitelistData.AdminUrl) || !isValidUrl(whitelistData.ClientUrl)) {
+      return res.status(400).json({ status: "error", message: 'Invalid URL format' });
+    }
+
+    // Validate colors
+    if (!isValidColor(whitelistData.primaryBackground) || !isValidColor(whitelistData.secondaryBackground)) {
+      return res.status(400).json({ status: "error", message: 'Invalid color format' });
+    }
+
+    // Validate refund options
+    if (whitelistData.refundOptionIsActive && 
+        (whitelistData.refundPercentage < 0 || whitelistData.refundPercentage > 100)) {
+      return res.status(400).json({ status: "error", message: 'Refund percentage must be between 0 and 100' });
+    }
+
+    let whitelist: Whitelist | null;
+    let isNew = false;
+
+    if (id) {
+      // Update existing whitelist
+      whitelist = await whitelistRepo.findOneBy({ id });
+      if (!whitelist) {
+        return res.status(404).json({ status: "error", message: 'Whitelist not found' });
+      }
+      whitelistRepo.merge(whitelist, whitelistData);
+    } else {
+      // Create new whitelist
+      whitelist = whitelistRepo.create({
+        ...whitelistData,
+        createdById
+      });
+      isNew = true;
+    }
+
+    const result = await whitelistRepo.save(whitelist);
+
+    return res.status(isNew ? 201 : 200).json({
+      status: "success",
+      message: `Whitelist ${isNew ? 'created' : 'updated'} successfully`,
+      data: { whitelist: result }
+    });
+  } catch (err) {
+    console.error('Error saving whitelist:', err);
+    return res.status(500).json({ status: "error", message: 'Internal Server Error' });
+  }
+};
+
+export const deleteWhitelist = async (req: Request, res: Response) => {
+  try {
+    const whitelistRepo = AppDataSource.getRepository(Whitelist);
+    const { id } = req.params;
+
+    const result = await whitelistRepo.delete(id);
+
+    if (result.affected === 0) {
+      return res.status(404).json({ status: "error", message: 'Whitelist not found' });
+    }
+
+    return res.status(200).json({ status: "success", message: "Whitelist deleted successfully" });
+  } catch (err) {
+    console.error('Error deleting whitelist:', err);
+    return res.status(500).json({ status: "error", message: 'Internal Server Error' });
+  }
+};
+
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function isValidColor(color: string): boolean {
+  return /^#([0-9A-F]{3}){1,2}$/i.test(color) || 
+         /^#([0-9A-F]{8})$/i.test(color) ||
+         /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$/i.test(color);
+}

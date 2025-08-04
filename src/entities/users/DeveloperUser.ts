@@ -2,22 +2,34 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToOne,
-  JoinColumn,
 } from 'typeorm';
-import { BaseUser } from './BaseUser';
 
 @Entity('developers')
 export class Developer {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true })
-  baseUserId!: string;
+  @Column({ length: 32, nullable: true })
+  userName!: string;
 
-  @OneToOne(() => BaseUser)
-  @JoinColumn({ name: 'baseUserId' })
-  baseUser!: BaseUser;
+  @Column({ unique: true })
+  loginId!: string;
+
+  @Column({ nullable: true })
+  salt!: string;
+
+  @Column({ type: "text" })
+  userPassword!: string;
+
+  @Column({ nullable: true })
+  encryPassword!: string;
+  
+  // closedAccounts -> isActive
+  @Column({ default: false })
+  isActive!: boolean;
+
+  @Column({ nullable: true })
+  __type!: string;
 
   @Column({ default: 0 })
   createdUsersCount!: number;

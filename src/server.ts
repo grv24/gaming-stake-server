@@ -5,6 +5,8 @@ import app from './app';
 dotenv.config();
 
 import { DataSource } from 'typeorm';
+import { Developer } from './entities/users/DeveloperUser';
+import { Whitelist } from './entities/whitelist/Whitelist';
 
 export const AppDataSource = new DataSource({
     type: 'postgres',
@@ -13,8 +15,8 @@ export const AppDataSource = new DataSource({
     username: process.env.POSTGRES_USERNAME,
     password: process.env.POSTGRES_PASSWORD,
     database: process.env.POSTGRES_DATABASE,
-    entities: [],
-    synchronize: false, 
+    entities: [Developer, Whitelist],
+    synchronize: true, 
 });
 
 const startServer = async () => {
@@ -25,7 +27,7 @@ const startServer = async () => {
         const PORT = process.env.PORT || 4000;
 
         app.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
+            console.log(`Server running on port ${PORT}`);
         });
     } catch (error) {
         console.error('Database connection failed:', error);

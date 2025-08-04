@@ -8,7 +8,10 @@ export class CricketSettings {
     id!: number;
 
     @Column({ type: "uuid", unique: true })
-    baseUserId!: string;
+    userId!: string;
+
+    @Column({ type: "varchar" })
+    user__type !: string;
 
     @Column({ default: false })
     isWhiteListed!: boolean;

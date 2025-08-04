@@ -2,9 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppDataSource } from "../../server";
 import { Developer } from '../../entities/users/DeveloperUser'; 
-import { BaseUser } from '../../entities/users/BaseUser'; 
 
-export const isDeveloper = async (req: Request, res: Response, next: NextFunction) => {
+interface AuthorizedRequest extends Request {
+  token: any;
+  profile: any;
+}
+
+export const isDeveloper = async (req: AuthorizedRequest, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -15,13 +19,12 @@ export const isDeveloper = async (req: Request, res: Response, next: NextFunctio
     }
 
     const token = authHeader.split(" ")[1];
-    const decode = jwt.verify(token, process.env.TOKEN_KEY);
-    const userRepository = AppDataSource.getRepository(BaseUser);
+    const decode = jwt.verify(token, process.env.TOKEN_KEY as any);
+    const developerUserRepository = AppDataSource.getRepository(Developer);
 
     // Find user with relations if needed
-    const user = await userRepository.findOne({
-      where: { id: decode.userId },
-      relations: ['developerProfile'] // Adjust based on your entity relations
+    const user = await developerUserRepository.findOne({
+      where: { id: decode.userId }
     });
 
     if (!user) {

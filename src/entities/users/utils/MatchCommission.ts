@@ -7,9 +7,13 @@ export class MatchCommission {
   id!: string;
 
   @Column({ type: "uuid", unique: true })
-  baseUserId!: string;
+  userId!: string;
 
-  @Column({ type: "varchar", enum: ["soccer", "tennis", "cricket", "casino", "matka", "diamondCasino"] })
+  @Column({ type: "varchar" })
+  user__type !: string;
+
+  // diamand -> international
+  @Column({ type: "varchar", enum: ["soccer", "tennis", "cricket", "casino", "matka", "internationalCasino"] })
   sportType !: string;
 
   @Column({ type: "uuid", nullable: true })

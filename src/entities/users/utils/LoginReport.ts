@@ -5,8 +5,11 @@ export class LoginReport {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type:"varchar", unique: true })
-  baseUserId!: string;
+  @Column({ type: "uuid", unique: true })
+  userId!: string;
+
+  @Column({ type: "varchar" })
+  user__type !: string;
 
   @Column({ nullable: true })
   country!: string | null;
@@ -17,6 +20,7 @@ export class LoginReport {
   @Column({ nullable: true })
   city!: string | null;
 
+  // network company/name
   @Column({ nullable: true })
   isp!: string | null;
 

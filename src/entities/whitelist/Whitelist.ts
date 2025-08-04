@@ -4,14 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import { BaseUser } from '../users/BaseUser';
 
 @Entity({ name: 'whitelists' })
 export class Whitelist {
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -84,52 +81,43 @@ export class Whitelist {
   normalOdd!: string[];
 
   // Refund Options
-  @Column({ name: 'sportsSettings.refundOption.isActive', default: false })
+  @Column({ type: "boolean", default: false })
   refundOptionIsActive!: boolean;
 
-  @Column({ name: 'sportsSettings.refundOption.refundPercentage', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   refundPercentage!: number;
 
-  @Column({ name: 'sportsSettings.refundOption.refundLimit', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   refundLimit!: number;
 
-  @Column({ name: 'sportsSettings.refundOption.minDeposit', type: 'float', default: 100 })
+  @Column({ type: 'float', default: 100 })
   minDeposit!: number;
 
   // Website Access Settings
-  @Column({ name: 'websiteAccessSettings.autoSignUpFeature', default: false })
+  @Column({ type: "boolean", default: false })
   autoSignUpFeature!: boolean;
 
-  @Column({ name: 'websiteAccessSettings.autoSignUpAssignedUpline', nullable: true })
+  @Column({ type: "text", nullable: true })
   autoSignUpAssignedUplineId!: string | null;
 
-  @ManyToOne(() => BaseUser, { nullable: true })
-  @JoinColumn({ name: 'websiteAccessSettings.autoSignUpAssignedUpline' })
-  autoSignUpAssignedUpline!: BaseUser | null;
-
-  @Column({ name: 'websiteAccessSettings.whatsappNumber', default: false })
+  @Column({ type: "boolean", default: false })
   whatsappNumber!: boolean;
 
-  @Column({ name: 'websiteAccessSettings.googleAnalyticsTrackingId', default: '' })
+  @Column({ type: "text", default: '' })
   googleAnalyticsTrackingId!: string;
 
-  @Column({ name: 'websiteAccessSettings.loginWithDemoIdFeature', default: false })
+  @Column({ type: "boolean", default: false })
   loginWithDemoIdFeature!: boolean;
 
   // Status
-  @Column({ default: true })
+  @Column({ type: "boolean", default: true })
   isActive!: boolean;
 
-  @Column({ default: '' })
+  @Column({ type: "text", default: "" })
   Logo!: string;
 
-  // Creator
-  @Column({ name: 'createdBy' })
+  @Column({ type: "uuid" })
   createdById!: string;
-
-  @ManyToOne(() => BaseUser)
-  @JoinColumn({ name: 'createdBy' })
-  createdBy!: BaseUser;
 
   // Timestamps
   @CreateDateColumn()
@@ -137,8 +125,4 @@ export class Whitelist {
 
   @UpdateDateColumn()
   updatedAt!: Date;
-
-  // Relations
-  @OneToMany(() => BaseUser, (user) => user.whiteListId)
-  baseUsers!: BaseUser[];
 }

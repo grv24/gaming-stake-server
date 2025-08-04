@@ -2,12 +2,15 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 @Entity('diamond_casino_settings')
 export class DiamondCasinoSettings {
-  
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Column({ type: "uuid", unique: true })
-  baseUserId!: string;
+  userId!: string;
+
+  @Column({ type: "varchar" })
+  user__type !: string;
 
   @Column({ default: false })
   isWhiteListed!: boolean;
@@ -47,5 +50,5 @@ export class DiamondCasinoSettings {
 
   @UpdateDateColumn()
   updatedAt!: Date;
- 
+
 }
