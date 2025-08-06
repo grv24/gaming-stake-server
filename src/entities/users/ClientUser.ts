@@ -70,7 +70,7 @@ export class Client {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "client" })
   __type!: string;
 
   @Column({ default: 0 })

@@ -76,7 +76,7 @@ export class MiniAdmin {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "miniAdmin" })
   __type!: string;
 
   // Account Details

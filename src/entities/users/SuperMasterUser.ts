@@ -76,7 +76,7 @@ export class SuperMaster {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "superMaster" })
   __type!: string;
 
   // Account Details

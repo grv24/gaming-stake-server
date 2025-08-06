@@ -76,7 +76,7 @@ export class Master {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "master" })
   __type!: string;
 
   // Account Details

@@ -76,7 +76,7 @@ export class Agent {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "agent" })
   __type!: string;
 
   // Account Details

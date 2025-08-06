@@ -1,28 +1,53 @@
 import express from 'express';
 import multer from 'multer';
-import { addNewWhiteListDomain } from '../../controllers/whitelist/WhitelistController';
-import { isDeveloper } from '../../middlewares/auth/auth';
+import path from 'path';
+import {
+  getWhitelists,
+  saveWhitelist,
+  deleteWhitelist
+} from '../../controllers/whitelist/WhitelistController';
+import { developerAuth } from '../../middlewares/RoleAuth';
 
 const router = express.Router();
 
-// Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/WhiteListLogos/');
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, 'whitelist-logo-' + uniqueSuffix + ext);
   }
 });
 
-const upload = multer({ storage });
+const fileFilter = (req: express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG, and SVG are allowed.'));
+  }
+};
 
-router.post(
-  '/add/new/whitelist',
-  isDeveloper,
-  upload.single('Logo'),
-  addNewWhiteListDomain
-);
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1
+  }
+});
+
+router.route('/whitelists')
+  .get(getWhitelists)
+  .post(
+    developerAuth,
+    upload.single('Logo'),
+    saveWhitelist
+  ).delete(
+    developerAuth,
+    deleteWhitelist
+  );
 
 export default router;

@@ -28,7 +28,7 @@ export class Developer {
   @Column({ default: false })
   isActive!: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "developer" })
   __type!: string;
 
   @Column({ default: 0 })

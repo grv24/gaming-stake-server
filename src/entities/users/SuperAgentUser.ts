@@ -76,7 +76,7 @@ export class SuperAgent {
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", default: "superAgent" })
   __type!: string;
 
   // Account Details
