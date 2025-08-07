@@ -4,8 +4,8 @@ import { Min } from 'class-validator';
 @Entity('cricket_settings')
 export class CricketSettings {
 
-    @PrimaryGeneratedColumn()
-    id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
     @Column({ type: "uuid", unique: true })
     userId!: string;

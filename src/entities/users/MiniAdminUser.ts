@@ -4,6 +4,8 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity({ name: 'mini_admins' })
@@ -34,13 +36,7 @@ export class MiniAdmin {
   loginId!: string;
 
   @Column({ nullable: true })
-  salt!: string;
-
-  @Column({ nullable: true })
   user_password!: string;
-
-  @Column({ nullable: true })
-  encry_password!: string;
 
   @Column({ nullable: true })
   countryCode!: string;
@@ -83,7 +79,7 @@ export class MiniAdmin {
   @Column({ type: 'float', default: 0 })
   liability!: number;
 
-  @Column({ name: 'Balance', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   balance!: number;
 
   @Column({ type: 'float', default: 0 })
@@ -95,17 +91,17 @@ export class MiniAdmin {
   @Column({ type: 'float', default: 0 })
   totalSettledAmount!: number;
 
-  @Column({ name: 'Exposure', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   exposure!: number;
 
-  @Column({ name: 'ExposureLimit', type: 'float', default: 10000000 })
+  @Column({ default: 10000000 })
   exposureLimit!: number;
 
   // Feature Access Permissions
-  @Column({ name: 'featureAccessPermissions.whiteList', default: false })
+  @Column({ default: false })
   whiteListAccess!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.depositWithdrawl', default: false })
+  @Column({ default: false })
   depositWithdrawlAccess!: boolean;
 
   @Column({ default: false })
@@ -140,34 +136,39 @@ export class MiniAdmin {
   createdUsersCount!: number;
 
   // Commission Settings
-  @Column({ name: 'commissionSettings.percentageWise', default: true })
+  @Column({ default: true })
   percentageWiseCommission!: boolean;
 
-  @Column({ name: 'commissionSettings.partnerShipWise', default: false })
+  @Column({ default: false })
   partnerShipWiseCommission!: boolean;
 
-  @Column({ name: 'commissionLenaYaDena.commissionLena', default: true })
+  @Column({ default: true })
   commissionLena!: boolean;
 
-  @Column({ name: 'commissionLenaYaDena.commissionDena', default: false })
+  @Column({ default: false })
   commissionDena!: boolean;
 
-  // Sports Settings
-  @Column({ name: 'sportsSettings.Soccer', type: 'json', nullable: true })
-  soccerSettings!: any;
+  @Column({ type: "uuid" })
+  soccerSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Tennis', type: 'json', nullable: true })
-  tennisSettings!: any;
+  @Column({ type: "uuid" })
+  tennisSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Cricket', type: 'json', nullable: true })
-  cricketSettings!: any;
+  @Column({ type: "uuid" })
+  cricketSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Matka', type: 'json', nullable: true })
-  matkaSettings!: any;
+  @Column({ type: "uuid" })
+  matkaSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Casino', type: 'json', nullable: true })
-  casinoSettings!: any;
+  @Column({ type: "uuid" })
+  casinoSettingId !: string;
 
-  @Column({ name: 'sportsSettings.DiamondCasino', type: 'json', nullable: true })
-  diamondCasinoSettings!: any;
+  @Column({ type: "uuid" })
+  diamondCasinoSettingId !: string;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }

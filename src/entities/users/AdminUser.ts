@@ -2,6 +2,8 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('admins')
@@ -32,13 +34,7 @@ export class Admin {
   loginId!: string;
 
   @Column({ nullable: true })
-  salt!: string;
-
-  @Column({ nullable: true })
   user_password!: string;
-
-  @Column({ nullable: true })
-  encry_password!: string;
 
   @Column({ nullable: true })
   countryCode!: string;
@@ -81,7 +77,7 @@ export class Admin {
   @Column({ type: 'float', default: 0 })
   liability!: number;
 
-  @Column({ type: 'float', default: 0, name: 'Balance' })
+  @Column({ type: 'float', default: 0 })
   balance!: number;
 
   @Column({ type: 'float', default: 0 })
@@ -93,17 +89,17 @@ export class Admin {
   @Column({ type: 'float', default: 0 })
   totalSettledAmount!: number;
 
-  @Column({ type: 'float', default: 0, name: 'Exposure' })
+  @Column({ type: 'float', default: 0 })
   exposure!: number;
 
-  @Column({ type: 'float', default: 10000000, name: 'ExposureLimit' })
+  @Column({ type: 'float', default: 10000000 })
   exposureLimit!: number;
 
   // Feature Access Permissions
-  @Column({ type: 'boolean', default: false, name: 'featureAccessPermissions.whiteList' })
+  @Column({ type: 'boolean', default: false })
   whiteListAccess!: boolean;
 
-  @Column({ type: 'boolean', default: false, name: 'featureAccessPermissions.depositWithdrawl' })
+  @Column({ type: 'boolean', default: false })
   depositWithdrawlAccess!: boolean;
 
   @Column({ type: 'boolean', default: false })
@@ -138,34 +134,39 @@ export class Admin {
   createdUsersCount!: number;
 
   // Commission Settings
-  @Column({ type: 'boolean', default: true, name: 'commissionSettings.percentageWise' })
+  @Column({ type: 'boolean', default: true })
   percentageWiseCommission!: boolean;
 
-  @Column({ type: 'boolean', default: false, name: 'commissionSettings.partnerShipWise' })
+  @Column({ type: 'boolean', default: false })
   partnerShipWiseCommission!: boolean;
 
-  @Column({ type: 'boolean', default: true, name: 'commissionLenaYaDena.commissionLena' })
+  @Column({ type: 'boolean', default: true })
   commissionLena!: boolean;
 
-  @Column({ type: 'boolean', default: false, name: 'commissionLenaYaDena.commissionDena' })
+  @Column({ type: 'boolean', default: false })
   commissionDena!: boolean;
 
-  // Sports Settings
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Soccer' })
-  soccerSettings!: any;
+  @Column({ type: "uuid" })
+  soccerSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Tennis' })
-  tennisSettings!: any;
+  @Column({ type: "uuid" })
+  tennisSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Cricket' })
-  cricketSettings!: any;
+  @Column({ type: "uuid" })
+  cricketSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Matka' })
-  matkaSettings!: any;
+  @Column({ type: "uuid" })
+  matkaSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Casino' })
-  casinoSettings!: any;
+  @Column({ type: "uuid" })
+  casinoSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.DiamondCasino' })
-  diamondCasinoSettings!: any;
+  @Column({ type: "uuid" })
+  diamondCasinoSettingId !: string;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }

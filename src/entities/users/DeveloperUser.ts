@@ -2,6 +2,8 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('developers')
@@ -23,7 +25,7 @@ export class Developer {
 
   @Column({ nullable: true })
   encryPassword!: string;
-  
+
   // closedAccounts -> isActive
   @Column({ default: false })
   isActive!: boolean;
@@ -39,4 +41,10 @@ export class Developer {
 
   @Column({ type: 'float', default: 10000000000, name: 'freeChips' })
   freeChips!: number;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }

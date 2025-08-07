@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('clients')
 export class Client {
@@ -28,13 +28,7 @@ export class Client {
   loginId!: string;
 
   @Column({ nullable: true })
-  salt!: string;
-
-  @Column({ nullable: true })
   user_password!: string;
-
-  @Column({ nullable: true })
-  encry_password!: string;
 
   @Column({ nullable: true })
   countryCode!: string;
@@ -59,7 +53,7 @@ export class Client {
 
   @Column({ default: false })
   userLocked!: boolean;
-  
+
   // closedAccounts -> isActive
   @Column({ default: false })
   isActive!: boolean;
@@ -76,7 +70,7 @@ export class Client {
   @Column({ default: 0 })
   liability!: number;
 
-  @Column({ default: 0, name: 'Balance' })
+  @Column({ default: 0 })
   balance!: number;
 
   @Column({ default: 0 })
@@ -88,52 +82,52 @@ export class Client {
   @Column({ default: 0 })
   totalSettledAmount!: number;
 
-  @Column({ default: 0, name: 'Exposure' })
+  @Column({ default: 0})
   exposure!: number;
 
-  @Column({ default: 1000000, name: 'ExposureLimit' })
+  @Column({ default: 1000000 })
   exposureLimit!: number;
 
-  @Column({ default: 0, name: 'AccountDetails.bonus.amount' })
+  @Column({ default: 0 })
   bonusAmount!: number;
 
-  @Column({ default: 0, name: 'AccountDetails.bonus.wageringRequired' })
+  @Column({ default: 0 })
   bonusWageringRequired!: number;
 
-  @Column({ default: 0, name: 'AccountDetails.bonus.wageringProgress' })
+  @Column({ default: 0 })
   bonusWageringProgress!: number;
 
-  @Column({ nullable: true, name: 'AccountDetails.bonus.expiresAt', type: 'timestamp' })
+  @Column({ nullable: true })
   bonusExpiresAt!: Date;
 
-  @Column({ default: false, name: 'AccountDetails.bonus.active' })
+  @Column({ default: false })
   bonusActive!: boolean;
 
-  @Column({ default: false, name: 'featureAccessPermissions.depositWithdrawl' })
+  @Column({ default: false })
   depositWithdrawlAccess!: boolean;
 
-  @Column({ default: false, name: 'permissions.canBypassCasinoBet' })
+  @Column({ default: false })
   canBypassCasinoBet!: boolean;
 
-  @Column({ default: false, name: 'permissions.canBypassSportBet' })
+  @Column({ default: false })
   canBypassSportBet!: boolean;
 
-  @Column({ type: 'json', nullable: true, name: 'casinoButtons' })
+  @Column({ type: 'json' })
   casinoButtons: any;
 
-  @Column({ type: 'json', nullable: true, name: 'gameButtons' })
+  @Column({ type: 'json' })
   gameButtons: any;
 
-  @Column({ default: true, name: 'commissionSettings.percentageWise' })
+  @Column({ default: true })
   percentageWiseCommission!: boolean;
 
-  @Column({ default: false, name: 'commissionSettings.partnerShipWise' })
+  @Column({ default: false })
   partnerShipWiseCommission!: boolean;
 
-  @Column({ default: true, name: 'commissionLenaYaDena.commissionLena' })
+  @Column({ default: true })
   commissionLena!: boolean;
 
-  @Column({ default: false, name: 'commissionLenaYaDena.commissionDena' })
+  @Column({ default: false })
   commissionDena!: boolean;
 
   @Column({ type: "uuid" })
@@ -153,4 +147,10 @@ export class Client {
 
   @Column({ type: "uuid" })
   diamondCasinoSettingId !: string;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }

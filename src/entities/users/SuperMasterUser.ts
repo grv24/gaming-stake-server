@@ -4,6 +4,8 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('super_masters')
@@ -34,13 +36,7 @@ export class SuperMaster {
   loginId!: string;
 
   @Column({ nullable: true })
-  salt!: string;
-
-  @Column({ nullable: true })
   user_password!: string;
-
-  @Column({ nullable: true })
-  encry_password!: string;
 
   @Column({ nullable: true })
   countryCode!: string;
@@ -83,7 +79,7 @@ export class SuperMaster {
   @Column({ type: 'float', default: 0 })
   liability!: number;
 
-  @Column({ type: 'float', default: 0, name: 'Balance' })
+  @Column({ type: 'float', default: 0 })
   balance!: number;
 
   @Column({ type: 'float', default: 0 })
@@ -95,17 +91,17 @@ export class SuperMaster {
   @Column({ type: 'float', default: 0 })
   totalSettledAmount!: number;
 
-  @Column({ type: 'float', default: 0, name: 'Exposure' })
+  @Column({ type: 'float', default: 0 })
   exposure!: number;
 
-  @Column({ type: 'float', default: 1000000, name: 'ExposureLimit' })
+  @Column({ type: 'float', default: 1000000 })
   exposureLimit!: number;
 
   // Feature Access Permissions
-  @Column({ default: false, name: 'featureAccessPermissions.whiteList' })
+  @Column({ default: false })
   whiteListAccess!: boolean;
 
-  @Column({ default: false, name: 'featureAccessPermissions.depositWithdrawl' })
+  @Column({ default: false })
   depositWithdrawlAccess!: boolean;
 
   @Column({ default: false })
@@ -140,34 +136,39 @@ export class SuperMaster {
   createdUsersCount!: number;
 
   // Commission Settings
-  @Column({ default: true, name: 'commissionSettings.percentageWise' })
+  @Column({ default: true })
   percentageWiseCommission!: boolean;
 
-  @Column({ default: false, name: 'commissionSettings.partnerShipWise' })
+  @Column({ default: false })
   partnerShipWiseCommission!: boolean;
 
-  @Column({ default: true, name: 'commissionLenaYaDena.commissionLena' })
+  @Column({ default: true })
   commissionLena!: boolean;
 
-  @Column({ default: false, name: 'commissionLenaYaDena.commissionDena' })
+  @Column({ default: false })
   commissionDena!: boolean;
 
-  // Sports Settings (JSON Columns)
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Soccer' })
-  soccerSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  soccerSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Tennis' })
-  tennisSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  tennisSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Cricket' })
-  cricketSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  cricketSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Matka' })
-  matkaSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  matkaSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.Casino' })
-  casinoSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  casinoSettingId !: string;
 
-  @Column({ type: 'json', nullable: true, name: 'sportsSettings.DiamondCasino' })
-  diamondCasinoSettings!: Record<string, any> | null;
+  @Column({ type: "uuid" })
+  diamondCasinoSettingId !: string;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }

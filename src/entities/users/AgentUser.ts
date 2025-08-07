@@ -4,6 +4,8 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('agents')
@@ -34,13 +36,7 @@ export class Agent {
   loginId!: string;
 
   @Column({ nullable: true })
-  salt!: string;
-
-  @Column({ nullable: true })
   user_password!: string;
-
-  @Column({ nullable: true })
-  encry_password!: string;
 
   @Column({ nullable: true })
   countryCode!: string;
@@ -65,7 +61,7 @@ export class Agent {
 
   @Column({ default: false })
   userLocked!: boolean;
-  
+
   // closedAccounts -> isActive
   @Column({ default: false })
   isActive!: boolean;
@@ -83,7 +79,7 @@ export class Agent {
   @Column({ type: 'float', default: 0 })
   liability!: number;
 
-  @Column({ name: 'Balance', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   balance!: number;
 
   @Column({ type: 'float', default: 0 })
@@ -95,44 +91,44 @@ export class Agent {
   @Column({ type: 'float', default: 0 })
   totalSettledAmount!: number;
 
-  @Column({ name: 'Exposure', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   exposure!: number;
 
-  @Column({ name: 'ExposureLimit', type: 'float', default: 1000000 })
+  @Column({ type: 'float', default: 1000000 })
   exposureLimit!: number;
 
-  @Column({ name: 'DownLevelOccupyBalance', type: 'float', default: 0 })
+  @Column({ type: 'float', default: 0 })
   downLevelOccupyBalance!: number;
 
   // Feature Access Permissions
-  @Column({ name: 'featureAccessPermissions.whiteList', default: false })
+  @Column({ default: false })
   whiteListAccess!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.depositWithdrawl', default: false })
+  @Column({ default: false })
   depositWithdrawlAccess!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.canDeleteBets', default: false })
+  @Column({ default: false })
   canDeleteBets!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.canDeleteUsers', default: false })
+  @Column({ default: false })
   canDeleteUsers!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.specialPermissions', default: false })
+  @Column({ default: false })
   specialPermissions!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.enableMultipleLogin', default: false })
+  @Column({ default: false })
   enableMultipleLogin!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.autoSignUpFeature', default: false })
+  @Column({ default: false })
   autoSignUpFeature!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.displayUsersOnlineStatus', default: false })
+  @Column({ default: false })
   displayUsersOnlineStatus!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.refundOptionFeature', default: false })
+  @Column({ default: false })
   refundOptionFeature!: boolean;
 
-  @Column({ name: 'featureAccessPermissions.canDeclareResultAsOperator', default: false })
+  @Column({ default: false })
   canDeclareResultAsOperator!: boolean;
 
   // User Limits
@@ -143,34 +139,39 @@ export class Agent {
   createdUsersCount!: number;
 
   // Commission Settings
-  @Column({ name: 'commissionSettings.percentageWise', default: true })
+  @Column({ default: true })
   percentageWiseCommission!: boolean;
 
-  @Column({ name: 'commissionSettings.partnerShipWise', default: false })
+  @Column({ default: false })
   partnerShipWiseCommission!: boolean;
 
-  @Column({ name: 'commissionLenaYaDena.commissionLena', default: true })
+  @Column({ default: true })
   commissionLena!: boolean;
 
-  @Column({ name: 'commissionLenaYaDena.commissionDena', default: false })
+  @Column({ default: false })
   commissionDena!: boolean;
 
-  // Sports Settings
-  @Column({ name: 'sportsSettings.Soccer', type: 'simple-json', nullable: true })
-  soccerSettings!: any;
+  @Column({ type: "uuid" })
+  soccerSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Tennis', type: 'simple-json', nullable: true })
-  tennisSettings!: any;
+  @Column({ type: "uuid" })
+  tennisSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Cricket', type: 'simple-json', nullable: true })
-  cricketSettings!: any;
+  @Column({ type: "uuid" })
+  cricketSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Matka', type: 'simple-json', nullable: true })
-  matkaSettings!: any;
+  @Column({ type: "uuid" })
+  matkaSettingId !: string;
 
-  @Column({ name: 'sportsSettings.Casino', type: 'simple-json', nullable: true })
-  casinoSettings!: any;
+  @Column({ type: "uuid" })
+  casinoSettingId !: string;
 
-  @Column({ name: 'sportsSettings.DiamondCasino', type: 'simple-json', nullable: true })
-  diamondCasinoSettings!: any;
+  @Column({ type: "uuid" })
+  diamondCasinoSettingId !: string;
+
+  @CreateDateColumn()
+  createdAt !: Date;
+
+  @UpdateDateColumn()
+  updatedAt !: Date;
 }
