@@ -346,7 +346,7 @@ export const createClient = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllclient = async (req: Request, res: Response) => {
+export const getAllClient = async (req: Request, res: Response) => {
     try {
         const clientRepo = AppDataSource.getRepository(Client);
 
@@ -412,7 +412,7 @@ export const getAllclient = async (req: Request, res: Response) => {
     }
 };
 
-export const getclientById = async (req: Request, res: Response) => {
+export const getClientById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const clientRepo = AppDataSource.getRepository(Client);

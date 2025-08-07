@@ -353,7 +353,7 @@ export const createAgent = async (req: Request, res: Response) => {
 };
 
 
-export const getAllagent = async (req: Request, res: Response) => {
+export const getAllAgent = async (req: Request, res: Response) => {
     try {
         const agentRepo = AppDataSource.getRepository(Agent);
 
@@ -423,7 +423,7 @@ export const getAllagent = async (req: Request, res: Response) => {
     }
 };
 
-export const getagentById = async (req: Request, res: Response) => {
+export const getAgentById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const agentRepo = AppDataSource.getRepository(Agent);

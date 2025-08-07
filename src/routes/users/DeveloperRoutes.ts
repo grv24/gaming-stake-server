@@ -3,7 +3,7 @@ import { createDeveloper, getDevelopers } from '../../controllers/users/Develope
 
 const router = Router();
 
-router.post('/developers', createDeveloper);
-router.get('/developers', getDevelopers);
+router.post('/new-account', createDeveloper);
+router.get('/get-accounts', getDevelopers);
 
 export default router;

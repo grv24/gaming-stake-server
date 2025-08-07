@@ -427,7 +427,7 @@ export const getAllMiniAdmin = async (req: Request, res: Response) => {
 };
 
 
-export const getminiAdminById = async (req: Request, res: Response) => {
+export const getMiniAdminById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const miniAdminRepo = AppDataSource.getRepository(MiniAdmin);

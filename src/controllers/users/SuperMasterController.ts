@@ -423,7 +423,7 @@ export const getAllSuperMaster = async (req: Request, res: Response) => {
     }
 };
 
-export const getsuperMasterById = async (req: Request, res: Response) => {
+export const getSuperMasterById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const superMasterRepo = AppDataSource.getRepository(SuperMaster);

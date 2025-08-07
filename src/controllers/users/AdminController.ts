@@ -359,7 +359,7 @@ export const createAdmin = async (req: Request, res: Response) => {
 
 
 
-export const getAlladmin = async (req: Request, res: Response) => {
+export const getAllAdmin = async (req: Request, res: Response) => {
     try {
         const adminRepo = AppDataSource.getRepository(Admin);
 
@@ -429,7 +429,7 @@ export const getAlladmin = async (req: Request, res: Response) => {
     }
 };
 
-export const getadminById = async (req: Request, res: Response) => {
+export const getAdminById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const adminRepo = AppDataSource.getRepository(Admin);

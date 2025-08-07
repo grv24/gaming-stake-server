@@ -348,7 +348,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllsuperAgent = async (req: Request, res: Response) => {
+export const getAllSuperAgent = async (req: Request, res: Response) => {
     try {
         const superAgentRepo = AppDataSource.getRepository(SuperAgent);
 

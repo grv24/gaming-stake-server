@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { ROLE_HIERARCHY, Role } from '../Constants/Roles';
+import { ROLE_HIERARCHY, Role } from '../Helpers/users/Roles';
 
 declare global {
     namespace Express {
