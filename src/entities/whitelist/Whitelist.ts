@@ -41,11 +41,11 @@ export class Whitelist {
   @Column({ default: '' })
   websiteTitle!: string;
 
-  // Meta Tags
+  // Meta Tags (stored as JSON)
   @Column({ type: 'json', nullable: true })
-  websiteMetaTags!: any;
+  websiteMetaTags!: Record<string, any> | null;
 
-  // Website Theme ( client )
+  // Website Theme (client)
   @Column({ default: '#0D7A8E' })
   primaryBackground!: string;
 
@@ -71,7 +71,8 @@ export class Whitelist {
   @Column("text", { array: true, default: ['Back', 'Lay'] })
   matchOdd!: string[];
 
-  @Column("text", { array: true, default: [['b3', 'b2', 'b1'], ['l1', 'l2', 'l3']] })
+  // Changed to JSON to support 2D arrays
+  @Column({ type: 'json', nullable: true })
   matchOddOptions!: string[][];
 
   @Column("text", { array: true, default: ['Back', 'Lay'] })
@@ -116,8 +117,8 @@ export class Whitelist {
   @Column({ type: "text", default: "" })
   Logo!: string;
 
-  @Column({ type: "uuid" })
-  createdById!: string;
+  @Column({ type: "uuid", nullable: true })
+  createdById!: string | null;
 
   // Timestamps
   @CreateDateColumn()

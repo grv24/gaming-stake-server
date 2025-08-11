@@ -18,6 +18,9 @@ export const createClient = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
+
+        const uplineId = req.user?.id;
+
         const clientRepo = queryRunner.manager.getRepository(Client);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -39,7 +42,6 @@ export const createClient = async (req: Request, res: Response) => {
             loginId,
             user_password,
             whiteListId,
-            uplineId,
             groupID,
             transactionPassword,
             referallCode,

@@ -19,12 +19,12 @@ const roleAuth = (requiredRole: Role) => {
             if (!authHeader || !authHeader.startsWith('Bearer ')) {
                 return res.status(401).json({
                     success: false,
-                    error: "Authorization token required (Bearer token)"
+                    error: "token required for authorization"
                 });
             }
 
             const token = authHeader.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key') as { 
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'idwbdiwdwndowdnowdihwidhiwhdiwhdiwhdiwhdiwhdiwhd') as { 
                 user: {
                     id: string;
                     __type: Role;

@@ -11,16 +11,15 @@ import miniAdminUserRouter from './routes/users/MiniAdminRoutes';
 import superAgentUserRouter from './routes/users/SuperAgentRoutes';
 import superMasterUserRouter from './routes/users/SuperMasterRoutes';
 import techAdminUserRouter from './routes/users/TechAdminRoutes';
+import whitelistRouter from './routes/whitelist/WhitelistRoutes';
 
 
 const app: Application = express();
 
-// Middlewares
 app.use(cors({ origin: '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
 
-// REST Routes
 app.use('/api/v1/users/developers/', developerUserRouter);
 app.use('/api/v1/users/admins/', adminUserRouter);
 app.use('/api/v1/users/clients/', clientUserRouter);
@@ -30,6 +29,7 @@ app.use('/api/v1/users/super-masters/', superMasterUserRouter);
 app.use('/api/v1/users/super-agents/', superAgentUserRouter);
 app.use('/api/v1/users/mini-admins/', miniAdminUserRouter);
 app.use('/api/v1/users/tech-admins/', techAdminUserRouter);
+app.use('/api/v1/whitelists', whitelistRouter);
 
 
 export default app;

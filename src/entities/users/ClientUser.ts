@@ -58,8 +58,8 @@ export class Client {
   @Column({ default: false })
   isActive!: boolean;
 
-  @Column({ type: 'int', nullable: true })
-  whatsappNumber!: number;
+  @Column({ type: 'varchar', nullable: true })
+  whatsappNumber!: string;
 
   @Column({ type: "text", nullable: true })
   topBarRunningMessage!: string;
@@ -130,22 +130,22 @@ export class Client {
   @Column({ default: false })
   commissionDena!: boolean;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid", nullable: true })
   soccerSettingId !: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid" , nullable: true})
   tennisSettingId !: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid" , nullable: true})
   cricketSettingId !: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid" , nullable: true})
   matkaSettingId !: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid" , nullable: true})
   casinoSettingId !: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid" , nullable: true})
   diamondCasinoSettingId !: string;
 
   @CreateDateColumn()

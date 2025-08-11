@@ -3,11 +3,10 @@ import multer from 'multer';
 import path from 'path';
 import {
   getWhitelists,
-  saveWhitelist,
+  createWhitelist,
   deleteWhitelist
 } from '../../controllers/whitelist/WhitelistController';
 import { developerAuth } from '../../middlewares/RoleAuth';
-
 const router = express.Router();
 
 const storage = multer.diskStorage({
@@ -34,20 +33,18 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, 
     files: 1
   }
 });
 
-router.route('/whitelists')
-  .get(getWhitelists)
-  .post(
-    developerAuth,
-    upload.single('Logo'),
-    saveWhitelist
-  ).delete(
-    developerAuth,
-    deleteWhitelist
-  );
+router.get('/', developerAuth, getWhitelists);
+router.post(
+  '/',
+  developerAuth,
+  upload.single('Logo'),
+  createWhitelist
+);
+router.delete('/:id', developerAuth, deleteWhitelist);
 
 export default router;

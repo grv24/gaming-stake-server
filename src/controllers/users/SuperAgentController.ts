@@ -18,6 +18,9 @@ export const createSuperAgent = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
+
+        const uplineId = req.user?.id;
+
         const superAgentRepo = queryRunner.manager.getRepository(SuperAgent);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -39,7 +42,6 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             loginId,
             user_password,
             whiteListId,
-            uplineId,
             groupID,
             transactionPassword,
             referallCode,
