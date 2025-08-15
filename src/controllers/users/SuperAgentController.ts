@@ -11,6 +11,7 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
+import { Whitelist } from '../../entities/whitelist/Whitelist';
 
 export const createSuperAgent = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -18,9 +19,9 @@ export const createSuperAgent = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
-
         const uplineId = req.user?.id;
 
+        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const superAgentRepo = queryRunner.manager.getRepository(SuperAgent);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -30,7 +31,8 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
 
         // Validate whiteListId
-        if (!isUUID(req.body.whiteListId)) {
+        const whiteListData = await whitelistRepo.findOne({ where: { id: req.body.whiteListId } });
+        if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
@@ -48,14 +50,86 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             userName,
             countryCode,
             mobile,
-            isAutoRegisteredUser,
+            isAutoRegisteredUser = false,
             IpAddress,
             remarks,
+            fancyLocked = false,
+            bettingLocked = false,
+            userLocked = false,
+            whatsappNumber,
+            topBarRunningMessage,
+            liability = 0,
+            balance = 0,
+            profitLoss = 0,
+            freeChips = 0,
+            totalSettledAmount = 0,
+            exposure = 0,
+            exposureLimit = 1000000,
+            whiteListAccess = false,
+            depositWithdrawlAccess = false,
+            canDeleteBets = false,
+            canDeleteUsers = false,
+            specialPermissions = false,
+            enableMultipleLogin = false,
+            autoSignUpFeature = false,
+            displayUsersOnlineStatus = false,
+            refundOptionFeature = false,
+            canDeclareResultAsOperator = false,
+            allowedNoOfUsers = 8,
+            createdUsersCount = 0,
+            percentageWiseCommission = true,
+            partnerShipWiseCommission = false,
+            commissionLena = true,
+            commissionDena = false,
+            soccerSettings = {},
+            cricketSettings = {},
+            tennisSettings = {},
+            matkaSettings = {},
+            casinoSettings = {},
+            diamondCasinoSettings = {}
+        } = req.body;
+
+        // Basic validation
+        if (!loginId || !user_password || !whiteListId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'loginId, password, and whiteListId are required'
+            });
+        }
+
+        // Check for existing super agent
+        const existingSuperAgent = await superAgentRepo.findOne({ where: { loginId } });
+        if (existingSuperAgent) {
+            await queryRunner.rollbackTransaction();
+            return res.status(409).json({
+                success: false,
+                error: 'loginId already exists'
+            });
+        }
+
+        // Create SuperAgent entity
+        const superAgentData = {
+            loginId,
+            user_password,
+            whiteListId,
+            uplineId: uplineId || null,
+            groupID: groupID || null,
+            transactionPassword: transactionPassword || null,
+            referallCode: referallCode || null,
+            userName: userName || null,
+            countryCode: countryCode || null,
+            mobile: mobile || null,
+            isAutoRegisteredUser,
+            IpAddress: IpAddress || null,
+            remarks: remarks || null,
             fancyLocked,
             bettingLocked,
             userLocked,
-            whatsappNumber,
-            topBarRunningMessage,
+            isActive: true,
+            whatsappNumber: whatsappNumber || null,
+            topBarRunningMessage: topBarRunningMessage || null,
+            __type: 'superAgent',
             liability,
             balance,
             profitLoss,
@@ -79,102 +153,20 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
-            soccerSettings,
-            cricketSettings,
-            tennisSettings,
-            matkaSettings,
-            casinoSettings,
-            diamondCasinoSettings
-        } = req.body;
-
-        if (!loginId || !user_password || !whiteListId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'loginId, password, and whiteListId are required'
-            });
-        }
-
-        const existingSuperAgent = await superAgentRepo.findOne({ where: { loginId } });
-        if (existingSuperAgent) {
-            await queryRunner.rollbackTransaction();
-            return res.status(409).json({
-                success: false,
-                error: 'loginId already exists'
-            });
-        }
-
-        const superAgentData = {
-            loginId,
-            user_password,
-            whiteListId,
-            uplineId: uplineId || null,
-            groupID: groupID || null,
-            transactionPassword: transactionPassword || null,
-            referallCode: referallCode || null,
-            userName: userName || null,
-            countryCode: countryCode || null,
-            mobile: mobile || null,
-            isAutoRegisteredUser: isAutoRegisteredUser || false,
-            IpAddress: IpAddress || null,
-            remarks: remarks || null,
-            fancyLocked: fancyLocked || false,
-            bettingLocked: bettingLocked || false,
-            userLocked: userLocked || false,
-            isActive: true,
-            whatsappNumber: whatsappNumber || null,
-            topBarRunningMessage: topBarRunningMessage || null,
-            __type: 'superAgent',
-            liability: liability || 0,
-            balance: balance || 0,
-            profitLoss: profitLoss || 0,
-            freeChips: freeChips || 0,
-            totalSettledAmount: totalSettledAmount || 0,
-            exposure: exposure || 0,
-            exposureLimit: exposureLimit || 1000000,
-            whiteListAccess: whiteListAccess || false,
-            depositWithdrawlAccess: depositWithdrawlAccess || false,
-            canDeleteBets: canDeleteBets || false,
-            canDeleteUsers: canDeleteUsers || false,
-            specialPermissions: specialPermissions || false,
-            enableMultipleLogin: enableMultipleLogin || false,
-            autoSignUpFeature: autoSignUpFeature || false,
-            displayUsersOnlineStatus: displayUsersOnlineStatus || false,
-            refundOptionFeature: refundOptionFeature || false,
-            canDeclareResultAsOperator: canDeclareResultAsOperator || false,
-            allowedNoOfUsers: allowedNoOfUsers || 8,
-            createdUsersCount: createdUsersCount || 0,
-            percentageWiseCommission: percentageWiseCommission !== false,
-            partnerShipWiseCommission: partnerShipWiseCommission || false,
-            commissionLena: commissionLena !== false,
-            commissionDena: commissionDena || false,
         };
 
-        const superAgent = plainToInstance(SuperAgent, superAgentData);
-        const errors = await validate(superAgent);
-        if (errors.length > 0) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'SuperAgent validation failed',
-                details: errors.map(e => Object.values(e.constraints || {})).flat()
+        const savedSuperAgent = await superAgentRepo.save(superAgentData);
+
+        // Helper function to create settings
+        const createSettings = async (repo: any, settingsData: any) => {
+            return repo.save({
+                userId: savedSuperAgent.id,
+                user__type: 'superAgent',
+                ...settingsData
             });
-        }
-
-        const savedSuperAgent = await superAgentRepo.save(superAgent);
-
-        const createSettings = async (repo: any, settingsData: any, type: string) => {
-            const settings = plainToInstance(repo.target, settingsData);
-            const errors = await validate(settings);
-            if (errors.length > 0) {
-                throw {
-                    type,
-                    errors: errors.map(e => Object.values(e.constraints || {})).flat()
-                };
-            }
-            return repo.save(settings);
         };
 
+        // Create all settings in parallel
         const [
             savedSoccerSettings,
             savedCricketSettings,
@@ -184,122 +176,139 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             savedDiamondCasinoSettings
         ] = await Promise.all([
             createSettings(soccerSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: soccerSettings?.isWhiteListed || false,
-                minOddsToBet: soccerSettings?.minOddsToBet || 1.01,
-                maxOddsToBet: soccerSettings?.maxOddsToBet || 24,
-                sportId: soccerSettings?.sportId || null,
-                betDelay: soccerSettings?.betDelay || 1,
-                bookMakerDelay: soccerSettings?.bookMakerDelay || 1,
-                minMatchStake: soccerSettings?.minMatchStake || 100,
-                maxMatchStake: soccerSettings?.maxMatchStake || 100,
-                minBookMakerStake: soccerSettings?.minBookMakerStake || 100,
-                maxBookMakerStake: soccerSettings?.maxBookMakerStake || 1,
-                maxProfit: soccerSettings?.maxProfit || 0,
-                maxLoss: soccerSettings?.maxLoss || 0,
-                minExposure: soccerSettings?.minExposure || 0,
-                maxExposure: soccerSettings?.maxExposure || 0,
-                winningLimit: soccerSettings?.winningLimit || 0
-            }, 'soccer'),
-
+                isWhiteListed: soccerSettings.isWhiteListed || false,
+                minOddsToBet: soccerSettings.minOddsToBet || 1.01,
+                maxOddsToBet: soccerSettings.maxOddsToBet || 24,
+                sportId: soccerSettings.sportId || null,
+                betDelay: soccerSettings.betDelay || 1,
+                bookMakerDelay: soccerSettings.bookMakerDelay || 1,
+                minMatchStake: soccerSettings.minMatchStake || 100,
+                maxMatchStake: soccerSettings.maxMatchStake || 100,
+                minBookMakerStake: soccerSettings.minBookMakerStake || 100,
+                maxBookMakerStake: soccerSettings.maxBookMakerStake || 1,
+                maxProfit: soccerSettings.maxProfit || 0,
+                maxLoss: soccerSettings.maxLoss || 0,
+                minExposure: soccerSettings.minExposure || 0,
+                maxExposure: soccerSettings.maxExposure || 0,
+                winningLimit: soccerSettings.winningLimit || 0,
+                commissionToType: soccerSettings.commissionToType || 'superAgent',
+                commissionToUserId: soccerSettings.commissionToUserId || null,
+                matchCommission: soccerSettings.matchCommission || 0,
+                partnershipToType: soccerSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: soccerSettings.partnershipToUserId || null,
+                partnership: soccerSettings.partnership || 0
+            }),
             createSettings(cricketSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: cricketSettings?.isWhiteListed || false,
-                min_Odds_To_Bet: cricketSettings?.min_Odds_To_Bet || 1.01,
-                max_Odds_To_Bet: cricketSettings?.max_Odds_To_Bet || 24,
-                sportId: cricketSettings?.sportId || null,
-                betDelay: cricketSettings?.betDelay || 1,
-                bookMakerDelay: cricketSettings?.bookMakerDelay || 1,
-                sessionDelay: cricketSettings?.sessionDelay || 1,
-                minMatchStake: cricketSettings?.minMatchStake || 100,
-                maxMatchStake: cricketSettings?.maxMatchStake || 1,
-                minBookMakerStake: cricketSettings?.minBookMakerStake || 100,
-                maxBookMakerStake: cricketSettings?.maxBookMakerStake || 1,
-                minSessionStake: cricketSettings?.minSessionStake || 100,
-                maxSessionStake: cricketSettings?.maxSessionStake || 1,
-                maxProfit: cricketSettings?.maxProfit || 0,
-                maxLoss: cricketSettings?.maxLoss || 0,
-                sessionMaxProfit: cricketSettings?.sessionMaxProfit || 0,
-                sessionMaxLoss: cricketSettings?.sessionMaxLoss || 0,
-                minExposure: cricketSettings?.minExposure || 0,
-                maxExposure: cricketSettings?.maxExposure || 0,
-                winningLimit: cricketSettings?.winningLimit || 0
-            }, 'cricket'),
-
+                isWhiteListed: cricketSettings.isWhiteListed || false,
+                min_Odds_To_Bet: cricketSettings.min_Odds_To_Bet || 1.01,
+                max_Odds_To_Bet: cricketSettings.max_Odds_To_Bet || 24,
+                sportId: cricketSettings.sportId || null,
+                betDelay: cricketSettings.betDelay || 1,
+                bookMakerDelay: cricketSettings.bookMakerDelay || 1,
+                sessionDelay: cricketSettings.sessionDelay || 1,
+                minMatchStake: cricketSettings.minMatchStake || 100,
+                maxMatchStake: cricketSettings.maxMatchStake || 1,
+                minBookMakerStake: cricketSettings.minBookMakerStake || 100,
+                maxBookMakerStake: cricketSettings.maxBookMakerStake || 1,
+                minSessionStake: cricketSettings.minSessionStake || 100,
+                maxSessionStake: cricketSettings.maxSessionStake || 1,
+                maxProfit: cricketSettings.maxProfit || 0,
+                maxLoss: cricketSettings.maxLoss || 0,
+                sessionMaxProfit: cricketSettings.sessionMaxProfit || 0,
+                sessionMaxLoss: cricketSettings.sessionMaxLoss || 0,
+                minExposure: cricketSettings.minExposure || 0,
+                maxExposure: cricketSettings.maxExposure || 0,
+                winningLimit: cricketSettings.winningLimit || 0,
+                commissionToType: cricketSettings.commissionToType || 'superAgent',
+                commissionToUserId: cricketSettings.commissionToUserId || null,
+                matchCommission: cricketSettings.matchCommission || 0,
+                partnershipToType: cricketSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: cricketSettings.partnershipToUserId || null,
+                partnership: cricketSettings.partnership || 0
+            }),
             createSettings(tennisSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: tennisSettings?.isWhiteListed || false,
-                minOddsToBet: tennisSettings?.minOddsToBet || 1.01,
-                maxOddsToBet: tennisSettings?.maxOddsToBet || 24,
-                sportId: tennisSettings?.sportId || null,
-                betDelay: tennisSettings?.betDelay || 1,
-                bookMakerDelay: tennisSettings?.bookMakerDelay || 1,
-                minMatchStake: tennisSettings?.minMatchStake || 100,
-                maxMatchStake: tennisSettings?.maxMatchStake || 100,
-                minBookMakerStake: tennisSettings?.minBookMakerStake || 100,
-                maxBookMakerStake: tennisSettings?.maxBookMakerStake || 1,
-                maxProfit: tennisSettings?.maxProfit || 0,
-                maxLoss: tennisSettings?.maxLoss || 0,
-                minExposure: tennisSettings?.minExposure || 0,
-                maxExposure: tennisSettings?.maxExposure || 0,
-                winningLimit: tennisSettings?.winningLimit || 0
-            }, 'tennis'),
-
+                isWhiteListed: tennisSettings.isWhiteListed || false,
+                minOddsToBet: tennisSettings.minOddsToBet || 1.01,
+                maxOddsToBet: tennisSettings.maxOddsToBet || 24,
+                sportId: tennisSettings.sportId || null,
+                betDelay: tennisSettings.betDelay || 1,
+                bookMakerDelay: tennisSettings.bookMakerDelay || 1,
+                minMatchStake: tennisSettings.minMatchStake || 100,
+                maxMatchStake: tennisSettings.maxMatchStake || 100,
+                minBookMakerStake: tennisSettings.minBookMakerStake || 100,
+                maxBookMakerStake: tennisSettings.maxBookMakerStake || 1,
+                maxProfit: tennisSettings.maxProfit || 0,
+                maxLoss: tennisSettings.maxLoss || 0,
+                minExposure: tennisSettings.minExposure || 0,
+                maxExposure: tennisSettings.maxExposure || 0,
+                winningLimit: tennisSettings.winningLimit || 0,
+                commissionToType: tennisSettings.commissionToType || 'superAgent',
+                commissionToUserId: tennisSettings.commissionToUserId || null,
+                matchCommission: tennisSettings.matchCommission || 0,
+                partnershipToType: tennisSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: tennisSettings.partnershipToUserId || null,
+                partnership: tennisSettings.partnership || 0
+            }),
             createSettings(matkaSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: matkaSettings?.isWhiteListed || false,
-                minOddsToBet: matkaSettings?.minOddsToBet || 1.01,
-                maxOddsToBet: matkaSettings?.maxOddsToBet || 24,
-                betDelay: matkaSettings?.betDelay || 1,
-                minMatchStake: matkaSettings?.minMatchStake || 100,
-                maxMatchStake: matkaSettings?.maxMatchStake || 100,
-                maxProfit: matkaSettings?.maxProfit || 0,
-                maxLoss: matkaSettings?.maxLoss || 0,
-                minExposure: matkaSettings?.minExposure || 0,
-                maxExposure: matkaSettings?.maxExposure || 0,
-                winningLimit: matkaSettings?.winningLimit || 0
-            }, 'matka'),
-
+                isWhiteListed: matkaSettings.isWhiteListed || false,
+                minOddsToBet: matkaSettings.minOddsToBet || 1.01,
+                maxOddsToBet: matkaSettings.maxOddsToBet || 24,
+                betDelay: matkaSettings.betDelay || 1,
+                minMatchStake: matkaSettings.minMatchStake || 100,
+                maxMatchStake: matkaSettings.maxMatchStake || 100,
+                maxProfit: matkaSettings.maxProfit || 0,
+                maxLoss: matkaSettings.maxLoss || 0,
+                minExposure: matkaSettings.minExposure || 0,
+                maxExposure: matkaSettings.maxExposure || 0,
+                winningLimit: matkaSettings.winningLimit || 0,
+                commissionToType: matkaSettings.commissionToType || 'superAgent',
+                commissionToUserId: matkaSettings.commissionToUserId || null,
+                matchCommission: matkaSettings.matchCommission || 0,
+                partnershipToType: matkaSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: matkaSettings.partnershipToUserId || null,
+                partnership: matkaSettings.partnership || 0
+            }),
             createSettings(casinoSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: casinoSettings?.isWhiteListed || false,
-                minOddsToBet: casinoSettings?.minOddsToBet || 1.01,
-                maxOddsToBet: casinoSettings?.maxOddsToBet || 24,
-                betDelay: casinoSettings?.betDelay || 1,
-                minMatchStake: casinoSettings?.minMatchStake || 100,
-                maxMatchStake: casinoSettings?.maxMatchStake || 100,
-                maxProfit: casinoSettings?.maxProfit || 0,
-                maxLoss: casinoSettings?.maxLoss || 0,
-                minExposure: casinoSettings?.minExposure || 0,
-                maxExposure: casinoSettings?.maxExposure || 0,
-                winningLimit: casinoSettings?.winningLimit || 0
-            }, 'casino'),
-
+                isWhiteListed: casinoSettings.isWhiteListed || false,
+                minOddsToBet: casinoSettings.minOddsToBet || 1.01,
+                maxOddsToBet: casinoSettings.maxOddsToBet || 24,
+                betDelay: casinoSettings.betDelay || 1,
+                minMatchStake: casinoSettings.minMatchStake || 100,
+                maxMatchStake: casinoSettings.maxMatchStake || 100,
+                maxProfit: casinoSettings.maxProfit || 0,
+                maxLoss: casinoSettings.maxLoss || 0,
+                minExposure: casinoSettings.minExposure || 0,
+                maxExposure: casinoSettings.maxExposure || 0,
+                winningLimit: casinoSettings.winningLimit || 0,
+                commissionToType: casinoSettings.commissionToType || 'superAgent',
+                commissionToUserId: casinoSettings.commissionToUserId || null,
+                matchCommission: casinoSettings.matchCommission || 0,
+                partnershipToType: casinoSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: casinoSettings.partnershipToUserId || null,
+                partnership: casinoSettings.partnership || 0
+            }),
             createSettings(diamondCasinoSettingsRepo, {
-                userId: savedSuperAgent.id,
-                user__type: 'superAgent',
-                isWhiteListed: diamondCasinoSettings?.isWhiteListed || false,
-                minOddsToBet: diamondCasinoSettings?.minOddsToBet || 1.01,
-                maxOddsToBet: diamondCasinoSettings?.maxOddsToBet || 24,
-                betDelay: diamondCasinoSettings?.betDelay || 1,
-                minMatchStake: diamondCasinoSettings?.minMatchStake || 100,
-                maxMatchStake: diamondCasinoSettings?.maxMatchStake || 100,
-                maxProfit: diamondCasinoSettings?.maxProfit || 0,
-                maxLoss: diamondCasinoSettings?.maxLoss || 0,
-                minExposure: diamondCasinoSettings?.minExposure || 0,
-                maxExposure: diamondCasinoSettings?.maxExposure || 0,
-                winningLimit: diamondCasinoSettings?.winningLimit || 0
-            }, 'diamondCasino')
-        ]).catch(async (error) => {
-            await queryRunner.rollbackTransaction();
-            throw error;
-        });
+                isWhiteListed: diamondCasinoSettings.isWhiteListed || false,
+                minOddsToBet: diamondCasinoSettings.minOddsToBet || 1.01,
+                maxOddsToBet: diamondCasinoSettings.maxOddsToBet || 24,
+                betDelay: diamondCasinoSettings.betDelay || 1,
+                minMatchStake: diamondCasinoSettings.minMatchStake || 100,
+                maxMatchStake: diamondCasinoSettings.maxMatchStake || 100,
+                maxProfit: diamondCasinoSettings.maxProfit || 0,
+                maxLoss: diamondCasinoSettings.maxLoss || 0,
+                minExposure: diamondCasinoSettings.minExposure || 0,
+                maxExposure: diamondCasinoSettings.maxExposure || 0,
+                winningLimit: diamondCasinoSettings.winningLimit || 0,
+                commissionToType: diamondCasinoSettings.commissionToType || 'superAgent',
+                commissionToUserId: diamondCasinoSettings.commissionToUserId || null,
+                matchCommission: diamondCasinoSettings.matchCommission || 0,
+                partnershipToType: diamondCasinoSettings.partnershipToType || 'superAgent',
+                partnershipToUserId: diamondCasinoSettings.partnershipToUserId || null,
+                partnership: diamondCasinoSettings.partnership || 0
+            })
+        ]);
 
+        // Update SuperAgent with settings IDs
         await superAgentRepo.update(savedSuperAgent.id, {
             soccerSettingId: savedSoccerSettings.id,
             cricketSettingId: savedCricketSettings.id,
@@ -331,14 +340,6 @@ export const createSuperAgent = async (req: Request, res: Response) => {
     } catch (error: any) {
         await queryRunner.rollbackTransaction();
         console.error('Error creating SuperAgent:', error);
-
-        if (error.type) {
-            return res.status(400).json({
-                success: false,
-                error: `${error.type} settings validation failed`,
-                details: error.errors
-            });
-        }
 
         return res.status(500).json({
             success: false,

@@ -45,6 +45,24 @@ export class MatkaSettings {
   @Column({ type: 'float', default: 0 })
   winningLimit!: number;
 
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
+  commissionToType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  commissionToUserId !: string;
+
+  @Column({ type: 'int', default: 0 })
+  matchCommission!: number;
+
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
+  partnershipToType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  partnershipToUserId !: string;
+
+  @Column({ type: 'int', default: 0 })
+  partnership !: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 
