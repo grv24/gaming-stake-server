@@ -1,12 +1,14 @@
 import express from 'express';
 import { getSuperAgentById, getAllSuperAgent, createSuperAgent } from '../../controllers/users/SuperAgentController';
-import { superAgentAndAboveAuth } from '../../middlewares/RoleAuth';
+import { masterAndAboveAuth, superAgentAndAboveAuth } from '../../middlewares/RoleAuth';
 import { paginationValidation } from '../../Helpers/Request/Validation';
+import { addBalance } from '../../controllers/users/UserControllers';
 
 const router = express.Router();
 
-router.post('/new-account', superAgentAndAboveAuth, createSuperAgent);
+router.post('/new-account', masterAndAboveAuth, createSuperAgent);
 router.get('/get-accounts', paginationValidation, getAllSuperAgent);
 router.get('/get-accounts/:id', paginationValidation, getSuperAgentById);
+router.put('/account/balance', masterAndAboveAuth, addBalance);
 
 export default router;

@@ -3,46 +3,77 @@ import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
 
-export const lockUserAndDownlineMultiTable = async (req: Request, res: Response) => {
-    const { userId, userType, hostedUrl } = req.body;
-
-    if (!userId || !userType) {
-        return res.status(400).json({ message: "userId and userType are required" });
-    }
-
-    if (!USER_TABLES[userType]) {
-        return res.status(400).json({ message: `Unknown userType: ${userType}` });
-    }
+export const addBalance = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
     try {
-        type UserRole = keyof typeof DOWNLINE_MAPPING;
 
-        const lockRecursive = async (id: string, currentType: UserRole) => {
-            const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
+        const uplineId = req.user?.id;
+        const { userId, userType, amount } = req.body;
 
-            await repo.update(id, { userLocked: true });
+        if (!userId || !userType || amount === undefined || amount <= 0) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Valid userId, userType and positive amount are required'
+            });
+        }
 
-            const childRoles = DOWNLINE_MAPPING[currentType];
-            if (!childRoles.length) return;
+        const userRepository = queryRunner.manager.getRepository(USER_TABLES[userType]);
+        if (!userRepository) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid userType provided'
+            });
+        }
 
-            for (const role of childRoles) {
-                const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
-                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+        const user = await userRepository.findOne({ where: { id: userId } });
+        if (!user) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
 
-                for (const child of children) {
-                    await lockRecursive(child.id, role as UserRole);
-                }
+        if(user.uplineId == uplineId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: 'This is not your downline user'
+            });
+        }
+
+        const newBalance = Number(user.balance) + Number(amount);
+        await userRepository.update(userId, { balance: newBalance });
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Balance added successfully',
+            data: {
+                userId,
+                userType,
+                previousBalance: user.balance,
+                addedAmount: amount,
+                newBalance
             }
-        };
-
-        await lockRecursive(userId, userType as UserRole);
-
-        return res.json({
-            message: `User (${userType}) and all downline users have been locked.`,
-            hostedUrl
         });
-    } catch (error) {
-        console.error("Error locking users:", error);
-        return res.status(500).json({ message: "Internal server error", error });
+
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error adding balance:', error);
+
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    } finally {
+        await queryRunner.release();
     }
 };

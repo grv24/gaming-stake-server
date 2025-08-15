@@ -1,12 +1,14 @@
 import express from 'express';
 import { getMasterById, getAllMaster, createMaster } from '../../controllers/users/MasterController';
-import { masterAndAboveAuth } from '../../middlewares/RoleAuth';
+import { superMasterAndAboveAuth } from '../../middlewares/RoleAuth';
 import { paginationValidation } from '../../Helpers/Request/Validation';
+import { addBalance } from '../../controllers/users/UserControllers';
 
 const router = express.Router();
 
-router.post('/new-account', masterAndAboveAuth, createMaster);
+router.post('/new-account', superMasterAndAboveAuth, createMaster);
 router.get('/get-accounts', paginationValidation, getAllMaster);
 router.get('/get-accounts/:id', paginationValidation, getMasterById);
+router.put('/account/balance', superMasterAndAboveAuth, addBalance);
 
 export default router;
