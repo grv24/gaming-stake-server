@@ -8,12 +8,8 @@ import { CasinoSettings } from '../../entities/users/utils/CasinoSetting';
 import { DiamondCasinoSettings } from '../../entities/users/utils/DiamondCasino';
 import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
 import { TennisSettings } from '../../entities/users/utils/TennisSetting';
-// import { validate } from 'class-validator';
-// import { plainToInstance } from 'class-transformer';
-// import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
-import { DOWNLINE_MAPPING, USER_TABLES } from '../../Helpers/users/Roles';
 
 export const createTechAdmin = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -546,7 +542,7 @@ export const getTechAdminById = async (req: Request, res: Response) => {
 
 export const techAdminLogin = async (req: Request, res: Response) => {
     const { username, password, hostedUrl } = req.body;
-    const io = req.app.get('socketio'); 
+    const io = req.app.get('socketio');
     const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     try {
@@ -636,7 +632,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
 
         if (io) {
             const existingSocket = io.getUserSocket(techAdmin.id);
-            
+
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {
                     reason: 'DUPLICATE_LOGIN',
@@ -667,67 +663,22 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             status: true,
             message: "techAdmin user data",
             data: {
-                token, 
+                token,
                 user: safeUserData,
-                socketRequired: true 
+                socketRequired: true
             }
         });
 
     } catch (error) {
         console.error('TechAdmin login error:', error);
-        
-        const errorMessage = process.env.NODE_ENV === 'development' 
+
+        const errorMessage = process.env.NODE_ENV === 'development'
             ? error instanceof Error ? error.message : 'Unknown error'
             : 'Internal server error';
-        
+
         res.status(500).json({
             status: false,
             message: "something went wrong"
         });
-    }
-};
-
-
-export const lockUserAndDownlineMultiTable = async (req: Request, res: Response) => {
-    const { userId, userType, hostedUrl } = req.body;
-
-    if (!userId || !userType) {
-        return res.status(400).json({ message: "userId and userType are required" });
-    }
-
-    if (!USER_TABLES[userType]) {
-        return res.status(400).json({ message: `Unknown userType: ${userType}` });
-    }
-
-    try {
-        type UserRole = keyof typeof DOWNLINE_MAPPING;
-
-        const lockRecursive = async (id: string, currentType: UserRole) => {
-            const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
-
-            await repo.update(id, { userLocked: true });
-
-            const childRoles = DOWNLINE_MAPPING[currentType];
-            if (!childRoles.length) return;
-
-            for (const role of childRoles) {
-                const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
-                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
-
-                for (const child of children) {
-                    await lockRecursive(child.id, role as UserRole);
-                }
-            }
-        };
-
-        await lockRecursive(userId, userType as UserRole);
-
-        return res.json({
-            message: `User (${userType}) and all downline users have been locked.`,
-            hostedUrl
-        });
-    } catch (error) {
-        console.error("Error locking users:", error);
-        return res.status(500).json({ message: "Internal server error", error });
     }
 };
