@@ -8,6 +8,13 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { SoccerSettings } from './utils/SoccerSetting';
+import { CricketSettings } from './utils/CricketSetting';
+import { TennisSettings } from './utils/TennisSetting';
+import { MatkaSettings } from './utils/MatkaSetting';
+import { CasinoSettings } from './utils/CasinoSetting';
+import { DiamondCasinoSettings } from './utils/DiamondCasino';
+
 @Entity('masters')
 export class Master {
   @PrimaryGeneratedColumn('uuid')
@@ -180,4 +187,28 @@ export class Master {
 
   @UpdateDateColumn()
   updatedAt !: Date;
+
+    @OneToOne(() => SoccerSettings)
+    @JoinColumn({ name: 'soccerSettingId' })
+    soccerSettings!: SoccerSettings;
+  
+    @OneToOne(() => CricketSettings)
+    @JoinColumn({ name: 'cricketSettingId' })
+    cricketSettings!: CricketSettings;
+  
+    @OneToOne(() => TennisSettings)
+    @JoinColumn({ name: 'tennisSettingId' })
+    tennisSettings!: TennisSettings;
+  
+    @OneToOne(() => MatkaSettings)
+    @JoinColumn({ name: 'matkaSettingId' })
+    matkaSettings!: MatkaSettings;
+  
+    @OneToOne(() => CasinoSettings)
+    @JoinColumn({ name: 'casinoSettingId' })
+    casinoSettings!: CasinoSettings;
+  
+    @OneToOne(() => DiamondCasinoSettings)
+    @JoinColumn({ name: 'diamondCasinoSettingId' })
+    diamondCasinoSettings!: DiamondCasinoSettings;
 }

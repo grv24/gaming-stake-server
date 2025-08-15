@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../../server';
 import { Client } from "../../entities/users/ClientUser";
 import { SoccerSettings } from '../../entities/users/utils/SoccerSetting';
@@ -520,6 +521,146 @@ export const getClientById = async (req: Request, res: Response) => {
             success: false,
             error: 'Internal server error',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+export const clientLogin = async (req: Request, res: Response) => {
+    const { username, password, hostedUrl } = req.body;
+    const io = req.app.get('socketio');
+    const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    try {
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) throw new Error('JWT_SECRET is not configured');
+
+        if (!username || !password || !hostedUrl) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username, password, and hostedUrl are required'
+            });
+        }
+
+        const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        const whiteList = await whiteListRepo.findOne({
+            where: { ClientUrl: hostedUrl }
+        });
+
+        if (!whiteList) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied - URL not authorized for Client access'
+            });
+        }
+
+        const clientRepo = AppDataSource.getRepository(Client);
+        const client = await clientRepo.findOne({
+            where: {
+                loginId: username,
+                whiteListId: whiteList.id
+            },
+            relations: [
+                'soccerSettings',
+                'cricketSettings',
+                'tennisSettings',
+                'matkaSettings',
+                'casinoSettings',
+                'diamondCasinoSettings'
+            ]
+        });
+
+        // Authentication checks
+        if (!client) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid Client credentials'
+            });
+        }
+
+        if (!client.isActive || client.userLocked) {
+            return res.status(403).json({
+                success: false,
+                error: 'Client account is not active'
+            });
+        }
+
+        if (password !== client.user_password) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid Client credentials'
+            });
+        }
+
+        const { user_password, ...safeUserData } = client;
+
+        const token = jwt.sign(
+            {
+                user: safeUserData,
+                permissions: {
+                    canBet: !client.bettingLocked,
+                    canWithdraw: client.depositWithdrawlAccess,
+                    bypassRestrictions: client.canBypassCasinoBet || client.canBypassSportBet
+                },
+                sessionData: {
+                    ip: userIp,
+                    userAgent: req.headers['user-agent']
+                }
+            },
+            jwtSecret,
+            {
+                expiresIn: process.env.JWT_EXPIRES_IN || '12h',
+                issuer: process.env.JWT_ISSUER || 'your-issuer',
+                algorithm: 'HS256'
+            } as jwt.SignOptions
+        );
+
+        if (io) {
+            const existingSocket = io.getUserSocket(client.id);
+
+            if (existingSocket) {
+                existingSocket.emit('forceLogout', {
+                    reason: 'DUPLICATE_LOGIN',
+                    message: 'Logged in from new device',
+                    timestamp: new Date().toISOString()
+                });
+                existingSocket.disconnect(true);
+            }
+
+            io.to('clients').emit('clientLogin', {
+                clientId: client.id,
+                username: client.loginId,
+                ip: userIp,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.cookie('clientToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 12 * 60 * 60 * 1000
+        });
+
+        res.status(200).json({
+            status: true,
+            message: "Client login successful",
+            data: {
+                token,
+                user: safeUserData,
+                socketRequired: true
+            }
+        });
+
+    } catch (error) {
+        console.error('Client login error:', error);
+
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'Internal server error';
+
+        res.status(500).json({
+            status: false,
+            message: errorMessage
         });
     }
 };

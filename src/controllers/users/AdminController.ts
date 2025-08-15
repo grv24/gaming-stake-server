@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../../server';
 import { Admin } from "../../entities/users/AdminUser";
 import { SoccerSettings } from '../../entities/users/utils/SoccerSetting';
@@ -12,6 +13,12 @@ import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { MiniAdmin } from '../../entities/users/MiniAdminUser';
+import { SuperMaster } from '../../entities/users/SuperMasterUser';
+import { Master } from '../../entities/users/MasterUser';
+import { SuperAgent } from '../../entities/users/SuperAgentUser';
+import { Agent } from '../../entities/users/AgentUser';
+import { USER_TABLES } from '../../Helpers/users/Roles';
 
 export const createAdmin = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -390,7 +397,7 @@ export const getAllAdmin = async (req: Request, res: Response) => {
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
-                'fancyLocked', 'userLocked', 'bettingLocked', 
+                'fancyLocked', 'userLocked', 'bettingLocked',
                 'allowedNoOfUsers', 'createdUsersCount',
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',
@@ -447,7 +454,7 @@ export const getAdminById = async (req: Request, res: Response) => {
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'createdAt', 'updatedAt', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
-                                'fancyLocked', 'userLocked', 'bettingLocked', 
+                'fancyLocked', 'userLocked', 'bettingLocked',
                 'allowedNoOfUsers', 'createdUsersCount',
                 'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
                 'matkaSettingId', 'casinoSettingId', 'diamondCasinoSettingId',
@@ -536,6 +543,205 @@ export const getAdminById = async (req: Request, res: Response) => {
             success: false,
             error: 'Internal server error',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+type AdminUserType = 'admin' | 'miniAdmin' | 'superMaster' | 'master' | 'superAgent' | 'agent';
+
+interface TypeSpecificPermissions {
+    canDeclareResult: boolean;
+    canChangeSettings: boolean;
+}
+
+type AdminPermissions = {
+    [key in AdminUserType]: TypeSpecificPermissions;
+};
+
+const typeSpecificPermissions: AdminPermissions = {
+    admin: {
+        canDeclareResult: true,
+        canChangeSettings: true
+    },
+    miniAdmin: {
+        canDeclareResult: true,
+        canChangeSettings: false
+    },
+    superMaster: {
+        canDeclareResult: false,
+        canChangeSettings: false
+    },
+    master: {
+        canDeclareResult: false,
+        canChangeSettings: false
+    },
+    superAgent: {
+        canDeclareResult: false,
+        canChangeSettings: false
+    },
+    agent: {
+        canDeclareResult: false,
+        canChangeSettings: false
+    }
+};
+
+export const adminLogin = async (req: Request, res: Response) => {
+    const { username, password, hostedUrl } = req.body;
+    const io = req.app.get('socketio');
+    const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    try {
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) throw new Error('JWT_SECRET is not configured');
+
+        if (!username || !password || !hostedUrl) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username, password, and hostedUrl are required'
+            });
+        }
+
+        const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        const whiteList = await whiteListRepo.findOne({
+            where: { AdminUrl: hostedUrl }
+        });
+
+        if (!whiteList) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied - URL not authorized for Admin access'
+            });
+        }
+
+        // Search through all admin tables to find the user
+        let user: any = null;
+        let detectedUserType: AdminUserType | null = null;
+
+        for (const [type, entity] of Object.entries(USER_TABLES)) {
+            const repo = AppDataSource.getRepository(entity);
+            const foundUser = await repo.findOne({
+                where: {
+                    loginId: username,
+                    whiteListId: whiteList.id
+                },
+                relations: [
+                    'soccerSettings',
+                    'cricketSettings',
+                    'tennisSettings',
+                    'matkaSettings',
+                    'casinoSettings',
+                    'diamondCasinoSettings'
+                ]
+            });
+
+            if (foundUser) {
+                user = foundUser;
+                detectedUserType = type as AdminUserType;
+                break;
+            }
+        }
+
+        if (!user || !detectedUserType) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid admin credentials'
+            });
+        }
+
+        // Authentication checks
+        if (!user.isActive || user.userLocked) {
+            return res.status(403).json({
+                success: false,
+                error: 'Admin account is not active'
+            });
+        }
+
+        if (password !== user.user_password) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid admin credentials'
+            });
+        }
+
+        const { user_password: _, ...safeUserData } = user;
+
+        const basePermissions = {
+            canDeleteUsers: user.canDeleteUsers,
+            canDeleteBets: user.canDeleteBets,
+            specialPermissions: user.specialPermissions,
+            depositWithdrawlAccess: user.depositWithdrawlAccess
+        };
+
+        const token = jwt.sign(
+            {
+                user: safeUserData,
+                userType: detectedUserType,
+                permissions: {
+                    ...basePermissions,
+                    ...typeSpecificPermissions[detectedUserType]
+                },
+                sessionData: {
+                    ip: userIp,
+                    userAgent: req.headers['user-agent']
+                }
+            },
+            jwtSecret,
+            {
+                expiresIn: process.env.JWT_EXPIRES_IN || '12h',
+                issuer: process.env.JWT_ISSUER || 'your-issuer',
+                algorithm: 'HS256'
+            } as jwt.SignOptions
+        );
+
+        if (io) {
+            const existingSocket = io.getUserSocket(user.id);
+
+            if (existingSocket) {
+                existingSocket.emit('forceLogout', {
+                    reason: 'DUPLICATE_LOGIN',
+                    message: 'Logged in from new device',
+                    timestamp: new Date().toISOString()
+                });
+                existingSocket.disconnect(true);
+            }
+
+            io.to('admins').emit('adminLogin', {
+                adminId: user.id,
+                username: user.loginId,
+                userType: detectedUserType,
+                ip: userIp,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.cookie('adminToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 12 * 60 * 60 * 1000
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: 'Admin login successful',
+            data: {
+                token,
+                user: safeUserData,
+                userType: detectedUserType,
+                socketRequired: true
+            }
+        });
+
+    } catch (error) {
+        console.error('Admin login error:', error);
+
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'Internal server error';
+
+        return res.status(500).json({
+            status: false,
+            message: errorMessage
         });
     }
 };

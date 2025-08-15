@@ -4,7 +4,15 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
+import { SoccerSettings } from './utils/SoccerSetting';
+import { CricketSettings } from './utils/CricketSetting';
+import { TennisSettings } from './utils/TennisSetting';
+import { MatkaSettings } from './utils/MatkaSetting';
+import { CasinoSettings } from './utils/CasinoSetting';
+import { DiamondCasinoSettings } from './utils/DiamondCasino';
 
 @Entity('admins')
 export class Admin {
@@ -95,7 +103,7 @@ export class Admin {
   @Column({ type: 'float', default: 10000000 })
   exposureLimit!: number;
 
-    // account kitne ka bana tha
+  // account kitne ka bana tha
   @Column({ type: 'float', default: 0 })
   creditRef!: number;
 
@@ -157,19 +165,19 @@ export class Admin {
   @Column({ type: "uuid", nullable: true })
   soccerSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   tennisSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   cricketSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   matkaSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   casinoSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   diamondCasinoSettingId !: string;
 
   @CreateDateColumn()
@@ -177,4 +185,28 @@ export class Admin {
 
   @UpdateDateColumn()
   updatedAt !: Date;
+
+  @OneToOne(() => SoccerSettings)
+  @JoinColumn({ name: 'soccerSettingId' })
+  soccerSettings!: SoccerSettings;
+
+  @OneToOne(() => CricketSettings)
+  @JoinColumn({ name: 'cricketSettingId' })
+  cricketSettings!: CricketSettings;
+
+  @OneToOne(() => TennisSettings)
+  @JoinColumn({ name: 'tennisSettingId' })
+  tennisSettings!: TennisSettings;
+
+  @OneToOne(() => MatkaSettings)
+  @JoinColumn({ name: 'matkaSettingId' })
+  matkaSettings!: MatkaSettings;
+
+  @OneToOne(() => CasinoSettings)
+  @JoinColumn({ name: 'casinoSettingId' })
+  casinoSettings!: CasinoSettings;
+
+  @OneToOne(() => DiamondCasinoSettings)
+  @JoinColumn({ name: 'diamondCasinoSettingId' })
+  diamondCasinoSettings!: DiamondCasinoSettings;
 }
