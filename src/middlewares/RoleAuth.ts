@@ -30,7 +30,7 @@ const roleAuth = (requiredRole: Role) => {
                     __type: Role;
                     isActive: boolean;
                 } 
-            };
+            };``
 
             if (!decoded.user?.isActive) {
                 return res.status(403).json({
@@ -41,11 +41,11 @@ const roleAuth = (requiredRole: Role) => {
 
             const userRole = decoded.user.__type;
             
-            const normalizedUserRole = userRole.toLowerCase() as Role;
-            
+            const normalizedUserRole = userRole as Role;
+
             const userLevel = ROLE_HIERARCHY[normalizedUserRole];
             const requiredLevel = ROLE_HIERARCHY[requiredRole];
-
+            
             if (userLevel === undefined) {
                 return res.status(403).json({
                     success: false,

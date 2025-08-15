@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import http from 'http'; 
 import { setupSocket } from './socket/socketHandler';
 import { DataSource } from 'typeorm';
+import app from './app';
 import { Developer } from './entities/users/DeveloperUser';
 import { Whitelist } from './entities/whitelist/Whitelist';
 import { TechAdmin } from './entities/users/TechAdminUser';
@@ -12,7 +13,13 @@ import { CricketSettings } from './entities/users/utils/CricketSetting';
 import { CasinoSettings } from './entities/users/utils/CasinoSetting';
 import { DiamondCasinoSettings } from './entities/users/utils/DiamondCasino';
 import { MatkaSettings } from './entities/users/utils/MatkaSetting';
-import app from './app';
+import { SuperMaster } from './entities/users/SuperMasterUser';
+import { Master } from './entities/users/MasterUser';
+import { SuperAgent } from './entities/users/SuperAgentUser';
+import { Agent } from './entities/users/AgentUser';
+import { MiniAdmin } from './entities/users/MiniAdminUser';
+import { Admin } from './entities/users/AdminUser';
+import { Client } from './entities/users/ClientUser';
 
 dotenv.config();
 
@@ -28,6 +35,13 @@ export const AppDataSource = new DataSource({
         Developer, 
         Whitelist, 
         TechAdmin, 
+        SuperMaster,
+        Master,
+        SuperAgent,
+        Agent,
+        MiniAdmin,
+        Admin,
+        Client,
         SoccerSettings, 
         TennisSettings, 
         CricketSettings, 
@@ -35,7 +49,7 @@ export const AppDataSource = new DataSource({
         DiamondCasinoSettings, 
         MatkaSettings
     ],
-    synchronize: true,
+    synchronize: false,
     logging: process.env.NODE_ENV === 'development',
 });
 
