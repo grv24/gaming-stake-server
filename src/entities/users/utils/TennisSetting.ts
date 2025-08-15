@@ -56,7 +56,7 @@ export class TennisSettings {
   @Column({ type: 'float', default: 0 })
   winningLimit!: number;
 
-  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total" })
   commissionToType !: string;
 
   @Column({ type: "uuid", nullable: true })
@@ -65,7 +65,7 @@ export class TennisSettings {
   @Column({ type: 'int', default: 0 })
   matchCommission!: number;
 
-  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] })
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total" })
   partnershipToType !: string;
 
   @Column({ type: "uuid", nullable: true })

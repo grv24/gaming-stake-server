@@ -82,6 +82,14 @@ export class Client {
   @Column({ default: 0 })
   totalSettledAmount!: number;
 
+    // account kitne ka bana tha
+  @Column({ type: 'float', default: 0 })
+  creditRef!: number;
+
+  // upper wale se kitna lena h ya dena h
+  @Column({ type: 'float', default: 0 })
+  uplineSettlement!: number;
+
   @Column({ default: 0})
   exposure!: number;
 

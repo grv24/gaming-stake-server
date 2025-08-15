@@ -95,6 +95,14 @@ export class Admin {
   @Column({ type: 'float', default: 10000000 })
   exposureLimit!: number;
 
+    // account kitne ka bana tha
+  @Column({ type: 'float', default: 0 })
+  creditRef!: number;
+
+  // upper wale se kitna lena h ya dena h
+  @Column({ type: 'float', default: 0 })
+  uplineSettlement!: number;
+
   // Feature Access Permissions
   @Column({ type: 'boolean', default: false })
   whiteListAccess!: boolean;
