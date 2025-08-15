@@ -391,6 +391,8 @@ export const getAllAgent = async (req: Request, res: Response) => {
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'allowedNoOfUsers', 'createdUsersCount',
+                'fancyLocked', 'userLocked', 'bettingLocked',
+
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',
                 'totalSettledAmount', 'whiteListAccess', 'depositWithdrawlAccess',
@@ -447,6 +449,8 @@ export const getAgentById = async (req: Request, res: Response) => {
                 'isActive', 'createdAt', 'updatedAt', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'allowedNoOfUsers', 'createdUsersCount',
+                'fancyLocked', 'userLocked', 'bettingLocked',
+
                 'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
                 'matkaSettingId', 'casinoSettingId', 'diamondCasinoSettingId',
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',

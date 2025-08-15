@@ -384,6 +384,7 @@ export const getAllClient = async (req: Request, res: Response) => {
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
+                'fancyLocked', 'userLocked', 'bettingLocked', 
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',
                 'totalSettledAmount', 'depositWithdrawlAccess',
@@ -434,6 +435,7 @@ export const getClientById = async (req: Request, res: Response) => {
             select: [
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'createdAt', 'updatedAt', 'whiteListId',
+                'fancyLocked', 'userLocked', 'bettingLocked', 
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
                 'matkaSettingId', 'casinoSettingId', 'diamondCasinoSettingId',
