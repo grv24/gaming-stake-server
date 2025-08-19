@@ -11,6 +11,8 @@ export const addBalance = async (req: Request, res: Response) => {
     try {
 
         const uplineId = req.user?.id;
+        const uplineBalance = req.user?.balance;
+
         const { userId, userType, amount } = req.body;
 
         if (!userId || !userType || amount === undefined || amount <= 0) {
@@ -18,6 +20,14 @@ export const addBalance = async (req: Request, res: Response) => {
             return res.status(400).json({
                 success: false,
                 error: 'Valid userId, userType and positive amount are required'
+            });
+        }
+
+        if (amount > uplineBalance) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Insufficient balance'
             });
         }
 
@@ -39,7 +49,7 @@ export const addBalance = async (req: Request, res: Response) => {
             });
         }
 
-        if(user.uplineId == uplineId) {
+        if (user.uplineId == uplineId) {
             await queryRunner.rollbackTransaction();
             return res.status(404).json({
                 success: false,
@@ -48,7 +58,8 @@ export const addBalance = async (req: Request, res: Response) => {
         }
 
         const newBalance = Number(user.balance) + Number(amount);
-        await userRepository.update(userId, { balance: newBalance });
+        const newUplineSettlement = Number(user.uplineSettlement) + Number(user.balance);
+        await userRepository.update(userId, { balance: newBalance, uplineSettlement: newUplineSettlement });
 
         await queryRunner.commitTransaction();
 
@@ -97,6 +108,96 @@ export const lockUserAndDownlineMultiTable = async (req: Request, res: Response)
             const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
 
             await repo.update(id, { userLocked: lockValue });
+
+            const childRoles = DOWNLINE_MAPPING[currentType];
+            if (!childRoles.length) return;
+
+            for (const role of childRoles) {
+                const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
+                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+
+                for (const child of children) {
+                    await lockRecursive(child.id, role as UserRole);
+                }
+            }
+        };
+
+        await lockRecursive(userId, userType as UserRole);
+
+        return res.status(200).json({
+            status: true,
+            message: `User (${userType}) and all downline users have been locked.`
+        });
+    } catch (error) {
+        console.error("Error locking users:", error);
+        return res.status(500).json({ status: false, message: "Internal server error", error });
+    }
+};
+
+
+export const lockBetAndDownlineMultiTable = async (req: Request, res: Response) => {
+    const { userId, userType, lockValue } = req.body;
+
+    if (!userId || !userType) {
+        return res.status(400).json({ message: "userId and userType are required" });
+    }
+
+    if (!USER_TABLES[userType]) {
+        return res.status(400).json({ message: `Unknown userType: ${userType}` });
+    }
+
+    try {
+        type UserRole = keyof typeof DOWNLINE_MAPPING;
+
+        const lockRecursive = async (id: string, currentType: UserRole) => {
+            const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
+
+            await repo.update(id, { bettingLocked: lockValue });
+
+            const childRoles = DOWNLINE_MAPPING[currentType];
+            if (!childRoles.length) return;
+
+            for (const role of childRoles) {
+                const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
+                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+
+                for (const child of children) {
+                    await lockRecursive(child.id, role as UserRole);
+                }
+            }
+        };
+
+        await lockRecursive(userId, userType as UserRole);
+
+        return res.status(200).json({
+            status: true,
+            message: `User (${userType}) and all downline users have been locked.`
+        });
+    } catch (error) {
+        console.error("Error locking users:", error);
+        return res.status(500).json({ status: false, message: "Internal server error", error });
+    }
+};
+
+
+export const lockFancyAndDownlineMultiTable = async (req: Request, res: Response) => {
+    const { userId, userType, lockValue } = req.body;
+
+    if (!userId || !userType) {
+        return res.status(400).json({ message: "userId and userType are required" });
+    }
+
+    if (!USER_TABLES[userType]) {
+        return res.status(400).json({ message: `Unknown userType: ${userType}` });
+    }
+
+    try {
+        type UserRole = keyof typeof DOWNLINE_MAPPING;
+
+        const lockRecursive = async (id: string, currentType: UserRole) => {
+            const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
+
+            await repo.update(id, { fancyLocked: lockValue });
 
             const childRoles = DOWNLINE_MAPPING[currentType];
             if (!childRoles.length) return;
