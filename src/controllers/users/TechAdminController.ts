@@ -29,7 +29,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
         const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
 
         // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: req.body.whiteListId } });
+        const whiteListData = await whitelistRepo.findOne({ where: { TechAdminUrl: req.body.techAdminUrl } });
         if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
@@ -38,10 +38,11 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             });
         }
 
+        const whiteListId = whiteListData.id;
+
         const {
             loginId,
             user_password,
-            whiteListId,
             groupID,
             transactionPassword,
             referallCode,

@@ -20,7 +20,8 @@ export const createSuperAgent = async (req: Request, res: Response) => {
 
     try {
         const uplineId = req.user?.id;
-
+        const whiteListId = req.user?.whiteListId;
+        
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const superAgentRepo = queryRunner.manager.getRepository(SuperAgent);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
@@ -31,7 +32,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
 
         // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: req.body.whiteListId } });
+        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId }});
         if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
@@ -43,7 +44,6 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         const {
             loginId,
             user_password,
-            whiteListId,
             groupID,
             transactionPassword,
             referallCode,

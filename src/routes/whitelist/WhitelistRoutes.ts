@@ -4,7 +4,8 @@ import path from 'path';
 import {
   getWhitelists,
   createWhitelist,
-  deleteWhitelist
+  deleteWhitelist,
+  getWhitelistByUrl
 } from '../../controllers/whitelist/WhitelistController';
 import { developerAuth } from '../../middlewares/RoleAuth';
 const router = express.Router();
@@ -39,6 +40,7 @@ const upload = multer({
 });
 
 router.get('/', developerAuth, getWhitelists);
+router.get("/single", getWhitelistByUrl);
 router.post(
   '/',
   developerAuth,

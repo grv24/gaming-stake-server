@@ -12,6 +12,8 @@ import superAgentUserRouter from './routes/users/SuperAgentRoutes';
 import superMasterUserRouter from './routes/users/SuperMasterRoutes';
 import techAdminUserRouter from './routes/users/TechAdminRoutes';
 import whitelistRouter from './routes/whitelist/WhitelistRoutes';
+import CasinoRouter from './routes/casino/CasinoRoutes';
+import SportRouter from './routes/sports/SportRoutes';
 
 
 const app: Application = express();
@@ -19,6 +21,8 @@ const app: Application = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
+
+
 
 app.use('/api/v1/users/developers/', developerUserRouter);
 app.use('/api/v1/users/admins/', adminUserRouter);
@@ -30,6 +34,7 @@ app.use('/api/v1/users/super-agents/', superAgentUserRouter);
 app.use('/api/v1/users/mini-admins/', miniAdminUserRouter);
 app.use('/api/v1/users/tech-admins/', techAdminUserRouter);
 app.use('/api/v1/whitelists', whitelistRouter);
-
+app.use('/api/v1/casinos', CasinoRouter);
+app.use('/api/v1/sports', SportRouter);
 
 export default app;

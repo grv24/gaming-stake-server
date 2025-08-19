@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/grv24/gaming-stake-server#readme",
   "dependencies": {
+    "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
     "class-transformer": "^0.5.1",
@@ -30,8 +31,10 @@
     "express": "^4.18.2",
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "nodemon": "^3.1.10",
     "pg": "^8.16.1",
     "redis": "^4.7.1",

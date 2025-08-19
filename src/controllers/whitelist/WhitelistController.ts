@@ -274,3 +274,32 @@ export const deleteWhitelist = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getWhitelistByUrl = async (req: Request, res: Response) => {
+  try {
+    const { url } = req.query;
+
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "url query parameter is required" });
+    }
+
+    const whitelistRepo = AppDataSource.getRepository(Whitelist);
+
+    const whitelist = await whitelistRepo.findOne({
+      where: [
+        { ClientUrl: url },
+        { AdminUrl: url },
+        { TechAdminUrl: url },
+      ],
+    });
+
+    if (!whitelist) {
+      return res.status(404).json({ error: "Whitelist not found for the given URL" });
+    }
+
+    return res.json({ data: whitelist });
+  } catch (error) {
+    console.error("Error fetching whitelist by URL:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
