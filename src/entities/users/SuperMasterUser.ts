@@ -182,6 +182,24 @@ export class SuperMaster {
   @Column({ type: "uuid" , nullable: true})
   diamondCasinoSettingId !: string;
 
+    @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total" })
+  commissionToType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  commissionToUserId !: string;
+
+  @Column({ type: 'int', default: 0 })
+  matchCommission!: number;
+
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total"  })
+  partnershipToType !: string;
+
+  @Column({ type: "uuid", nullable: true })
+  partnershipToUserId !: string;
+
+  @Column({ type: 'int', default: 0 })
+  partnership !: number;
+
   @CreateDateColumn()
   createdAt !: Date;
 

@@ -161,6 +161,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+
             // Settings IDs will be added after creation
         };
 
@@ -608,11 +609,50 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             });
         }
 
-        const { user_password, ...safeUserData } = techAdmin;
+        // const { user_password, ...safeUserData } = techAdmin;
 
         const token = jwt.sign(
             {
-                user: safeUserData,
+                user: {
+                    userId: techAdmin.id,
+                    PersonalDetails: {
+                        userName: techAdmin.userName,
+                        loginId: techAdmin.loginId,
+                        user_password: techAdmin.user_password,
+                        countryCode: techAdmin.countryCode,
+                        mobile: techAdmin.mobile,
+                        idIsActive: techAdmin.isActive,
+                        isAutoRegisteredUser: techAdmin.isAutoRegisteredUser
+                    },
+                    IpAddress: techAdmin.IpAddress,
+                    uplineId: techAdmin.uplineId,
+                    fancyLocked: techAdmin.fancyLocked,
+                    bettingLocked: techAdmin.bettingLocked,
+                    userLocked: techAdmin.userLocked,
+                    // closedAccounts: techAdmin,
+                    __type: techAdmin.__type,
+                    remarks: techAdmin.remarks,
+                    // featureAccessPermissions: techAdmin,
+                    AccountDetails: {
+                        liability: techAdmin.liability,
+                        Balance: techAdmin.balance,
+                        profitLoss: techAdmin.profitLoss,
+                        freeChips: techAdmin.freeChips,
+                        totalSettledAmount: techAdmin.totalSettledAmount,
+                        Exposure: techAdmin.exposure,
+                        ExposureLimit: techAdmin.exposureLimit,
+                    },
+                    allowedNoOfUsers: techAdmin.allowedNoOfUsers,
+                    createdUsersCount: techAdmin.createdUsersCount,
+                    // commissionSettings: techAdmin.commissionSettings,
+                    commissionLenaYaDena: {
+                        commissionLena: techAdmin.commissionLena,
+                        commissionDena: techAdmin.commissionDena,
+                    },
+                    groupID: techAdmin.groupID,
+                    createdAt: techAdmin.createdAt,
+                    updatedAt: techAdmin.updatedAt,
+                },
                 permissions: {
                     canDeleteUsers: techAdmin.canDeleteUsers,
                     canDeleteBets: techAdmin.canDeleteBets,
@@ -666,7 +706,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             message: "techAdmin user data",
             data: {
                 token,
-                user: safeUserData,
+                // user: safeUserData,
                 socketRequired: true
             }
         });

@@ -34,7 +34,7 @@ export const createClient = async (req: Request, res: Response) => {
         const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
 
         // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId }});
+        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId } });
         if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
@@ -83,6 +83,10 @@ export const createClient = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
+            commissionToType,
+            matchCommission,
+            partnershipToType,
+            partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -155,6 +159,12 @@ export const createClient = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+            commissionToType,
+            commissionToUserId: uplineId,
+            matchCommission,
+            partnershipToType,
+            partnershipToUserId: uplineId,
+            partnership,
         };
 
         const savedClient = await clientRepo.save(clientData);
@@ -386,7 +396,7 @@ export const getAllClient = async (req: Request, res: Response) => {
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
-                'fancyLocked', 'userLocked', 'bettingLocked', 
+                'fancyLocked', 'userLocked', 'bettingLocked',
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',
                 'totalSettledAmount', 'depositWithdrawlAccess',
@@ -437,7 +447,7 @@ export const getClientById = async (req: Request, res: Response) => {
             select: [
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'createdAt', 'updatedAt', 'whiteListId',
-                'fancyLocked', 'userLocked', 'bettingLocked', 
+                'fancyLocked', 'userLocked', 'bettingLocked',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
                 'matkaSettingId', 'casinoSettingId', 'diamondCasinoSettingId',
@@ -596,7 +606,54 @@ export const clientLogin = async (req: Request, res: Response) => {
 
         const token = jwt.sign(
             {
-                user: safeUserData,
+                user: {
+                    userId: client.id,
+                    PersonalDetails: {
+                        userName: client.userName,
+                        loginId: client.loginId,
+                        user_password: client.user_password,
+                        countryCode: client.countryCode,
+                        mobile: client.mobile,
+                        idIsActive: client.isActive,
+                        isAutoRegisteredUser: client.isAutoRegisteredUser
+                    },
+                    IpAddress: client.IpAddress,
+                    uplineId: client.uplineId,
+                    fancyLocked: client.fancyLocked,
+                    bettingLocked: client.bettingLocked,
+                    userLocked: client.userLocked,
+                    // closedAccounts: user,
+                    __type: client.__type,
+                    remarks: client.remarks,
+                    // featureAccessPermissions: user,
+                    AccountDetails: {
+                        liability: client.liability,
+                        Balance: client.balance,
+                        profitLoss: client.profitLoss,
+                        freeChips: client.freeChips,
+                        totalSettledAmount: client.totalSettledAmount,
+                        Exposure: client.exposure,
+                        ExposureLimit: client.exposureLimit,
+                    },
+                    allowedNoOfUsers: null,
+                    createdUsersCount: null,
+                    commissionSettings: {
+                        commissionToType: client.commissionToType,
+                        commissionToUserId: client.commissionToUserId,
+                        matchCommission: client.matchCommission,
+                        partnershipToType: client.partnershipToType,
+                        partnershipToUserId: client.partnershipToUserId,
+                        partnership: client.partnership
+                    },
+                    commissionLenaYaDena: {
+                        commissionLena: client.commissionLena,
+                        commissionDena: client.commissionDena,
+                    },
+                    groupID: client.groupID,
+                    createdAt: client.createdAt,
+                    updatedAt: client.updatedAt,
+
+                },
                 permissions: {
                     canBet: !client.bettingLocked,
                     canWithdraw: client.depositWithdrawlAccess,
@@ -647,7 +704,7 @@ export const clientLogin = async (req: Request, res: Response) => {
             message: "Client login successful",
             data: {
                 token,
-                user: safeUserData,
+                // user: safeUserData,
                 socketRequired: true
             }
         });

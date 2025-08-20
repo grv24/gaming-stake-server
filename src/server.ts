@@ -52,7 +52,7 @@ export const AppDataSource = new DataSource({
         DiamondCasinoSettings, 
         MatkaSettings
     ],
-    synchronize: false,
+    synchronize: true,
     logging: process.env.NODE_ENV === 'development',
 });
 

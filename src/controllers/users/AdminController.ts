@@ -40,7 +40,7 @@ export const createAdmin = async (req: Request, res: Response) => {
         const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
 
         // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId }});
+        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId } });
         if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
@@ -91,6 +91,10 @@ export const createAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
+            commissionToType,
+            matchCommission,
+            partnershipToType,
+            partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -165,6 +169,12 @@ export const createAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+            commissionToType,
+            commissionToUserId: uplineId,
+            matchCommission,
+            partnershipToType,
+            partnershipToUserId: uplineId,
+            partnership,
         };
 
         const savedAdmin = await adminRepo.save(adminData);
@@ -675,7 +685,53 @@ export const adminLogin = async (req: Request, res: Response) => {
 
         const token = jwt.sign(
             {
-                user: safeUserData,
+                user: {
+                    userId: user.id,
+                    PersonalDetails: {
+                        userName: user.userName,
+                        loginId: user.loginId,
+                        user_password: user.user_password,
+                        countryCode: user.countryCode,
+                        mobile: user.mobile,
+                        idIsActive: user.isActive,
+                        isAutoRegisteredUser: user.isAutoRegisteredUser
+                    },
+                    IpAddress: user.IpAddress,
+                    uplineId: user.uplineId,
+                    fancyLocked: user.fancyLocked,
+                    bettingLocked: user.bettingLocked,
+                    userLocked: user.userLocked,
+                    // closedAccounts: user,
+                    __type: user.__type,
+                    remarks: user.remarks,
+                    // featureAccessPermissions: user,
+                    AccountDetails: {
+                        liability: user.liability,
+                        Balance: user.balance,
+                        profitLoss: user.profitLoss,
+                        freeChips: user.freeChips,
+                        totalSettledAmount: user.totalSettledAmount,
+                        Exposure: user.exposure,
+                        ExposureLimit: user.exposureLimit,
+                    },
+                    allowedNoOfUsers: user.allowedNoOfUsers,
+                    createdUsersCount: user.createdUsersCount,
+                    commissionSettings: {
+                        commissionToType: user.commissionToType,
+                        commissionToUserId: user.commissionToUserId,
+                        matchCommission: user.matchCommission,
+                        partnershipToType: user.partnershipToType,
+                        partnershipToUserId: user.partnershipToUserId,
+                        partnership: user.partnership
+                    },
+                    commissionLenaYaDena: {
+                        commissionLena: user.commissionLena,
+                        commissionDena: user.commissionDena,
+                    },
+                    groupID: user.groupID,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt,
+                },
                 userType: detectedUserType,
                 permissions: {
                     ...basePermissions,
@@ -695,7 +751,7 @@ export const adminLogin = async (req: Request, res: Response) => {
         );
 
         if (io) {
-            const existingSocket = getUserSocket( io, user.id);
+            const existingSocket = getUserSocket(io, user.id);
 
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {
@@ -727,7 +783,7 @@ export const adminLogin = async (req: Request, res: Response) => {
             message: 'Admin login successful',
             data: {
                 token,
-                user: safeUserData,
+                // user: safeUserData,
                 userType: detectedUserType,
                 socketRequired: true
             }
