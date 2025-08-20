@@ -26,7 +26,7 @@ export function setupSocket(server: HttpServer) {
     console.log("Socket connected:", socket.id);
 
     // Login
-    socket.on("login", ({ userId, userType = "user" }) => {
+    socket.on("login", ({ userId, userType }) => {
       if (!userId) return socket.emit("error", "userId is required");
 
       // Disconnect previous connection
@@ -35,12 +35,17 @@ export function setupSocket(server: HttpServer) {
 
       activeConnections[userId] = { socketId: socket.id, userType };
 
-      // Join rooms
+      // Always join personal room
       socket.join(`user_${userId}`);
+
+      // Join global rooms depending on userType
+      if (userType === "client") socket.join("clients");
+      if (userType === "admin") socket.join("admins");
       if (userType === "techAdmin") socket.join("techAdmins");
 
       console.log(`${userType} ${userId} connected`);
     });
+
 
     // Heartbeat
     socket.on("ping", () => socket.emit("pong"));

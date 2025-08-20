@@ -10,6 +10,7 @@ import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
 import { TennisSettings } from '../../entities/users/utils/TennisSetting';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { getUserSocket } from '../../config/socketHandler';
 
 export const createTechAdmin = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -632,7 +633,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
         );
 
         if (io) {
-            const existingSocket = io.getUserSocket(techAdmin.id);
+            const existingSocket = getUserSocket(io, techAdmin.id);
 
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {

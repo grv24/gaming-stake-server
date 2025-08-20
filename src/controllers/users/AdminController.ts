@@ -19,6 +19,7 @@ import { Master } from '../../entities/users/MasterUser';
 import { SuperAgent } from '../../entities/users/SuperAgentUser';
 import { Agent } from '../../entities/users/AgentUser';
 import { USER_TABLES } from '../../Helpers/users/Roles';
+import { getUserSocket } from '../../config/socketHandler';
 
 export const createAdmin = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -694,7 +695,7 @@ export const adminLogin = async (req: Request, res: Response) => {
         );
 
         if (io) {
-            const existingSocket = io.getUserSocket(user.id);
+            const existingSocket = getUserSocket( io, user.id);
 
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {

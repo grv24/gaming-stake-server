@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { getUserSocket } from '../../config/socketHandler';
 
 export const createClient = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -615,7 +616,7 @@ export const clientLogin = async (req: Request, res: Response) => {
         );
 
         if (io) {
-            const existingSocket = io.getUserSocket(client.id);
+            const existingSocket = getUserSocket(io, client.id);
 
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {
