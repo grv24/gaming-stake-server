@@ -66,7 +66,7 @@ const startServer = async () => {
 
     // cron jobs
 
-    startCasinoCronJobs();
+    // startCasinoCronJobs();
 
 
     const PORT = process.env.PORT || 4000;

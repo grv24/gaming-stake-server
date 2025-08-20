@@ -24,32 +24,55 @@ export function setupSocket(server: HttpServer) {
 
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
-
+  
     // Login
     socket.on("login", ({ userId, userType }) => {
       if (!userId) return socket.emit("error", "userId is required");
-
-      // Disconnect previous connection
+  
+      // Check for existing connection and force logout
       const existing = activeConnections[userId];
-      if (existing) io.sockets.sockets.get(existing.socketId)?.disconnect();
-
+      if (existing) {
+        const existingSocket = io.sockets.sockets.get(existing.socketId);
+        if (existingSocket) {
+          // Send forceLogout event to existing session
+          existingSocket.emit("forceLogout", {
+            reason: "DUPLICATE_LOGIN",
+            message: "Logged in from another device",
+            timestamp: new Date().toISOString()
+          });
+          
+          // Disconnect after sending the event
+          setTimeout(() => {
+            existingSocket.disconnect();
+          }, 100); // Small delay to ensure event is sent
+        }
+      }
+  
+      // Store new connection
       activeConnections[userId] = { socketId: socket.id, userType };
-
+  
       // Always join personal room
       socket.join(`user_${userId}`);
-
+  
       // Join global rooms depending on userType
       if (userType === "client") socket.join("clients");
       if (userType === "admin") socket.join("admins");
       if (userType === "techAdmin") socket.join("techAdmins");
-
+  
       console.log(`${userType} ${userId} connected`);
+      
+      // Notify other users of the same type about new login
+      if (userType === "techAdmin") {
+        socket.to("techAdmins").emit("adminLogin", {
+          adminId: userId,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
-
-
+  
     // Heartbeat
     socket.on("ping", () => socket.emit("pong"));
-
+  
     // Logout
     socket.on("logout", ({ userId }) => {
       if (userId && activeConnections[userId]?.socketId === socket.id) {
@@ -59,7 +82,7 @@ export function setupSocket(server: HttpServer) {
         console.log(`${userId} logged out`);
       }
     });
-
+  
     // Disconnect
     socket.on("disconnect", () => {
       const userId = Object.keys(activeConnections).find(
