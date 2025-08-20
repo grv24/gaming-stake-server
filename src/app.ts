@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 
+import userRouter from "./routes/users/UserRoutes";
 import developerUserRouter from './routes/users/DeveloperRoutes';
 import adminUserRouter from './routes/users/AdminRoutes';
 import agentUserRouter from './routes/users/AgentRoutes';
@@ -24,6 +25,7 @@ app.use(express.json());
 
 
 
+app.use('/api/v1/users', userRouter);
 app.use('/api/v1/users/developers/', developerUserRouter);
 app.use('/api/v1/users/admins/', adminUserRouter);
 app.use('/api/v1/users/clients/', clientUserRouter);

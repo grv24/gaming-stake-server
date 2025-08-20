@@ -223,3 +223,24 @@ export const lockFancyAndDownlineMultiTable = async (req: Request, res: Response
         return res.status(500).json({ status: false, message: "Internal server error", error });
     }
 };
+
+export const getUserIp = async (req: Request, res: Response) => {
+    try {
+        const ip =
+            req.headers['x-forwarded-for']?.toString().split(",")[0] ||
+            req.socket.remoteAddress ||
+            req.ip;
+
+        if (!ip) {
+            return res.status(400).json({ status: false, message: "Unable to determine IP address" });
+        }
+
+        return res.status(200).json({
+            status: true,
+            ip
+        });
+    } catch (error) {
+        console.error("Error fetching user IP:", error);
+        return res.status(500).json({ status: false, message: "Internal server error", error });
+    }
+};
