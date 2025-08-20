@@ -542,7 +542,7 @@ export const getTechAdminById = async (req: Request, res: Response) => {
 };
 
 export const techAdminLogin = async (req: Request, res: Response) => {
-    const { username, password, hostedUrl } = req.body;
+    const { IpAddress, loginId, password, hostUrl } = req.body;
     const io = req.app.get('socketio');
     const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -550,16 +550,16 @@ export const techAdminLogin = async (req: Request, res: Response) => {
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) throw new Error('JWT_SECRET is not configured');
 
-        if (!username || !password || !hostedUrl) {
+        if (!loginId || !password || !hostUrl || !IpAddress) {
             return res.status(400).json({
                 success: false,
-                error: 'Username, password, and hostedUrl are required'
+                error: 'loginId, password, hostUrl and IpAddress are required'
             });
         }
 
         const whiteListRepo = AppDataSource.getRepository(Whitelist);
         const whiteList = await whiteListRepo.findOne({
-            where: { TechAdminUrl: hostedUrl }
+            where: { TechAdminUrl: hostUrl }
         });
 
         if (!whiteList) {
@@ -572,7 +572,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
         const techAdminRepo = AppDataSource.getRepository(TechAdmin);
         const techAdmin = await techAdminRepo.findOne({
             where: {
-                loginId: username,
+                loginId,
                 whiteListId: whiteList.id
             },
             relations: [

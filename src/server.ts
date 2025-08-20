@@ -74,9 +74,11 @@ const startServer = async () => {
     
     // Setup Socket.IO
     const io = setupSocket(server);
-    
+
     // Make io accessible in routes
     app.set('socketio', io);
+
+    app.set("trust proxy", true);
     
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

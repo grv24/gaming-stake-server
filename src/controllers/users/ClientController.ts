@@ -526,7 +526,7 @@ export const getClientById = async (req: Request, res: Response) => {
 };
 
 export const clientLogin = async (req: Request, res: Response) => {
-    const { username, password, hostedUrl } = req.body;
+    const { IpAddress, loginId, password, hostUrl } = req.body;
     const io = req.app.get('socketio');
     const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -534,16 +534,16 @@ export const clientLogin = async (req: Request, res: Response) => {
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) throw new Error('JWT_SECRET is not configured');
 
-        if (!username || !password || !hostedUrl) {
+        if (!loginId || !password || !hostUrl || !IpAddress) {
             return res.status(400).json({
                 success: false,
-                error: 'Username, password, and hostedUrl are required'
+                error: 'loginId, password, hostUrl and IpAddress are required'
             });
         }
 
         const whiteListRepo = AppDataSource.getRepository(Whitelist);
         const whiteList = await whiteListRepo.findOne({
-            where: { ClientUrl: hostedUrl }
+            where: { ClientUrl: hostUrl }
         });
 
         if (!whiteList) {
@@ -556,7 +556,7 @@ export const clientLogin = async (req: Request, res: Response) => {
         const clientRepo = AppDataSource.getRepository(Client);
         const client = await clientRepo.findOne({
             where: {
-                loginId: username,
+                loginId,
                 whiteListId: whiteList.id
             },
             relations: [
