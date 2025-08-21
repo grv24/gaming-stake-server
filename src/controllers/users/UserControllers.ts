@@ -3,6 +3,8 @@ import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
+import { Whitelist } from "../../entities/whitelist/Whitelist";
+import { TechAdmin } from "../../entities/users/TechAdminUser";
 
 export const addBalance = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -192,7 +194,7 @@ export const withdrawBalance = async (req: Request, res: Response) => {
         // deduct from child balance
         const newDownlineBalance = (Number(user.balance) - Number(user.exposure)) - Number(amount);
         user.uplineSettlement -= Number(amount);
-        
+
         await userRepository.update(userId, {
             balance: newDownlineBalance
         });
@@ -718,16 +720,16 @@ export const setCreditRefForDownline = async (req: Request, res: Response) => {
             });
         }
 
-        if(user.creditRef == newCreditRef) {
+        if (user.creditRef == newCreditRef) {
 
-        } else if(user.creditRef < newCreditRef) {
+        } else if (user.creditRef < newCreditRef) {
             const diff = newCreditRef - user.creditRef;
             user.uplineSettlement -= diff;
         } else {
             const diff = user.creditRef - newCreditRef;
             user.uplineSettlement += diff;
         }
-        
+
         user.creditRef = newCreditRef;
         await userRepository.save(user);
 
@@ -747,5 +749,63 @@ export const setCreditRefForDownline = async (req: Request, res: Response) => {
         });
     } finally {
         await queryRunner.release();
+    }
+};
+
+export const getSportsAndCasinoSetting = async (req: Request, res: Response) => {
+    try {
+        const { url } = req.query;
+
+        if (!url) {
+            return res.status(400).json({ status: false, message: "url is required" });
+        }
+
+        const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        const techAdminRepo = AppDataSource.getRepository(TechAdmin);
+
+        const whiteList = await whiteListRepo.findOne({
+            where: [
+                { TechAdminUrl: url as string },
+                { AdminUrl: url as string },
+                { ClientUrl: url as string }
+            ]
+        });
+
+        if (!whiteList) {
+            return res.status(404).json({ status: false, message: "No whitelist found for given url" });
+        }
+
+        const techAdmin = await techAdminRepo.findOne({
+            where: { whiteListId: whiteList.id },
+            relations: [
+                "soccerSettings",
+                "cricketSettings",
+                "tennisSettings",
+                "matkaSettings",
+                "casinoSettings",
+                "diamondCasinoSettings"
+            ]
+        });
+
+        if (!techAdmin) {
+            return res.status(404).json({ status: false, message: "No TechAdmin found for given whitelist" });
+        }
+
+        const settings = {
+            soccerSettings: techAdmin.soccerSettings,
+            cricketSettings: techAdmin.cricketSettings,
+            tennisSettings: techAdmin.tennisSettings,
+            matkaSettings: techAdmin.matkaSettings,
+            casinoSettings: techAdmin.casinoSettings,
+            diamondCasinoSettings: techAdmin.diamondCasinoSettings
+        };
+
+        return res.status(200).json({
+            status: true,
+            data: settings
+        });
+    } catch (error) {
+        console.error("Error fetching Soccer and Casino settings:", error);
+        return res.status(500).json({ status: false, message: "Internal server error", error });
     }
 };
