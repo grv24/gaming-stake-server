@@ -73,6 +73,10 @@ export class Client {
   @Column({ type: "varchar", default: "client" })
   __type!: string;
 
+  @Column({ type: "bool", default: "false" })
+  isPanelCommission !: boolean;
+
+
   @Column({ default: 0 })
   liability!: number;
 

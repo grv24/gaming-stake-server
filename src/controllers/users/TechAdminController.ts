@@ -58,6 +58,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             userLocked = false,
             whatsappNumber,
             topBarRunningMessage,
+            isPanelCommission,
             liability = 0,
             balance = 0,
             profitLoss = 0,
@@ -161,6 +162,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+            isPanelCommission,
 
             // Settings IDs will be added after creation
         };

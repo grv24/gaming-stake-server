@@ -22,7 +22,7 @@ export class CricketSettings {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 24 })
   max_Odds_To_Bet!: number;
 
-  @Column({ type: "uuid", nullable: true })
+  @Column({ type: "varchar", nullable: true })
   sportId!: string;
 
   @Column({ default: 1 })

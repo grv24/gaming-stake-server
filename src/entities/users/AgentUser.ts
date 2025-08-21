@@ -81,6 +81,10 @@ export class Agent {
   @Column({ type: "varchar", default: "agent" })
   __type!: string;
 
+  @Column({ type: "bool", default: "false" })
+  isPanelCommission !: boolean;
+
+
   // Account Details
   @Column({ type: 'float', default: 0 })
   liability!: number;

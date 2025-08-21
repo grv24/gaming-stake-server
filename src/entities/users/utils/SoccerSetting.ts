@@ -21,7 +21,7 @@ export class SoccerSettings {
   @Column({ type: 'float', default: 24 })
   maxOddsToBet!: number;
 
-  @Column({ type: "uuid", nullable: true })
+  @Column({ type: "varchar", nullable: true })
   sportId!: string;
 
   @Column({ default: 1 })

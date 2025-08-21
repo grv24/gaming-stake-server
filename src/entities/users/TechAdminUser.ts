@@ -112,6 +112,9 @@ export class TechAdmin {
   @Column({ type: 'float', default: 10000000 })
   exposureLimit!: number;
 
+  @Column({ type: "bool", default: "false" })
+  isPanelCommission !: boolean;
+
   // Feature Access Permissions
   @Column({ default: false })
   whiteListAccess!: boolean;
