@@ -284,8 +284,6 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
                     allUsers.push({
                         ...child,
                     });
-
-                    await fetchChildren(child.id);
                 }
             }
         };
