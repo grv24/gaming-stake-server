@@ -140,7 +140,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: true,
+            isActive: false,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'admin',
@@ -799,6 +799,74 @@ export const adminLogin = async (req: Request, res: Response) => {
         return res.status(500).json({
             status: false,
             message: errorMessage
+        });
+    }
+};
+
+export const changeOwnPassword = async (req: Request, res: Response) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userType = req.__type as AdminUserType;
+        const userId = req.user?.id;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password and new password are required'
+            });
+        }
+
+        if (!userType || !userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized - invalid token data'
+            });
+        }
+
+        const entity = USER_TABLES[userType];
+        if (!entity) {
+            return res.status(400).json({
+                success: false,
+                error: `Unsupported user type: ${userType}`
+            });
+        }
+
+        const repo = AppDataSource.getRepository(entity);
+
+        const user = await repo.findOne({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        if (user.user_password !== currentPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password does not match'
+            });
+        }
+
+        user.user_password = newPassword;
+        user.isActive = true;
+        await repo.save(user);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+
+    } catch (error) {
+        console.error('Error changing own password:', error);
+
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'Internal server error';
+
+        return res.status(500).json({
+            success: false,
+            error: errorMessage
         });
     }
 };

@@ -130,7 +130,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: true,
+            isActive: false,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'techAdmin',
@@ -724,3 +724,48 @@ export const techAdminLogin = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const changeOwnPassword = async (req: Request, res: Response) => {
+
+    try {
+        
+        const { currentPassword, newPassword } = req.body;
+        const user = req.user;
+
+        const techAdminRepo = AppDataSource.getRepository(TechAdmin);
+
+        const techAdminUser = await techAdminRepo.findOne({ where: { id: req.user?.id } });
+
+        if (!techAdminUser) {
+            return res.status(400).json({
+                success: false,
+                error: 'User not found'
+            })
+        }
+
+        if (techAdminUser?.user_password !== currentPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password does not match'
+            })
+        }
+
+        techAdminUser.isActive = true;
+        techAdminUser.user_password = newPassword;
+
+        await techAdminRepo.save(techAdminUser);
+
+    } catch (error: any) {
+        console.error('Error changing own password:', error);
+
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'Internal server error';
+
+        res.status(500).json({
+            status: false,
+            message: "something went wrong"
+        });
+    }
+
+}

@@ -132,7 +132,7 @@ export const createClient = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: true,
+            isActive: false,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'client',
@@ -722,3 +722,48 @@ export const clientLogin = async (req: Request, res: Response) => {
         });
     }
 };
+
+
+export const changeOwnPassword = async (req: Request, res: Response) => {
+
+    try {
+        
+        const { currentPassword, newPassword } = req.body;
+
+        const clientRepo = AppDataSource.getRepository(Client);
+
+        const clientUser = await clientRepo.findOne({ where: { id: req.user?.id } });
+
+        if (!clientUser) {
+            return res.status(400).json({
+                success: false,
+                error: 'User not found'
+            })
+        }
+
+        if (clientUser?.user_password !== currentPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password does not match'
+            })
+        }
+
+        clientUser.isActive = true;
+        clientUser.user_password = newPassword;
+
+        await clientRepo.save(clientUser);
+
+    } catch (error: any) {
+        console.error('Error changing own password:', error);
+
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'Internal server error';
+
+        res.status(500).json({
+            status: false,
+            message: "something went wrong"
+        });
+    }
+
+}

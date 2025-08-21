@@ -128,7 +128,7 @@ export const createMiniAdmin = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: true,
+            isActive: false,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'miniAdmin',

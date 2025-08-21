@@ -7,6 +7,7 @@ declare global {
         interface Request {
             user?: any;
             token?: string;
+            __type?: string;
         }
     }
 }
@@ -62,6 +63,7 @@ const roleAuth = (requiredRole: Role) => {
 
             req.user = decoded.user;
             req.token = token;
+            req.__type = decoded.user.__type;
 
             next();
         } catch (error: any) {
