@@ -101,7 +101,7 @@ export const createMiniAdmin = async (req: Request, res: Response) => {
         }
 
         // Check for existing mini admin
-        const existingMiniAdmin = await miniAdminRepo.findOne({ where: { loginId } });
+        const existingMiniAdmin = await miniAdminRepo.findOne({ where: { loginId, whiteListId } });
         if (existingMiniAdmin) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

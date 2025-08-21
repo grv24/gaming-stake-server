@@ -38,7 +38,7 @@ export class Admin {
   @Column({ length: 32, nullable: true })
   userName!: string;
 
-  @Column({ unique: true })
+  @Column({ type: "varchar" })
   loginId!: string;
 
   @Column({ nullable: true })

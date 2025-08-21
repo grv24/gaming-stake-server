@@ -105,7 +105,7 @@ export const createClient = async (req: Request, res: Response) => {
         }
 
         // Check for existing client
-        const existingClient = await clientRepo.findOne({ where: { loginId } });
+        const existingClient = await clientRepo.findOne({ where: { loginId, whiteListId } });
         if (existingClient) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

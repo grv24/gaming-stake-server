@@ -101,7 +101,7 @@ export const createMaster = async (req: Request, res: Response) => {
         }
 
         // Check for existing master
-        const existingMaster = await masterRepo.findOne({ where: { loginId } });
+        const existingMaster = await masterRepo.findOne({ where: { loginId, whiteListId } });
         if (existingMaster) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

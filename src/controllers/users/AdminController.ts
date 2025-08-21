@@ -113,7 +113,7 @@ export const createAdmin = async (req: Request, res: Response) => {
         }
 
         // Check for existing admin
-        const existingAdmin = await adminRepo.findOne({ where: { loginId } });
+        const existingAdmin = await adminRepo.findOne({ where: { loginId, whiteListId } });
         if (existingAdmin) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

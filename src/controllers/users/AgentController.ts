@@ -102,7 +102,7 @@ export const createAgent = async (req: Request, res: Response) => {
         }
 
         // Check for existing agent
-        const existingAgent = await agentRepo.findOne({ where: { loginId } });
+        const existingAgent = await agentRepo.findOne({ where: { loginId, whiteListId } });
         if (existingAgent) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

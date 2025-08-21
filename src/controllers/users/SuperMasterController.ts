@@ -101,7 +101,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         }
 
         // Check for existing super master
-        const existingSuperMaster = await superMasterRepo.findOne({ where: { loginId } });
+        const existingSuperMaster = await superMasterRepo.findOne({ where: { loginId, whiteListId } });
         if (existingSuperMaster) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({

@@ -103,7 +103,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
         }
 
         // Check for existing admin
-        const existingAdmin = await techAdminRepo.findOne({ where: { loginId } });
+        const existingAdmin = await techAdminRepo.findOne({ where: { loginId, whiteListId } });
         if (existingAdmin) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({
@@ -391,7 +391,7 @@ export const getAllTechAdmin = async (req: Request, res: Response) => {
         const [techAdmins, total] = await techAdminRepo.findAndCount({
             where,
             select: [
-                'id', 'userName','user_password', 'loginId', 'countryCode', 'mobile',
+                'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'fancyLocked', 'userLocked', 'bettingLocked',
@@ -625,7 +625,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
                         isAutoRegisteredUser: techAdmin.isAutoRegisteredUser
                     },
                     transactionPassword: techAdmin.transactionPassword,
-                    whitelistId: techAdmin.whiteListId,
+                    whiteListId: techAdmin.whiteListId,
                     IpAddress: techAdmin.IpAddress,
                     uplineId: techAdmin.uplineId,
                     fancyLocked: techAdmin.fancyLocked,

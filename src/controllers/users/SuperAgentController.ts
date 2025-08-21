@@ -101,7 +101,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         }
 
         // Check for existing super agent
-        const existingSuperAgent = await superAgentRepo.findOne({ where: { loginId } });
+        const existingSuperAgent = await superAgentRepo.findOne({ where: { loginId, whiteListId } });
         if (existingSuperAgent) {
             await queryRunner.rollbackTransaction();
             return res.status(409).json({
