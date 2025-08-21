@@ -104,7 +104,7 @@ export const loginDeveloper = async (req: Request, res: Response) => {
     }
 
     const sanitizedDeveloper = {
-      id: developer.id,
+      userId: developer.id,
       userName: developer.userName,
       loginId: developer.loginId,
       isActive: developer.isActive,
