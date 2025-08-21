@@ -86,6 +86,10 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
+            commissionToType,
+            matchCommission,
+            partnershipToType,
+            partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -163,6 +167,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             commissionLena,
             commissionDena,
             isPanelCommission,
+            commissionToType,
+            commissionToUserId: uplineId,
+            matchCommission,
+            partnershipToType,
+            partnershipToUserId: uplineId,
+            partnership,
 
             // Settings IDs will be added after creation
         };
@@ -756,6 +766,9 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             })
         }
 
+        const transactionCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+        techAdminUser.transactionPassword = transactionCode;
+
         techAdminUser.isActive = true;
         techAdminUser.user_password = newPassword;
 
@@ -764,6 +777,9 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         res.status(200).json({
             status: true,
             message: "User is now active",
+            data: {
+                transactionPassword: transactionCode
+            }
         });
 
     } catch (error: any) {

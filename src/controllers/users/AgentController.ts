@@ -85,6 +85,10 @@ export const createAgent = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
+             commissionToType,
+            matchCommission,
+            partnershipToType,
+            partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -161,6 +165,12 @@ export const createAgent = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+             commissionToType,
+            commissionToUserId: uplineId,
+            matchCommission,
+            partnershipToType,
+            partnershipToUserId: uplineId,
+            partnership,
         };
 
         const savedAgent = await agentRepo.save(agentData);

@@ -752,14 +752,21 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             })
         }
 
+
+        const transactionCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+        clientUser.transactionPassword = transactionCode;
+
         clientUser.isActive = true;
         clientUser.user_password = newPassword;
-
+        
         await clientRepo.save(clientUser);
 
-        res.status(200).json({
-            status: true,
-            message: "User is now active",
+        return res.status(200).json({
+            success: true,
+            message: 'User is now active',
+            data: {
+                transactionPassword: transactionCode
+            }
         });
 
     } catch (error: any) {

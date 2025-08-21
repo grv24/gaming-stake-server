@@ -84,6 +84,10 @@ export const createMaster = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
+            commissionToType,
+            matchCommission,
+            partnershipToType,
+            partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -159,6 +163,12 @@ export const createMaster = async (req: Request, res: Response) => {
             partnerShipWiseCommission,
             commissionLena,
             commissionDena,
+             commissionToType,
+            commissionToUserId: uplineId,
+            matchCommission,
+            partnershipToType,
+            partnershipToUserId: uplineId,
+            partnership,
         };
 
         const savedMaster = await masterRepo.save(masterData);
