@@ -618,6 +618,7 @@ export const clientLogin = async (req: Request, res: Response) => {
                         isAutoRegisteredUser: client.isAutoRegisteredUser
                     },
                     IpAddress: client.IpAddress,
+                    transactionPassword: client.transactionPassword,
                     uplineId: client.uplineId,
                     whiteListId: client.whiteListId,
                     fancyLocked: client.fancyLocked,

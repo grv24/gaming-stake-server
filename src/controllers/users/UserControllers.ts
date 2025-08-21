@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 
 export const addBalance = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -9,25 +10,33 @@ export const addBalance = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
-
         const uplineId = req.user?.userId;
         const uplineBalance = req.user?.AccountDetails?.Balance;
+        const uplineTransactionPassword = req.user?.transactionPassword;
 
-        if (!uplineBalance) {
+        if (uplineBalance === undefined) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'upline balnce is required'
+                error: 'Upline balance is required'
             });
         }
 
-        const { userId, userType, amount } = req.body;
+        const { userId, userType, amount, remark, transactionPassword } = req.body;
 
         if (!userId || !userType || amount === undefined || amount <= 0) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
                 error: 'Valid userId, userType and positive amount are required'
+            });
+        }
+
+        if (transactionPassword !== uplineTransactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Incorrect transaction password'
             });
         }
 
@@ -57,17 +66,36 @@ export const addBalance = async (req: Request, res: Response) => {
             });
         }
 
-        if (user.uplineId == uplineId) {
+        if (user.uplineId !== uplineId) {
             await queryRunner.rollbackTransaction();
-            return res.status(404).json({
+            return res.status(403).json({
                 success: false,
-                error: 'This is not your downline user'
+                error: 'This is not your direct downline user'
             });
         }
 
         const newBalance = Number(user.balance) + Number(amount);
-        const newUplineSettlement = Number(user.uplineSettlement) + Number(user.balance);
-        await userRepository.update(userId, { balance: newBalance, uplineSettlement: newUplineSettlement });
+        user.uplineSettlement += Number(amount);
+
+        await userRepository.update(userId, {
+            balance: newBalance,
+            uplineSettlement: Number(user.uplineSettlement) + Number(amount)
+        });
+
+        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.userType]);
+        await uplineRepository.update(uplineId, {
+            balance: Number(uplineBalance) - Number(amount)
+        });
+
+        const transactionRepo = queryRunner.manager.getRepository(AccountTrasaction);
+        const accountTransaction = transactionRepo.create({
+            uplineUserId: uplineId,
+            downlineUserId: userId,
+            remarks: remark || "Balance added",
+            type: "deposit",
+            amount
+        });
+        await transactionRepo.save(accountTransaction);
 
         await queryRunner.commitTransaction();
 
@@ -79,7 +107,8 @@ export const addBalance = async (req: Request, res: Response) => {
                 userType,
                 previousBalance: user.balance,
                 addedAmount: amount,
-                newBalance
+                newBalance,
+                transactionId: accountTransaction.id
             }
         });
 
@@ -98,8 +127,215 @@ export const addBalance = async (req: Request, res: Response) => {
 };
 
 
-export const lockUserAndDownlineMultiTable = async (req: Request, res: Response) => {
-    const { userId, userType, lockValue } = req.body;
+export const withdrawBalance = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const uplineId = req.user?.userId;
+        const uplineBalance = req.user?.AccountDetails?.Balance;
+        const uplineTransactionPassword = req.user?.transactionPassword;
+
+        const { userId, userType, amount, remark, transactionPassword } = req.body;
+
+        if (!userId || !userType || amount === undefined || amount <= 0) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Valid userId, userType and positive amount are required'
+            });
+        }
+
+        if (transactionPassword !== uplineTransactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Incorrect transaction password'
+            });
+        }
+
+        const userRepository = queryRunner.manager.getRepository(USER_TABLES[userType]);
+        if (!userRepository) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid userType provided'
+            });
+        }
+
+        const user = await userRepository.findOne({ where: { id: userId } });
+        if (!user) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        if (user.uplineId !== uplineId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: 'This is not your direct downline user'
+            });
+        }
+
+        if (amount > (user.balance - user.exposure)) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'Insufficient downline balance'
+            });
+        }
+
+        // deduct from child balance
+        const newDownlineBalance = (Number(user.balance) - Number(user.exposure)) - Number(amount);
+        user.uplineSettlement -= Number(amount);
+        
+        await userRepository.update(userId, {
+            balance: newDownlineBalance
+        });
+
+        // add to upline balance
+        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.userType]);
+        const updatedUplineBalance = Number(uplineBalance) + Number(amount);
+        await uplineRepository.update(uplineId, {
+            balance: updatedUplineBalance
+        });
+
+        // insert into AccountTransaction table
+        const transactionRepo = queryRunner.manager.getRepository(AccountTrasaction);
+        const accountTransaction = transactionRepo.create({
+            uplineUserId: uplineId,
+            downlineUserId: userId,
+            remarks: remark || "Balance withdrawn",
+            type: "withdraw",
+            amount
+        });
+        await transactionRepo.save(accountTransaction);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Balance withdrawn successfully',
+            data: {
+                userId,
+                userType,
+                previousBalance: user.balance,
+                withdrawnAmount: amount,
+                newBalance: newDownlineBalance,
+                transactionId: accountTransaction.id
+            }
+        });
+
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error withdrawing balance:', error);
+
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+
+// export const lockUserAndDownlineMultiTable = async (req: Request, res: Response) => {
+//     const { userId, userType, lockValue } = req.body;
+
+//     if (!userId || !userType) {
+//         return res.status(400).json({ message: "userId and userType are required" });
+//     }
+
+//     if (!USER_TABLES[userType]) {
+//         return res.status(400).json({ message: `Unknown userType: ${userType}` });
+//     }
+
+//     try {
+//         type UserRole = keyof typeof DOWNLINE_MAPPING;
+
+//         const lockRecursive = async (id: string, currentType: UserRole) => {
+//             const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
+
+//             await repo.update(id, { userLocked: lockValue });
+
+//             const childRoles = DOWNLINE_MAPPING[currentType];
+//             if (!childRoles.length) return;
+
+//             for (const role of childRoles) {
+//                 const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
+//                 const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+
+//                 for (const child of children) {
+//                     await lockRecursive(child.id, role as UserRole);
+//                 }
+//             }
+//         };
+
+//         await lockRecursive(userId, userType as UserRole);
+
+//         return res.status(200).json({
+//             status: true,
+//             message: `User (${userType}) and all downline users have been locked.`
+//         });
+//     } catch (error) {
+//         console.error("Error locking users:", error);
+//         return res.status(500).json({ status: false, message: "Internal server error", error });
+//     }
+// };
+
+
+// export const lockBetAndDownlineMultiTable = async (req: Request, res: Response) => {
+//     const { userId, userType, lockValue } = req.body;
+
+//     if (!userId || !userType) {
+//         return res.status(400).json({ message: "userId and userType are required" });
+//     }
+
+//     if (!USER_TABLES[userType]) {
+//         return res.status(400).json({ message: `Unknown userType: ${userType}` });
+//     }
+
+//     try {
+//         type UserRole = keyof typeof DOWNLINE_MAPPING;
+
+//         const lockRecursive = async (id: string, currentType: UserRole) => {
+//             const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
+
+//             await repo.update(id, { bettingLocked: lockValue });
+
+//             const childRoles = DOWNLINE_MAPPING[currentType];
+//             if (!childRoles.length) return;
+
+//             for (const role of childRoles) {
+//                 const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
+//                 const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+
+//                 for (const child of children) {
+//                     await lockRecursive(child.id, role as UserRole);
+//                 }
+//             }
+//         };
+
+//         await lockRecursive(userId, userType as UserRole);
+
+//         return res.status(200).json({
+//             status: true,
+//             message: `User (${userType}) and all downline users have been locked.`
+//         });
+//     } catch (error) {
+//         console.error("Error locking users:", error);
+//         return res.status(500).json({ status: false, message: "Internal server error", error });
+//     }
+// };
+
+export const lockUserOrBetAndDownlineMultiTable = async (req: Request, res: Response) => {
+    const { userId, userType, userLockValue, betLockValue, transactionPassword } = req.body;
 
     if (!userId || !userType) {
         return res.status(400).json({ message: "userId and userType are required" });
@@ -109,20 +345,46 @@ export const lockUserAndDownlineMultiTable = async (req: Request, res: Response)
         return res.status(400).json({ message: `Unknown userType: ${userType}` });
     }
 
+    if (userLockValue === undefined && betLockValue === undefined) {
+        return res.status(400).json({ message: "At least one of userLockValue or betLockValue must be provided" });
+    }
+
+    const uplineTransactionPassword = req.user?.transactionPassword;
+
+    if (transactionPassword !== uplineTransactionPassword) {
+        return res.status(400).json({
+            success: false,
+            error: 'Incorrect transaction password'
+        });
+    }
+
     try {
         type UserRole = keyof typeof DOWNLINE_MAPPING;
 
         const lockRecursive = async (id: string, currentType: UserRole) => {
             const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
 
-            await repo.update(id, { userLocked: lockValue });
+            const updateField: any = {};
+            if (userLockValue !== undefined) {
+                updateField.userLocked = userLockValue;
+            }
+            if (betLockValue !== undefined) {
+                updateField.bettingLocked = betLockValue;
+            }
+
+            if (Object.keys(updateField).length > 0) {
+                await repo.update(id, updateField);
+            }
 
             const childRoles = DOWNLINE_MAPPING[currentType];
             if (!childRoles.length) return;
 
             for (const role of childRoles) {
                 const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
-                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
+                const children = await childRepo.find({
+                    where: { uplineId: id },
+                    select: ["id"],
+                });
 
                 for (const child of children) {
                     await lockRecursive(child.id, role as UserRole);
@@ -134,7 +396,11 @@ export const lockUserAndDownlineMultiTable = async (req: Request, res: Response)
 
         return res.status(200).json({
             status: true,
-            message: `User (${userType}) and all downline users have been locked.`
+            message: `User (${userType}) and all downline users have been updated.`,
+            appliedLocks: {
+                ...(userLockValue !== undefined && { userLocked: userLockValue }),
+                ...(betLockValue !== undefined && { bettingLocked: betLockValue }),
+            },
         });
     } catch (error) {
         console.error("Error locking users:", error);
@@ -142,50 +408,6 @@ export const lockUserAndDownlineMultiTable = async (req: Request, res: Response)
     }
 };
 
-
-export const lockBetAndDownlineMultiTable = async (req: Request, res: Response) => {
-    const { userId, userType, lockValue } = req.body;
-
-    if (!userId || !userType) {
-        return res.status(400).json({ message: "userId and userType are required" });
-    }
-
-    if (!USER_TABLES[userType]) {
-        return res.status(400).json({ message: `Unknown userType: ${userType}` });
-    }
-
-    try {
-        type UserRole = keyof typeof DOWNLINE_MAPPING;
-
-        const lockRecursive = async (id: string, currentType: UserRole) => {
-            const repo = AppDataSource.getRepository(USER_TABLES[currentType]);
-
-            await repo.update(id, { bettingLocked: lockValue });
-
-            const childRoles = DOWNLINE_MAPPING[currentType];
-            if (!childRoles.length) return;
-
-            for (const role of childRoles) {
-                const childRepo = AppDataSource.getRepository(USER_TABLES[role]);
-                const children = await childRepo.find({ where: { uplineId: id }, select: ["id"] });
-
-                for (const child of children) {
-                    await lockRecursive(child.id, role as UserRole);
-                }
-            }
-        };
-
-        await lockRecursive(userId, userType as UserRole);
-
-        return res.status(200).json({
-            status: true,
-            message: `User (${userType}) and all downline users have been locked.`
-        });
-    } catch (error) {
-        console.error("Error locking users:", error);
-        return res.status(500).json({ status: false, message: "Internal server error", error });
-    }
-};
 
 
 export const lockFancyAndDownlineMultiTable = async (req: Request, res: Response) => {
@@ -302,5 +524,228 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
             success: false,
             error: "Internal server error"
         });
+    }
+};
+
+export const setExposureLimitForDownline = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const uplineId = req.user?.userId;
+        const uplineTransactionPassword = req.user?.transactionPassword;
+
+        const { userId, userType, newLimit, transactionPassword } = req.body;
+
+        if (!userId || !userType || !newLimit || !transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Missing required fields"
+            });
+        }
+
+        const userRepository = queryRunner.manager.getRepository(USER_TABLES[userType]);
+        if (!userRepository) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Invalid userType provided"
+            });
+        }
+
+        const user = await userRepository.findOne({
+            where: { id: userId }
+        });
+
+        if (!user) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: "User not found"
+            });
+        }
+
+        if (uplineTransactionPassword !== transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: "Invalid transaction password"
+            });
+        }
+
+        user.exposureLimit = newLimit;
+        await userRepository.save(user);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: "Exposure limit updated successfully",
+            data: user
+        });
+
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        return res.status(500).json({
+            success: false,
+            error: error.message || "Something went wrong"
+        });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+
+
+export const changePasswordOfDownline = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const uplineTransactionPassword = req.user?.transactionPassword;
+
+        const { userId, userType, newPassword, transactionPassword } = req.body;
+
+        if (!userId || !userType || !newPassword || !transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Missing required fields"
+            });
+        }
+
+        const userRepository = queryRunner.manager.getRepository(USER_TABLES[userType]);
+        if (!userRepository) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Invalid userType provided"
+            });
+        }
+
+        const user = await userRepository.findOne({
+            where: { id: userId }
+        });
+
+        if (!user) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: "User not found"
+            });
+        }
+
+        if (uplineTransactionPassword !== transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: "Invalid transaction password"
+            });
+        }
+
+        user.user_password = newPassword;
+        await userRepository.save(user);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: "Password updated successfully",
+            data: user
+        });
+
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        return res.status(500).json({
+            success: false,
+            error: error.message || "Something went wrong"
+        });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+
+
+export const setCreditRefForDownline = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const uplineId = req.user?.userId;
+        const uplineTransactionPassword = req.user?.transactionPassword;
+
+        const { userId, userType, newCreditRef, transactionPassword } = req.body;
+
+        if (!userId || !userType || !newCreditRef || !transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Missing required fields"
+            });
+        }
+
+        const userRepository = queryRunner.manager.getRepository(USER_TABLES[userType]);
+        if (!userRepository) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: "Invalid userType provided"
+            });
+        }
+
+        const user = await userRepository.findOne({
+            where: { id: userId }
+        });
+
+        if (!user) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+                success: false,
+                error: "User not found"
+            });
+        }
+
+        if (uplineTransactionPassword !== transactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: "Invalid transaction password"
+            });
+        }
+
+        if(user.creditRef == newCreditRef) {
+
+        } else if(user.creditRef < newCreditRef) {
+            const diff = newCreditRef - user.creditRef;
+            user.uplineSettlement -= diff;
+        } else {
+            const diff = user.creditRef - newCreditRef;
+            user.uplineSettlement += diff;
+        }
+        
+        user.creditRef = newCreditRef;
+        await userRepository.save(user);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: "Exposure limit updated successfully",
+            data: user
+        });
+
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        return res.status(500).json({
+            success: false,
+            error: error.message || "Something went wrong"
+        });
+    } finally {
+        await queryRunner.release();
     }
 };

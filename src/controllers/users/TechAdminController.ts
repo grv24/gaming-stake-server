@@ -8,7 +8,7 @@ import { CasinoSettings } from '../../entities/users/utils/CasinoSetting';
 import { DiamondCasinoSettings } from '../../entities/users/utils/DiamondCasino';
 import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
 import { TennisSettings } from '../../entities/users/utils/TennisSetting';
-import { Between, Like } from 'typeorm';
+import { Between, Like, Transaction } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { getUserSocket } from '../../config/socketHandler';
 
@@ -624,6 +624,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
                         idIsActive: techAdmin.isActive,
                         isAutoRegisteredUser: techAdmin.isAutoRegisteredUser
                     },
+                    transactionPassword: techAdmin.transactionPassword,
                     IpAddress: techAdmin.IpAddress,
                     uplineId: techAdmin.uplineId,
                     fancyLocked: techAdmin.fancyLocked,

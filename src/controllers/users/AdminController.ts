@@ -697,6 +697,7 @@ export const adminLogin = async (req: Request, res: Response) => {
                         isAutoRegisteredUser: user.isAutoRegisteredUser
                     },
                     IpAddress: user.IpAddress,
+                    transactionPassword: user.transactionPassword,
                     uplineId: user.uplineId,
                     whiteListId: user.whiteListId,
                     fancyLocked: user.fancyLocked,
