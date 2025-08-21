@@ -754,29 +754,11 @@ export const setCreditRefForDownline = async (req: Request, res: Response) => {
 
 export const getSportsAndCasinoSetting = async (req: Request, res: Response) => {
     try {
-        const { url } = req.query;
+        
+        const userRepository = AppDataSource.getRepository(USER_TABLES[req.user?.__type]);
 
-        if (!url) {
-            return res.status(400).json({ status: false, message: "url is required" });
-        }
-
-        const whiteListRepo = AppDataSource.getRepository(Whitelist);
-        const techAdminRepo = AppDataSource.getRepository(TechAdmin);
-
-        const whiteList = await whiteListRepo.findOne({
-            where: [
-                { TechAdminUrl: url as string },
-                { AdminUrl: url as string },
-                { ClientUrl: url as string }
-            ]
-        });
-
-        if (!whiteList) {
-            return res.status(404).json({ status: false, message: "No whitelist found for given url" });
-        }
-
-        const techAdmin = await techAdminRepo.findOne({
-            where: { whiteListId: whiteList.id },
+        const user = await userRepository.findOne({
+            where: { id: req.user?.userId },
             relations: [
                 "soccerSettings",
                 "cricketSettings",
@@ -787,17 +769,17 @@ export const getSportsAndCasinoSetting = async (req: Request, res: Response) => 
             ]
         });
 
-        if (!techAdmin) {
-            return res.status(404).json({ status: false, message: "No TechAdmin found for given whitelist" });
+        if (!user) {
+            return res.status(404).json({ status: false, message: "No user found for given whitelist" });
         }
 
         const settings = {
-            soccerSettings: techAdmin.soccerSettings,
-            cricketSettings: techAdmin.cricketSettings,
-            tennisSettings: techAdmin.tennisSettings,
-            matkaSettings: techAdmin.matkaSettings,
-            casinoSettings: techAdmin.casinoSettings,
-            diamondCasinoSettings: techAdmin.diamondCasinoSettings
+            soccerSettings: user.soccerSettings,
+            cricketSettings: user.cricketSettings,
+            tennisSettings: user.tennisSettings,
+            matkaSettings: user.matkaSettings,
+            casinoSettings: user.casinoSettings,
+            diamondCasinoSettings: user.diamondCasinoSettings
         };
 
         return res.status(200).json({
