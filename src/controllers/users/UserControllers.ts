@@ -534,6 +534,7 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
                             totalSettledAmount: child.totalSettledAmount,
                             Exposure: child.exposure,
                             ExposureLimit: child.exposureLimit,
+                            creditRef: child.creditRef,
                         },
                         allowedNoOfUsers: child.allowedNoOfUsers,
                         createdUsersCount: child.createdUsersCount,

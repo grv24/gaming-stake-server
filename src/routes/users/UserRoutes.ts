@@ -14,4 +14,14 @@ router.patch('/set-exposure-limit', clientAuth, setExposureLimitForDownline);
 router.patch('/set-credit-ref', clientAuth, setCreditRefForDownline);
 router.patch('/change-password-downline', clientAuth, changePasswordOfDownline);
 
+// need to create this to handle user and bet status
+// /api/v1/users/change-user-lock-and-bet-lock/${userId}`,
+//payload: {
+//  userId,
+// lockBet,
+// lockUser,
+// transactionPassword,
+// userType,
+//}
+
 export default router;
