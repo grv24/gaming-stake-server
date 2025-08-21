@@ -13,7 +13,7 @@ export const addBalance = async (req: Request, res: Response) => {
         const uplineId = req.user?.userId;
         const uplineBalance = req.user?.AccountDetails?.Balance;
 
-        if(!uplineBalance) {
+        if (!uplineBalance) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
@@ -250,5 +250,59 @@ export const getUserIp = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error fetching user IP:", error);
         return res.status(500).json({ status: false, message: "Internal server error", error });
+    }
+};
+
+export const getAllDownlineUsers = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.user?.userId;
+        if (!currentUserId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        const allUsers: any[] = [];
+
+        const fetchChildren = async (parentId: string) => {
+            for (const [type, entity] of Object.entries(USER_TABLES)) {
+                const repo = AppDataSource.getRepository(entity);
+
+                const children = await repo.find({
+                    where: { uplineId: parentId }, relations: [
+                        'soccerSettings',
+                        'cricketSettings',
+                        'tennisSettings',
+                        'matkaSettings',
+                        'casinoSettings',
+                        'diamondCasinoSettings'
+                    ]
+                });
+
+                for (const child of children) {
+                    allUsers.push({
+                        ...child,
+                    });
+
+                    await fetchChildren(child.id);
+                }
+            }
+        };
+
+        await fetchChildren(currentUserId);
+
+        return res.status(200).json({
+            success: true,
+            count: allUsers.length,
+            users: allUsers
+        });
+
+    } catch (error) {
+        console.error("Error fetching downline users:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error"
+        });
     }
 };
