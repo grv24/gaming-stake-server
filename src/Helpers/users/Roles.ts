@@ -44,3 +44,5 @@ export const USER_TABLES: Record<string, any> = {
   agent: Agent,
   client: Client
 };
+
+// export const AllUserType = { 'techAdmin' ,  'admin' , 'miniAdmin' , 'superMaster' , 'master' . 'superAgent',  'agent' , 'client'};

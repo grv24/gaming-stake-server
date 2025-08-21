@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import { getRedisSubscriber } from "../config/redisPubSub";
+import { USER_TABLES } from "../Helpers/users/Roles";
+import { AppDataSource } from "../server";
 
 interface UserConnection {
   socketId: string;
@@ -24,11 +26,48 @@ export function setupSocket(server: HttpServer) {
 
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
-  
+
+    socket.on("checkLoginId", async (loginId: string, whiteListId: string) => {
+      try {
+        console.log(`[SOCKET] Checking loginId: ${loginId}, whitelist: ${whiteListId}`);
+
+        const AllUserTypes = [
+          "techAdmin",
+          "admin",
+          "miniAdmin",
+          "superMaster",
+          "master",
+          "superAgent",
+          "agent",
+          "client",
+        ];
+
+        let user: any = null;
+
+        for (const role of AllUserTypes) {
+          const userRepository = AppDataSource.getRepository(USER_TABLES[role]);
+
+          user = await userRepository.findOne({
+            where: { loginId, whiteListId },
+          });
+
+          if (user) break; 
+        }
+
+        const exists = !!user;
+
+        socket.emit("loginIdCheck", exists);
+      } catch (error) {
+        console.error("Error in checkLoginId socket handler:", error);
+        socket.emit("loginIdCheck", false);
+      }
+    });
+
+
     // Login
     socket.on("login", ({ userId, userType }) => {
       if (!userId) return socket.emit("error", "userId is required");
-  
+
       // Check for existing connection and force logout
       const existing = activeConnections[userId];
       if (existing) {
@@ -40,27 +79,27 @@ export function setupSocket(server: HttpServer) {
             message: "Logged in from another device",
             timestamp: new Date().toISOString()
           });
-          
+
           // Disconnect after sending the event
           setTimeout(() => {
             existingSocket.disconnect();
           }, 100); // Small delay to ensure event is sent
         }
       }
-  
+
       // Store new connection
       activeConnections[userId] = { socketId: socket.id, userType };
-  
+
       // Always join personal room
       socket.join(`user_${userId}`);
-  
+
       // Join global rooms depending on userType
       if (userType === "client") socket.join("clients");
       if (userType === "admin") socket.join("admins");
       if (userType === "techAdmin") socket.join("techAdmins");
-  
+
       console.log(`${userType} ${userId} connected`);
-      
+
       // Notify other users of the same type about new login
       if (userType === "techAdmin") {
         socket.to("techAdmins").emit("adminLogin", {
@@ -69,10 +108,10 @@ export function setupSocket(server: HttpServer) {
         });
       }
     });
-  
+
     // Heartbeat
     socket.on("ping", () => socket.emit("pong"));
-  
+
     // Logout
     socket.on("logout", ({ userId }) => {
       if (userId && activeConnections[userId]?.socketId === socket.id) {
@@ -82,7 +121,7 @@ export function setupSocket(server: HttpServer) {
         console.log(`${userId} logged out`);
       }
     });
-  
+
     // Disconnect
     socket.on("disconnect", () => {
       const userId = Object.keys(activeConnections).find(
