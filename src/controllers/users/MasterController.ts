@@ -20,7 +20,7 @@ export const createMaster = async (req: Request, res: Response) => {
 
     try {
         const uplineId = req.user?.userId;
-        const whiteListId = req.user?.whiteListId;
+        const whiteListId = req.user?.whitelistId;
 
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const masterRepo = queryRunner.manager.getRepository(Master);

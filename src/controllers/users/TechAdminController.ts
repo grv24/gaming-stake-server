@@ -625,6 +625,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
                         isAutoRegisteredUser: techAdmin.isAutoRegisteredUser
                     },
                     transactionPassword: techAdmin.transactionPassword,
+                    whitelistId: techAdmin.whiteListId,
                     IpAddress: techAdmin.IpAddress,
                     uplineId: techAdmin.uplineId,
                     fancyLocked: techAdmin.fancyLocked,
