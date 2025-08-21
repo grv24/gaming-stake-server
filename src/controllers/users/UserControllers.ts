@@ -10,8 +10,16 @@ export const addBalance = async (req: Request, res: Response) => {
 
     try {
 
-        const uplineId = req.user?.id;
-        const uplineBalance = req.user?.balance;
+        const uplineId = req.user?.userId;
+        const uplineBalance = req.user?.AccountDetails?.Balance;
+
+        if(!uplineBalance) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+                success: false,
+                error: 'upline balnce is required'
+            });
+        }
 
         const { userId, userType, amount } = req.body;
 

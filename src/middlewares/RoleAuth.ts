@@ -33,12 +33,12 @@ const roleAuth = (requiredRole: Role) => {
                 } 
             };``
 
-            if (!decoded.user?.isActive) {
-                return res.status(403).json({
-                    success: false,
-                    error: "Account is not active"
-                });
-            }
+            // if (!decoded.user?.isActive) {
+            //     return res.status(403).json({
+            //         success: false,
+            //         error: "Account is not active"
+            //     });
+            // }
 
             const userRole = decoded.user.__type;
             

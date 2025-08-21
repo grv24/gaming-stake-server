@@ -21,7 +21,7 @@ export const createClient = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
-        const uplineId = req.user?.id;
+        const uplineId = req.user?.userId;
         const whiteListId = req.user?.whiteListId;
 
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
@@ -588,7 +588,7 @@ export const clientLogin = async (req: Request, res: Response) => {
             });
         }
 
-        if (!client.isActive || client.userLocked) {
+        if (client.userLocked) {
             return res.status(403).json({
                 success: false,
                 error: 'Client account is not active'
@@ -619,6 +619,7 @@ export const clientLogin = async (req: Request, res: Response) => {
                     },
                     IpAddress: client.IpAddress,
                     uplineId: client.uplineId,
+                    whiteListId: client.whiteListId,
                     fancyLocked: client.fancyLocked,
                     bettingLocked: client.bettingLocked,
                     userLocked: client.userLocked,
@@ -727,12 +728,12 @@ export const clientLogin = async (req: Request, res: Response) => {
 export const changeOwnPassword = async (req: Request, res: Response) => {
 
     try {
-        
+
         const { currentPassword, newPassword } = req.body;
 
         const clientRepo = AppDataSource.getRepository(Client);
 
-        const clientUser = await clientRepo.findOne({ where: { id: req.user?.id } });
+        const clientUser = await clientRepo.findOne({ where: { id: req.user?.userId } });
 
         if (!clientUser) {
             return res.status(400).json({
@@ -752,6 +753,11 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         clientUser.user_password = newPassword;
 
         await clientRepo.save(clientUser);
+
+        res.status(200).json({
+            status: true,
+            message: "User is now active",
+        });
 
     } catch (error: any) {
         console.error('Error changing own password:', error);

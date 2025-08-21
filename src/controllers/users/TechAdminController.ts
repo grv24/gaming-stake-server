@@ -18,7 +18,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
-        const uplineId = req.user?.id;
+        const uplineId = req.user?.userId;
 
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const techAdminRepo = queryRunner.manager.getRepository(TechAdmin);
@@ -391,7 +391,7 @@ export const getAllTechAdmin = async (req: Request, res: Response) => {
         const [techAdmins, total] = await techAdminRepo.findAndCount({
             where,
             select: [
-                'id', 'userName', 'loginId', 'countryCode', 'mobile',
+                'id', 'userName','user_password', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
                 'fancyLocked', 'userLocked', 'bettingLocked',
@@ -595,7 +595,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             });
         }
 
-        if (!techAdmin.isActive || techAdmin.userLocked) {
+        if (techAdmin.userLocked) {
             return res.status(403).json({
                 success: false,
                 error: 'TechAdmin account is not active'
@@ -732,10 +732,12 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         const { currentPassword, newPassword } = req.body;
         const user = req.user;
 
+        console.log(user);
+
         const techAdminRepo = AppDataSource.getRepository(TechAdmin);
 
-        const techAdminUser = await techAdminRepo.findOne({ where: { id: req.user?.id } });
-
+        const techAdminUser = await techAdminRepo.findOne({ where: { id: req.user?.userId } });
+        console.log(techAdminUser);
         if (!techAdminUser) {
             return res.status(400).json({
                 success: false,
@@ -754,6 +756,11 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         techAdminUser.user_password = newPassword;
 
         await techAdminRepo.save(techAdminUser);
+
+        res.status(200).json({
+            status: true,
+            message: "User is now active",
+        });
 
     } catch (error: any) {
         console.error('Error changing own password:', error);

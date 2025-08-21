@@ -27,7 +27,7 @@ export const createAdmin = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     try {
-        const uplineId = req.user?.id;
+        const uplineId = req.user?.userId;
         const whiteListId = req.user?.whiteListId;
 
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
@@ -660,7 +660,7 @@ export const adminLogin = async (req: Request, res: Response) => {
         }
 
         // Authentication checks
-        if (!user.isActive || user.userLocked) {
+        if (user.userLocked) {
             return res.status(403).json({
                 success: false,
                 error: 'Admin account is not active'
@@ -698,6 +698,7 @@ export const adminLogin = async (req: Request, res: Response) => {
                     },
                     IpAddress: user.IpAddress,
                     uplineId: user.uplineId,
+                    whiteListId: user.whiteListId,
                     fancyLocked: user.fancyLocked,
                     bettingLocked: user.bettingLocked,
                     userLocked: user.userLocked,
@@ -807,7 +808,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
     try {
         const { currentPassword, newPassword } = req.body;
         const userType = req.__type as AdminUserType;
-        const userId = req.user?.id;
+        const userId = req.user?.userId;
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({
@@ -854,7 +855,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Password changed successfully'
+            message: 'User is now active'
         });
 
     } catch (error) {
