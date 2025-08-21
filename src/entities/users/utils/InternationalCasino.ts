@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
 
-@Entity('diamond_casino_settings')
-export class DiamondCasinoSettings {
+@Entity('international_casino_settings')
+export class InternationalCasinoSettings {
 
   @PrimaryGeneratedColumn('uuid')
   id!: string;

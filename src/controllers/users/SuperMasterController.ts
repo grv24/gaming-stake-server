@@ -4,7 +4,7 @@ import { SuperMaster } from "../../entities/users/SuperMasterUser";
 import { SoccerSettings } from '../../entities/users/utils/SoccerSetting';
 import { CricketSettings } from '../../entities/users/utils/CricketSetting';
 import { CasinoSettings } from '../../entities/users/utils/CasinoSetting';
-import { DiamondCasinoSettings } from '../../entities/users/utils/DiamondCasino';
+import { InternationalCasinoSettings } from '../../entities/users/utils/InternationalCasino';
 import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
 import { TennisSettings } from '../../entities/users/utils/TennisSetting';
 import { validate } from 'class-validator';
@@ -29,7 +29,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         const tennisSettingsRepo = queryRunner.manager.getRepository(TennisSettings);
         const matkaSettingsRepo = queryRunner.manager.getRepository(MatkaSettings);
         const casinoSettingsRepo = queryRunner.manager.getRepository(CasinoSettings);
-        const diamondCasinoSettingsRepo = queryRunner.manager.getRepository(DiamondCasinoSettings);
+        const internationalCasinoSettingsRepo = queryRunner.manager.getRepository(InternationalCasinoSettings);
 
         // Validate whiteListId
         const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId }});
@@ -88,7 +88,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             tennisSettings = {},
             matkaSettings = {},
             casinoSettings = {},
-            diamondCasinoSettings = {}
+            internationalCasinoSettings = {}
         } = req.body;
 
         // Basic validation
@@ -177,7 +177,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             savedTennisSettings,
             savedMatkaSettings,
             savedCasinoSettings,
-            savedDiamondCasinoSettings
+            savedInternationalCasinoSettings
         ] = await Promise.all([
             createSettings(soccerSettingsRepo, {
                 isWhiteListed: soccerSettings.isWhiteListed || false,
@@ -291,24 +291,24 @@ export const createSuperMaster = async (req: Request, res: Response) => {
                 partnershipToUserId: casinoSettings.partnershipToUserId || null,
                 partnership: casinoSettings.partnership || 0
             }),
-            createSettings(diamondCasinoSettingsRepo, {
-                isWhiteListed: diamondCasinoSettings.isWhiteListed || false,
-                minOddsToBet: diamondCasinoSettings.minOddsToBet || 1.01,
-                maxOddsToBet: diamondCasinoSettings.maxOddsToBet || 24,
-                betDelay: diamondCasinoSettings.betDelay || 1,
-                minMatchStake: diamondCasinoSettings.minMatchStake || 100,
-                maxMatchStake: diamondCasinoSettings.maxMatchStake || 100,
-                maxProfit: diamondCasinoSettings.maxProfit || 0,
-                maxLoss: diamondCasinoSettings.maxLoss || 0,
-                minExposure: diamondCasinoSettings.minExposure || 0,
-                maxExposure: diamondCasinoSettings.maxExposure || 0,
-                winningLimit: diamondCasinoSettings.winningLimit || 0,
-                commissionToType: diamondCasinoSettings.commissionToType || 'superMaster',
-                commissionToUserId: diamondCasinoSettings.commissionToUserId || null,
-                matchCommission: diamondCasinoSettings.matchCommission || 0,
-                partnershipToType: diamondCasinoSettings.partnershipToType || 'superMaster',
-                partnershipToUserId: diamondCasinoSettings.partnershipToUserId || null,
-                partnership: diamondCasinoSettings.partnership || 0
+            createSettings(internationalCasinoSettingsRepo, {
+                isWhiteListed: internationalCasinoSettings.isWhiteListed || false,
+                minOddsToBet: internationalCasinoSettings.minOddsToBet || 1.01,
+                maxOddsToBet: internationalCasinoSettings.maxOddsToBet || 24,
+                betDelay: internationalCasinoSettings.betDelay || 1,
+                minMatchStake: internationalCasinoSettings.minMatchStake || 100,
+                maxMatchStake: internationalCasinoSettings.maxMatchStake || 100,
+                maxProfit: internationalCasinoSettings.maxProfit || 0,
+                maxLoss: internationalCasinoSettings.maxLoss || 0,
+                minExposure: internationalCasinoSettings.minExposure || 0,
+                maxExposure: internationalCasinoSettings.maxExposure || 0,
+                winningLimit: internationalCasinoSettings.winningLimit || 0,
+                commissionToType: internationalCasinoSettings.commissionToType || 'superMaster',
+                commissionToUserId: internationalCasinoSettings.commissionToUserId || null,
+                matchCommission: internationalCasinoSettings.matchCommission || 0,
+                partnershipToType: internationalCasinoSettings.partnershipToType || 'superMaster',
+                partnershipToUserId: internationalCasinoSettings.partnershipToUserId || null,
+                partnership: internationalCasinoSettings.partnership || 0
             })
         ]);
 
@@ -319,7 +319,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             tennisSettingId: savedTennisSettings.id,
             matkaSettingId: savedMatkaSettings.id,
             casinoSettingId: savedCasinoSettings.id,
-            diamondCasinoSettingId: savedDiamondCasinoSettings.id
+            internationalCasinoSettingId: savedInternationalCasinoSettings.id
         });
 
         await queryRunner.commitTransaction();
@@ -332,7 +332,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             tennisSettings: savedTennisSettings,
             matkaSettings: savedMatkaSettings,
             casinoSettings: savedCasinoSettings,
-            diamondCasinoSettings: savedDiamondCasinoSettings
+            internationalCasinoSettings: savedInternationalCasinoSettings
         };
 
         return res.status(201).json({
@@ -450,7 +450,7 @@ export const getSuperMasterById = async (req: Request, res: Response) => {
                 'fancyLocked', 'userLocked', 'bettingLocked',
                 'allowedNoOfUsers', 'createdUsersCount',
                 'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
-                'matkaSettingId', 'casinoSettingId', 'diamondCasinoSettingId',
+                'matkaSettingId', 'casinoSettingId', 'internationalCasinoSettingId',
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',
                 'totalSettledAmount', 'whiteListAccess', 'depositWithdrawlAccess',
@@ -475,7 +475,7 @@ export const getSuperMasterById = async (req: Request, res: Response) => {
             tennisSettings,
             matkaSettings,
             casinoSettings,
-            diamondCasinoSettings
+            internationalCasinoSettings
         ] = await Promise.all([
             superMaster.soccerSettingId
                 ? AppDataSource.getRepository(SoccerSettings).findOne({
@@ -507,9 +507,9 @@ export const getSuperMasterById = async (req: Request, res: Response) => {
                 })
                 : Promise.resolve(null),
 
-            superMaster.diamondCasinoSettingId
-                ? AppDataSource.getRepository(DiamondCasinoSettings).findOne({
-                    where: { id: superMaster.diamondCasinoSettingId }
+            superMaster.internationalCasinoSettingId
+                ? AppDataSource.getRepository(InternationalCasinoSettings).findOne({
+                    where: { id: superMaster.internationalCasinoSettingId }
                 })
                 : Promise.resolve(null)
         ]);
@@ -521,7 +521,7 @@ export const getSuperMasterById = async (req: Request, res: Response) => {
             tennisSettings,
             matkaSettings,
             casinoSettings,
-            diamondCasinoSettings
+            internationalCasinoSettings
         };
 
         return res.json({

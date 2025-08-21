@@ -12,7 +12,7 @@ import { SoccerSettings } from './entities/users/utils/SoccerSetting';
 import { TennisSettings } from './entities/users/utils/TennisSetting';
 import { CricketSettings } from './entities/users/utils/CricketSetting';
 import { CasinoSettings } from './entities/users/utils/CasinoSetting';
-import { DiamondCasinoSettings } from './entities/users/utils/DiamondCasino';
+import { InternationalCasinoSettings } from './entities/users/utils/InternationalCasino';
 import { MatkaSettings } from './entities/users/utils/MatkaSetting';
 import { SuperMaster } from './entities/users/SuperMasterUser';
 import { Master } from './entities/users/MasterUser';
@@ -50,7 +50,7 @@ export const AppDataSource = new DataSource({
         TennisSettings, 
         CricketSettings, 
         CasinoSettings, 
-        DiamondCasinoSettings, 
+        InternationalCasinoSettings, 
         MatkaSettings,
         AccountTrasaction
     ],

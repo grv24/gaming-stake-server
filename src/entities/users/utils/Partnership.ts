@@ -12,7 +12,7 @@ export class Partnership {
   @Column({ type: "varchar" })
   user__type !: string;
 
-  @Column({ type: "varchar", enum: ["soccer", "tennis", "cricket", "casino", "matka", "diamondCasino"] })
+  @Column({ type: "varchar", enum: ["soccer", "tennis", "cricket", "casino", "matka", "internationalCasino"] })
   sportType !: string;
 
   @Column({ type: "uuid", nullable: true })

@@ -12,7 +12,7 @@ import { CricketSettings } from './utils/CricketSetting';
 import { TennisSettings } from './utils/TennisSetting';
 import { MatkaSettings } from './utils/MatkaSetting';
 import { CasinoSettings } from './utils/CasinoSetting';
-import { DiamondCasinoSettings } from './utils/DiamondCasino';
+import { InternationalCasinoSettings } from './utils/InternationalCasino';
 
 @Entity('agents')
 export class Agent {
@@ -182,7 +182,7 @@ export class Agent {
   casinoSettingId !: string;
 
   @Column({ type: "uuid" , nullable: true})
-  diamondCasinoSettingId !: string;
+  internationalCasinoSettingId !: string;
 
     @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total" })
   commissionToType !: string;
@@ -228,7 +228,7 @@ export class Agent {
     @JoinColumn({ name: 'casinoSettingId' })
     casinoSettings!: CasinoSettings;
   
-    @OneToOne(() => DiamondCasinoSettings)
-    @JoinColumn({ name: 'diamondCasinoSettingId' })
-    diamondCasinoSettings!: DiamondCasinoSettings;
+    @OneToOne(() => InternationalCasinoSettings)
+    @JoinColumn({ name: 'internationalCasinoSettingId' })
+    internationalCasinoSettings!: InternationalCasinoSettings;
 }

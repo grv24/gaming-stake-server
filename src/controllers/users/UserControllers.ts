@@ -494,19 +494,63 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
                 const repo = AppDataSource.getRepository(entity);
 
                 const children = await repo.find({
-                    where: { uplineId: parentId }, relations: [
+                    where: { uplineId: parentId },
+                    relations: [
                         'soccerSettings',
                         'cricketSettings',
                         'tennisSettings',
                         'matkaSettings',
                         'casinoSettings',
-                        'diamondCasinoSettings'
+                        'internationalCasinoSettings'
                     ]
                 });
 
                 for (const child of children) {
                     allUsers.push({
-                        ...child,
+                        userId: child.id,
+                        PersonalDetails: {
+                            userName: child.userName,
+                            loginId: child.loginId,
+                            user_password: child.user_password,
+                            countryCode: child.countryCode,
+                            mobile: child.mobile,
+                            idIsActive: child.isActive,
+                            isAutoRegisteredUser: child.isAutoRegisteredUser
+                        },
+                        transactionPassword: child.transactionPassword,
+                        whiteListId: child.whiteListId,
+                        IpAddress: child.IpAddress,
+                        uplineId: child.uplineId,
+                        fancyLocked: child.fancyLocked,
+                        bettingLocked: child.bettingLocked,
+                        userLocked: child.userLocked,
+                        __type: child.__type,
+                        remarks: child.remarks,
+                        AccountDetails: {
+                            liability: child.liability,
+                            Balance: child.balance,
+                            profitLoss: child.profitLoss,
+                            freeChips: child.freeChips,
+                            totalSettledAmount: child.totalSettledAmount,
+                            Exposure: child.exposure,
+                            ExposureLimit: child.exposureLimit,
+                        },
+                        allowedNoOfUsers: child.allowedNoOfUsers,
+                        createdUsersCount: child.createdUsersCount,
+                        commissionLenaYaDena: {
+                            commissionLena: child.commissionLena,
+                            commissionDena: child.commissionDena,
+                        },
+                        groupID: child.groupID,
+                        createdAt: child.createdAt,
+                        updatedAt: child.updatedAt,
+
+                        soccerSettings: child.soccerSettings,
+                        cricketSettings: child.cricketSettings,
+                        tennisSettings: child.tennisSettings,
+                        matkaSettings: child.matkaSettings,
+                        casinoSettings: child.casinoSettings,
+                        internationalCasinoSettings: child.internationalCasinoSettings
                     });
                 }
             }
@@ -598,7 +642,6 @@ export const setExposureLimitForDownline = async (req: Request, res: Response) =
         await queryRunner.release();
     }
 };
-
 
 
 export const changePasswordOfDownline = async (req: Request, res: Response) => {
@@ -764,7 +807,7 @@ export const getSportsAndCasinoSetting = async (req: Request, res: Response) => 
                 "tennisSettings",
                 "matkaSettings",
                 "casinoSettings",
-                "diamondCasinoSettings"
+                "internationalCasinoSettings"
             ]
         });
 
@@ -778,7 +821,7 @@ export const getSportsAndCasinoSetting = async (req: Request, res: Response) => 
             tennisSettings: user.tennisSettings,
             matkaSettings: user.matkaSettings,
             casinoSettings: user.casinoSettings,
-            diamondCasinoSettings: user.diamondCasinoSettings
+            internationalCasinoSettings: user.internationalCasinoSettings
         };
 
         return res.status(200).json({

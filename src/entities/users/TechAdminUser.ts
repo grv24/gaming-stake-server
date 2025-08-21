@@ -12,7 +12,7 @@ import { CricketSettings } from './utils/CricketSetting';
 import { TennisSettings } from './utils/TennisSetting';
 import { MatkaSettings } from './utils/MatkaSetting';
 import { CasinoSettings } from './utils/CasinoSetting';
-import { DiamondCasinoSettings } from './utils/DiamondCasino';
+import { InternationalCasinoSettings } from './utils/InternationalCasino';
 
 @Entity({ name: 'tech_admins' })
 export class TechAdmin {
@@ -188,7 +188,7 @@ export class TechAdmin {
   casinoSettingId !: string;
 
   @Column({ type: "uuid", nullable: true })
-  diamondCasinoSettingId !: string;
+  internationalCasinoSettingId !: string;
 
   @CreateDateColumn()
   createdAt !: Date;
@@ -216,7 +216,7 @@ export class TechAdmin {
   @JoinColumn({ name: 'casinoSettingId' })
   casinoSettings!: CasinoSettings;
 
-  @OneToOne(() => DiamondCasinoSettings)
-  @JoinColumn({ name: 'diamondCasinoSettingId' })
-  diamondCasinoSettings!: DiamondCasinoSettings;
+  @OneToOne(() => InternationalCasinoSettings)
+  @JoinColumn({ name: 'internationalCasinoSettingId' })
+  internationalCasinoSettings!: InternationalCasinoSettings;
 }
