@@ -754,7 +754,6 @@ export const setCreditRefForDownline = async (req: Request, res: Response) => {
 
 export const getSportsAndCasinoSetting = async (req: Request, res: Response) => {
     try {
-        
         const userRepository = AppDataSource.getRepository(USER_TABLES[req.user?.__type]);
 
         const user = await userRepository.findOne({

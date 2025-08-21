@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/fetch-ip', getUserIp);
 router.get('/my-downline-users', clientAuth, getAllDownlineUsers);
-router.get('/sports-casino-setting', getSportsAndCasinoSetting);
+router.get('/sports-casino-setting', clientAuth, getSportsAndCasinoSetting);
 router.post('/deposit', clientAuth, addBalance);
 router.post('/withdraw', clientAuth, addBalance);
 router.patch('/lock', clientAuth, lockUserOrBetAndDownlineMultiTable);
