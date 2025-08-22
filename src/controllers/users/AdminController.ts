@@ -20,6 +20,7 @@ import { SuperAgent } from '../../entities/users/SuperAgentUser';
 import { Agent } from '../../entities/users/AgentUser';
 import { USER_TABLES } from '../../Helpers/users/Roles';
 import { getUserSocket } from '../../config/socketHandler';
+import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
 export const createAdmin = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -852,7 +853,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             });
         }
 
-        const transactionCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const transactionCode = generateTransactionCode(8);
         user.transactionPassword = transactionCode;
 
         user.user_password = newPassword;

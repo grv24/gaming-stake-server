@@ -14,6 +14,7 @@ import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { getUserSocket } from '../../config/socketHandler';
+import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
 export const createClient = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -753,7 +754,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         }
 
 
-        const transactionCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const transactionCode = generateTransactionCode(8);
         clientUser.transactionPassword = transactionCode;
 
         clientUser.isActive = true;

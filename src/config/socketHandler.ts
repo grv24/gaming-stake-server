@@ -27,7 +27,7 @@ export function setupSocket(server: HttpServer) {
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
 
-    socket.on("checkLoginId", async (loginId: string, whiteListId: string) => {
+    socket.on("checkLoginId", async ({loginId, whiteListId}) => {
       try {
         console.log(`[SOCKET] Checking loginId: ${loginId}, whitelist: ${whiteListId}`);
 
@@ -44,6 +44,7 @@ export function setupSocket(server: HttpServer) {
 
         let user: any = null;
 
+        let exists = false;
         for (const role of AllUserTypes) {
           const userRepository = AppDataSource.getRepository(USER_TABLES[role]);
 
@@ -51,10 +52,13 @@ export function setupSocket(server: HttpServer) {
             where: { loginId, whiteListId },
           });
 
-          if (user) break; 
-        }
+          console.log("socket :", user);
 
-        const exists = !!user;
+          if (user) {
+            exists = true;
+            break; 
+          } 
+        }
 
         socket.emit("loginIdCheck", exists);
       } catch (error) {

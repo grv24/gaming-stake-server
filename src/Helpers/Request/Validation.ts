@@ -8,3 +8,14 @@ export const paginationValidation = [
     query('fromDate').optional().isISO8601().withMessage('fromDate must be a valid ISO date'),
     query('toDate').optional().isISO8601().withMessage('toDate must be a valid ISO date')
 ];
+
+
+export function generateTransactionCode(length: number = 8): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * chars.length);
+    code += chars[randomIndex];
+  }
+  return code;
+}
