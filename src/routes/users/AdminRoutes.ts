@@ -1,6 +1,6 @@
 import express from 'express';
 import { getAdminById, getAllAdmin, createAdmin, adminLogin, changeOwnPassword } from '../../controllers/users/AdminController';
-import { adminAndAboveAuth, techAdminAndAboveAuth } from '../../middlewares/RoleAuth';
+import { adminAndAboveAuth, agentAndAboveAuth, techAdminAndAboveAuth } from '../../middlewares/RoleAuth';
 import { paginationValidation } from '../../Helpers/Request/Validation';
 import { addBalance } from '../../controllers/users/UserControllers';
 
@@ -12,7 +12,7 @@ router.get('/get-accounts', paginationValidation, getAllAdmin);
 router.get('/get-accounts/:id', paginationValidation, getAdminById);
 router.put('/account/balance', techAdminAndAboveAuth, addBalance);
 // router.put('/account/user-lock', techAdminAndAboveAuth, lockUserAndDownlineMultiTable);
-router.patch('/change-own-password', adminAndAboveAuth, changeOwnPassword)
+router.patch('/change-own-password', agentAndAboveAuth, changeOwnPassword)
 
 
 export default router;
