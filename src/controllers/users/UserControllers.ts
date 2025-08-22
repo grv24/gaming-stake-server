@@ -835,3 +835,26 @@ export const getSportsAndCasinoSetting = async (req: Request, res: Response) => 
         return res.status(500).json({ status: false, message: "Internal server error", error });
     }
 };
+
+
+export const getOwnBalance = async (req: Request, res: Response) => {
+    try {
+        const userRepository = AppDataSource.getRepository(USER_TABLES[req.user?.__type]);
+
+        const user = await userRepository.findOne({
+            where: { id: req.user?.userId }
+        });
+
+        if (!user) {
+            return res.status(404).json({ status: false, message: "No user found" });
+        }
+
+        return res.status(200).json({
+            status: true,
+            balance: user.balance
+        });
+    } catch (error) {
+        console.error("Error fetching balance:", error);
+        return res.status(500).json({ status: false, message: "Internal server error", error });
+    }
+};

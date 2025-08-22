@@ -1,10 +1,11 @@
 import express from 'express';
-import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting } from '../../controllers/users/UserControllers';
+import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance } from '../../controllers/users/UserControllers';
 import { clientAuth } from '../../middlewares/RoleAuth';
 
 const router = express.Router();
 
 router.get('/fetch-ip', getUserIp);
+router.get('/own-balance', clientAuth, getOwnBalance);
 router.get('/my-downline-users', clientAuth, getAllDownlineUsers);
 router.get('/sports-casino-setting', clientAuth, getSportsAndCasinoSetting);
 router.post('/deposit', clientAuth, addBalance);
