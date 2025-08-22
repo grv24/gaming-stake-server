@@ -46,7 +46,6 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             loginId,
             user_password,
             groupID,
-            transactionPassword,
             referallCode,
             userName,
             countryCode,
@@ -125,7 +124,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             whiteListId,
             uplineId: uplineId || null,
             groupID: groupID || null,
-            transactionPassword: transactionPassword || null,
+            transactionPassword: generateTransactionCode(8) || "X1X1Y1Y1",
             referallCode: referallCode || null,
             userName: userName || null,
             countryCode: countryCode || null,
@@ -767,8 +766,8 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             })
         }
 
-        const transactionCode = generateTransactionCode(8);
-        techAdminUser.transactionPassword = transactionCode;
+        // const transactionCode = generateTransactionCode(8);
+        // techAdminUser.transactionPassword = transactionCode;
 
         techAdminUser.isActive = true;
         techAdminUser.user_password = newPassword;
@@ -779,7 +778,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             status: true,
             message: "User is now active",
             data: {
-                transactionPassword: transactionCode
+                transactionPassword: techAdminUser.transactionPassword
             }
         });
 

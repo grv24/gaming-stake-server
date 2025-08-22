@@ -48,7 +48,7 @@ export const createClient = async (req: Request, res: Response) => {
             loginId,
             user_password,
             groupID,
-            transactionPassword,
+            // transactionPassword,
             referallCode,
             userName,
             countryCode,
@@ -123,7 +123,7 @@ export const createClient = async (req: Request, res: Response) => {
             whiteListId,
             uplineId: uplineId || null,
             groupID: groupID || null,
-            transactionPassword: transactionPassword || null,
+            transactionPassword: generateTransactionCode(12) || "V274HF21",
             referallCode: referallCode || null,
             userName: userName || null,
             countryCode: countryCode || null,
@@ -754,8 +754,8 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         }
 
 
-        const transactionCode = generateTransactionCode(8);
-        clientUser.transactionPassword = transactionCode;
+        // const transactionCode = generateTransactionCode(8);
+        // clientUser.transactionPassword = transactionCode;
 
         clientUser.isActive = true;
         clientUser.user_password = newPassword;
@@ -766,7 +766,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
             success: true,
             message: 'User is now active',
             data: {
-                transactionPassword: transactionCode
+                transactionPassword: clientUser.transactionPassword
             }
         });
 
