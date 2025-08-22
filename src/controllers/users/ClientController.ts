@@ -709,6 +709,7 @@ export const clientLogin = async (req: Request, res: Response) => {
             message: "Client login successful",
             data: {
                 token,
+                isActive: client.isActive,
                 // user: safeUserData,
                 socketRequired: true
             }

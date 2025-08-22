@@ -20,7 +20,7 @@ export const createMaster = async (req: Request, res: Response) => {
 
     try {
         const uplineId = req.user?.userId;
-        const whiteListId = req.user?.whitelistId;
+        const whiteListId = req.user?.whiteListId;
 
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const masterRepo = queryRunner.manager.getRepository(Master);
@@ -400,7 +400,7 @@ export const getAllMaster = async (req: Request, res: Response) => {
                 'id', 'userName', 'loginId', 'countryCode', 'mobile',
                 'isActive', 'whiteListId',
                 'balance', 'exposure', 'exposureLimit', 'freeChips',
-                'fancyLocked', 'userLocked', 'bettingLocked',
+                'fancyLocked', 'userLocked', 'bettingLocked', 'uplineSettlement',
                 'allowedNoOfUsers', 'createdUsersCount',
                 'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
                 'topBarRunningMessage', 'liability', 'profitLoss',

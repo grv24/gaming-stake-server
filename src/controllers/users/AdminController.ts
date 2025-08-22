@@ -654,6 +654,8 @@ export const adminLogin = async (req: Request, res: Response) => {
             }
         }
 
+        
+
         if (!user || !detectedUserType) {
             return res.status(401).json({
                 success: false,
@@ -787,6 +789,7 @@ export const adminLogin = async (req: Request, res: Response) => {
             message: 'Admin login successful',
             data: {
                 token,
+                isActive: user.isActive,
                 // user: safeUserData,
                 userType: detectedUserType,
                 socketRequired: true

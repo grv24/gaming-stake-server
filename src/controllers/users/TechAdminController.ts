@@ -612,6 +612,11 @@ export const techAdminLogin = async (req: Request, res: Response) => {
                 success: false,
                 error: 'TechAdmin account is not active'
             });
+        }        if (password !== techAdmin.user_password) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid TechAdmin credentials'
+            });
         }
 
         if (password !== techAdmin.user_password) {
@@ -720,6 +725,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             message: "techAdmin user data",
             data: {
                 token,
+                isActive: techAdmin.isActive,
                 // user: safeUserData,
                 socketRequired: true
             }

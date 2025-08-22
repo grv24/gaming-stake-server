@@ -77,14 +77,14 @@ export const addBalance = async (req: Request, res: Response) => {
         }
 
         const newBalance = Number(user.balance) + Number(amount);
-        user.uplineSettlement += Number(amount);
 
         await userRepository.update(userId, {
             balance: newBalance,
             uplineSettlement: Number(user.uplineSettlement) + Number(amount)
         });
 
-        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.userType]);
+        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.__type]);
+
         await uplineRepository.update(uplineId, {
             balance: Number(uplineBalance) - Number(amount)
         });
@@ -193,14 +193,15 @@ export const withdrawBalance = async (req: Request, res: Response) => {
 
         // deduct from child balance
         const newDownlineBalance = (Number(user.balance) - Number(user.exposure)) - Number(amount);
-        user.uplineSettlement -= Number(amount);
+        // user.uplineSettlement -= Number(amount);
 
         await userRepository.update(userId, {
-            balance: newDownlineBalance
+            balance: newDownlineBalance,
+            uplineSettlement: Number(user.uplineSettlement) - Number(amount)
         });
 
         // add to upline balance
-        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.userType]);
+        const uplineRepository = queryRunner.manager.getRepository(USER_TABLES[req.user?.__type]);
         const updatedUplineBalance = Number(uplineBalance) + Number(amount);
         await uplineRepository.update(uplineId, {
             balance: updatedUplineBalance
