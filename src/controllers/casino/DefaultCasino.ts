@@ -2,9 +2,10 @@ import { Request, Response } from "express";
 import { DefaultCasino } from "../../entities/casino/DefaultCasino";
 import { AppDataSource } from "../../server";
 
-const casinoRepository = AppDataSource.getRepository(DefaultCasino);
 
 export const createCasino = async (req: Request, res: Response) => {
+
+    const casinoRepository = AppDataSource.getRepository(DefaultCasino);
     try {
         const casino = casinoRepository.create(req.body);
         const savedCasino = await casinoRepository.save(casino);
@@ -15,6 +16,8 @@ export const createCasino = async (req: Request, res: Response) => {
 };
 
 export const getAllCasinos = async (req: Request, res: Response) => {
+
+    const casinoRepository = AppDataSource.getRepository(DefaultCasino);
     try {
         const casinos = await casinoRepository.find();
         return res.status(200).json({ status: true, data: casinos });
@@ -24,6 +27,8 @@ export const getAllCasinos = async (req: Request, res: Response) => {
 };
 
 export const getCasinoById = async (req: Request, res: Response) => {
+
+    const casinoRepository = AppDataSource.getRepository(DefaultCasino);
     try {
         const casino = await casinoRepository.findOne({ where: { id: req.params.id } });
         if (!casino) return res.status(404).json({ status: false, message: "Casino not found" });
@@ -34,6 +39,8 @@ export const getCasinoById = async (req: Request, res: Response) => {
 };
 
 export const updateCasino = async (req: Request, res: Response) => {
+
+    const casinoRepository = AppDataSource.getRepository(DefaultCasino);
     try {
         const casino = await casinoRepository.findOne({ where: { id: req.params.id } });
         if (!casino) return res.status(404).json({ status: false, message: "Casino not found" });
@@ -47,6 +54,8 @@ export const updateCasino = async (req: Request, res: Response) => {
 };
 
 export const deleteCasino = async (req: Request, res: Response) => {
+
+    const casinoRepository = AppDataSource.getRepository(DefaultCasino);
     try {
         const result = await casinoRepository.delete(req.params.id);
         if (result.affected === 0) {
