@@ -591,6 +591,14 @@ export const clientLogin = async (req: Request, res: Response) => {
             });
         }
 
+        if (client.__type !== 'client') {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid Client account'
+            });
+        }
+        
+
         if (client.userLocked) {
             return res.status(403).json({
                 success: false,

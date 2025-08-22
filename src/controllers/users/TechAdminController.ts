@@ -607,12 +607,20 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             });
         }
 
+
+        if (techAdmin?.__type !== 'techAdmin') {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid TechAdmin account'
+            });
+        }
+
         if (techAdmin.userLocked) {
             return res.status(403).json({
                 success: false,
                 error: 'TechAdmin account is not active'
             });
-        }        if (password !== techAdmin.user_password) {
+        } if (password !== techAdmin.user_password) {
             return res.status(401).json({
                 success: false,
                 error: 'Invalid TechAdmin credentials'
@@ -748,7 +756,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
 export const changeOwnPassword = async (req: Request, res: Response) => {
 
     try {
-        
+
         const { currentPassword, newPassword } = req.body;
         const user = req.user;
 

@@ -654,12 +654,17 @@ export const adminLogin = async (req: Request, res: Response) => {
             }
         }
 
-        
-
         if (!user || !detectedUserType) {
             return res.status(401).json({
                 success: false,
                 error: 'Invalid admin credentials'
+            });
+        }
+
+        if (user.__type === 'client' || user.__type === 'techAdmin') {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid Admin account'
             });
         }
 
