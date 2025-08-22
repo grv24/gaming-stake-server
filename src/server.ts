@@ -24,6 +24,7 @@ import { Client } from './entities/users/ClientUser';
 import { startCasinoCronJobs } from './cron/CasinoCronJob';
 import { initRedisPubSub } from './config/redisPubSub';
 import { AccountTrasaction } from './entities/Transactions/AccountTransactions';
+import { DefaultCasino } from './entities/casino/DefaultCasino';
 
 dotenv.config();
 
@@ -52,7 +53,8 @@ export const AppDataSource = new DataSource({
         CasinoSettings, 
         InternationalCasinoSettings, 
         MatkaSettings,
-        AccountTrasaction
+        AccountTrasaction,
+        DefaultCasino
     ],
     synchronize: true,
     logging: process.env.NODE_ENV === 'development',
