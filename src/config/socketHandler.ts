@@ -14,9 +14,10 @@ const activeConnections: Record<string, UserConnection> = {};
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     cors: {
-      origin: process.env.NODE_ENV === "production"
-        ? process.env.ALLOWED_ORIGINS?.split(",") || []
-        : "*",
+      origin:
+        process.env.NODE_ENV === "production"
+          ? process.env.ALLOWED_ORIGINS?.split(",") || []
+          : "*",
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -27,9 +28,17 @@ export function setupSocket(server: HttpServer) {
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
 
-    socket.on("checkLoginId", async ({loginId, whiteListId}) => {
+    socket.on("checkLoginId", async ({ loginId, whiteListId }) => {
       try {
-        console.log(`[SOCKET] Checking loginId: ${loginId}, whitelist: ${whiteListId}`);
+        console.log(
+          `[SOCKET] Checking loginId: ${loginId}, whitelist: ${whiteListId}`
+        );
+
+        // Validate inputs
+        if (!loginId) {
+          socket.emit("loginIdCheck", false);
+          return;
+        }
 
         const AllUserTypes = [
           "techAdmin",
@@ -43,21 +52,29 @@ export function setupSocket(server: HttpServer) {
         ];
 
         let user: any = null;
-
         let exists = false;
+
         for (const role of AllUserTypes) {
           const userRepository = AppDataSource.getRepository(USER_TABLES[role]);
 
+          // Build where condition based on whether whiteListId is provided
+          const whereCondition: any = { loginId };
+
+          // Only add whiteListId to query if it's a valid non-empty string
+          if (whiteListId && whiteListId.trim() !== "") {
+            whereCondition.whiteListId = whiteListId;
+          }
+
           user = await userRepository.findOne({
-            where: { loginId, whiteListId },
+            where: whereCondition,
           });
 
           console.log("socket :", user);
 
           if (user) {
             exists = true;
-            break; 
-          } 
+            break;
+          }
         }
 
         socket.emit("loginIdCheck", exists);
@@ -66,7 +83,6 @@ export function setupSocket(server: HttpServer) {
         socket.emit("loginIdCheck", false);
       }
     });
-
 
     // Login
     socket.on("login", ({ userId, userType }) => {
@@ -81,7 +97,7 @@ export function setupSocket(server: HttpServer) {
           existingSocket.emit("forceLogout", {
             reason: "DUPLICATE_LOGIN",
             message: "Logged in from another device",
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
 
           // Disconnect after sending the event
@@ -108,7 +124,7 @@ export function setupSocket(server: HttpServer) {
       if (userType === "techAdmin") {
         socket.to("techAdmins").emit("adminLogin", {
           adminId: userId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     });
@@ -152,7 +168,9 @@ export function setupSocket(server: HttpServer) {
       io.emit("casinoOddsUpdate", update);
       // io.to("techAdmins").emit("casinoOddsUpdate", update);
 
-      console.log(`[SOCKET] Broadcasted casino odds update: ${update.casinoType}`);
+      console.log(
+        `[SOCKET] Broadcasted casino odds update: ${update.casinoType}`
+      );
     }
   });
 
