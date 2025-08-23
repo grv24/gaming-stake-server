@@ -165,6 +165,7 @@ export function setupSocket(server: HttpServer) {
       const update = JSON.parse(message);
 
       // Broadcast to ALL connected users
+      // Broadcast to ALL connected users
       io.emit("casinoOddsUpdate", update);
       // io.to("techAdmins").emit("casinoOddsUpdate", update);
 

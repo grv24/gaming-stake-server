@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCasinoData } from "../../controllers/casino/CasinoOdds";
+import { getCasinoData, getCasinoResults } from "../../controllers/casino/CasinoOdds";
 import {
     createCasino,
     getAllCasinos,
@@ -11,6 +11,7 @@ import {
 const router = Router();
 
 router.get("/odds", getCasinoData);
+router.get("/getCasinoTopTenResult", getCasinoResults);
 
 router.post("/", createCasino);
 router.get("/", getAllCasinos);

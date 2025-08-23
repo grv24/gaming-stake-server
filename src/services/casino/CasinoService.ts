@@ -8,7 +8,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
     const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
-    const cacheKey = `casino:${casinoType}`;
     const matchRepo = AppDataSource.getRepository(CasinoMatch);
 
     // Fetch from API
@@ -26,13 +25,23 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           {
             mid: currentMid,
             casinoType,
-            winner: null, 
+            winner: null,
             data: apiData.data,
           },
           ["mid"] // unique column for conflict
         )
         .then(() => console.log(`Upserted current match ${currentMid}`))
-        .catch((err) => console.error(`Failed to upsert match ${currentMid}:`, err));
+        .catch((err) =>
+          console.error(`Failed to upsert match ${currentMid}:`, err)
+        );
+
+      // Store current match separately in Redis
+      await redisClient.set(
+        `casino:${casinoType}:current`,
+        JSON.stringify(apiData.data),
+        "EX",
+        600
+      );
     } else {
       console.log(`[CRON] No live match for ${casinoType}`);
     }
@@ -48,7 +57,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
               mid: resultMid,
               casinoType,
               winner: r.win,
-              // data: r,
+              // data: r,  // optional: only keep winner in DB for results
             },
             ["mid"] // if mid already exists, update winner
           )
@@ -59,13 +68,24 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
             console.error(`Failed to upsert past result ${resultMid}:`, err)
           );
       }
+
+      // Store results separately in Redis
+      await redisClient.set(
+        `casino:${casinoType}:results`,
+        JSON.stringify(apiData.result.res),
+        "EX",
+        600
+      );
     }
 
-    // 3) Update Redis + Pub/Sub
-    await redisClient.set(cacheKey, JSON.stringify(apiData), "EX", 600);
+    // 3) Publish update (send both keys)
     await redisPublisher.publish(
       "casino_odds_updates",
-      JSON.stringify({ casinoType, data: apiData })
+      JSON.stringify({
+        casinoType,
+        current: apiData?.data || null,
+        results: apiData?.result?.res || [],
+      })
     );
 
     console.log(`[CRON] Updated & published odds for ${casinoType}`);
