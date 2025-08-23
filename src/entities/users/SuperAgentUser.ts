@@ -82,7 +82,7 @@ export class SuperAgent {
   @Column({ type: "varchar", default: "superAgent" })
   __type!: string;
 
-    @Column({ type: "bool", default: "false" })
+  @Column({ type: "bool", default: "false" })
   isPanelCommission !: boolean;
 
   // Account Details
@@ -101,7 +101,7 @@ export class SuperAgent {
   @Column({ type: 'float', default: 0 })
   totalSettledAmount!: number;
 
-    // account kitne ka bana tha
+  // account kitne ka bana tha
   @Column({ type: 'float', default: 0 })
   creditRef!: number;
 
@@ -170,38 +170,45 @@ export class SuperAgent {
   @Column({ type: "uuid", nullable: true })
   soccerSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   tennisSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   cricketSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   matkaSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   casinoSettingId !: string;
 
-  @Column({ type: "uuid" , nullable: true})
+  @Column({ type: "uuid", nullable: true })
   internationalCasinoSettingId !: string;
 
-    @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total" })
-  commissionToType !: string;
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] })
+  commissionUplineType !: string;
 
   @Column({ type: "uuid", nullable: true })
-  commissionToUserId !: string;
+  commissionUplineUserId !: string;
 
   @Column({ type: 'int', default: 0 })
-  matchCommission!: number;
+  commissionUpline!: number;
 
-  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "client", "own", "total"] , default: "total"  })
-  partnershipToType !: string;
+  @Column({ type: 'int', default: 0 })
+  commissionOwn !: number;
+
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] })
+  partnershipUplineType !: string;
 
   @Column({ type: "uuid", nullable: true })
-  partnershipToUserId !: string;
+  partnershipUplineUserId !: string;
 
   @Column({ type: 'int', default: 0 })
-  partnership !: number;
+  partnershipUpline !: number;
+
+  @Column({ type: 'int', default: 0 })
+  partnershipOwn !: number;
+
 
   @CreateDateColumn()
   createdAt !: Date;
@@ -209,27 +216,27 @@ export class SuperAgent {
   @UpdateDateColumn()
   updatedAt !: Date;
 
-    @OneToOne(() => SoccerSettings)
-    @JoinColumn({ name: 'soccerSettingId' })
-    soccerSettings!: SoccerSettings;
-  
-    @OneToOne(() => CricketSettings)
-    @JoinColumn({ name: 'cricketSettingId' })
-    cricketSettings!: CricketSettings;
-  
-    @OneToOne(() => TennisSettings)
-    @JoinColumn({ name: 'tennisSettingId' })
-    tennisSettings!: TennisSettings;
-  
-    @OneToOne(() => MatkaSettings)
-    @JoinColumn({ name: 'matkaSettingId' })
-    matkaSettings!: MatkaSettings;
-  
-    @OneToOne(() => CasinoSettings)
-    @JoinColumn({ name: 'casinoSettingId' })
-    casinoSettings!: CasinoSettings;
-  
-    @OneToOne(() => InternationalCasinoSettings)
-    @JoinColumn({ name: 'internationalCasinoSettingId' })
-    internationalCasinoSettings!: InternationalCasinoSettings;
+  @OneToOne(() => SoccerSettings)
+  @JoinColumn({ name: 'soccerSettingId' })
+  soccerSettings!: SoccerSettings;
+
+  @OneToOne(() => CricketSettings)
+  @JoinColumn({ name: 'cricketSettingId' })
+  cricketSettings!: CricketSettings;
+
+  @OneToOne(() => TennisSettings)
+  @JoinColumn({ name: 'tennisSettingId' })
+  tennisSettings!: TennisSettings;
+
+  @OneToOne(() => MatkaSettings)
+  @JoinColumn({ name: 'matkaSettingId' })
+  matkaSettings!: MatkaSettings;
+
+  @OneToOne(() => CasinoSettings)
+  @JoinColumn({ name: 'casinoSettingId' })
+  casinoSettings!: CasinoSettings;
+
+  @OneToOne(() => InternationalCasinoSettings)
+  @JoinColumn({ name: 'internationalCasinoSettingId' })
+  internationalCasinoSettings!: InternationalCasinoSettings;
 }
