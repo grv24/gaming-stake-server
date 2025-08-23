@@ -8,12 +8,13 @@ import {
     deleteCasino
 } from "../../controllers/casino/DefaultCasino";
 import { createBet } from "../../controllers/casino/CasinoBetController";
+import { clientAuth } from "../../middlewares/RoleAuth";
 
 const router = Router();
 
 router.get("/odds", getCasinoData);
 router.get("/getCasinoTopTenResult", getCasinoResults);
-router.post("/place-bet", createBet);
+router.post("/place-bet", clientAuth, createBet);
 
 router.post("/", createCasino);
 router.get("/", getAllCasinos);
