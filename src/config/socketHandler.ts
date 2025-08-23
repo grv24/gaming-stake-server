@@ -155,22 +155,45 @@ export function setupSocket(server: HttpServer) {
   });
 
   // Casino Odds listener
-  redisSubscriber.subscribe("casino_odds_updates", (err) => {
-    if (err) console.error("Failed to subscribe to casino_odds_updates:", err);
-    else console.log("Subscribed to casino_odds_updates");
+  // redisSubscriber.subscribe("casino_odds_updates", (err) => {
+  //   if (err) console.error("Failed to subscribe to casino_odds_updates:", err);
+  //   else console.log("Subscribed to casino_odds_updates");
+  // });
+
+  // redisSubscriber.on("message", (channel, message) => {
+  //   if (channel === "casino_odds_updates") {
+  //     const update = JSON.parse(message);
+
+  //     // Broadcast to ALL connected users
+  //     // Broadcast to ALL connected users
+  //     io.emit("casinoOddsUpdate", update);
+  //     // io.to("techAdmins").emit("casinoOddsUpdate", update);
+
+  //     console.log(
+  //       `[SOCKET] Broadcasted casino odds update: ${update.casinoType}`
+  //     );
+  //   }
+  // });
+
+  // Use pattern matching to subscribe to all casino odds updates
+  redisSubscriber.psubscribe("casino_odds_updates:*", (err) => {
+    if (err) console.error("Failed to subscribe to casino_odds_updates:*:", err);
+    else console.log("Subscribed to casino_odds_updates:* pattern");
   });
 
-  redisSubscriber.on("message", (channel, message) => {
-    if (channel === "casino_odds_updates") {
+  redisSubscriber.on("pmessage", (pattern, channel, message) => {
+    if (pattern === "casino_odds_updates:*") {
       const update = JSON.parse(message);
+      const casinoType = channel.split(":")[1]; // Extract casinoType from channel name
 
-      // Broadcast to ALL connected users
-      // Broadcast to ALL connected users
-      io.emit("casinoOddsUpdate", update);
-      // io.to("techAdmins").emit("casinoOddsUpdate", update);
+      // Broadcast to ALL connected users for this specific casinoType
+      io.emit("casinoOddsUpdate", {
+        casinoType,
+        data: update
+      });
 
       console.log(
-        `[SOCKET] Broadcasted casino odds update: ${update.casinoType}`
+        `[SOCKET] Broadcasted casino odds update for: ${casinoType}`
       );
     }
   });
