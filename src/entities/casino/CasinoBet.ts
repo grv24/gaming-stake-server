@@ -19,7 +19,7 @@ export class CasinoBet {
     matchId!: string;
 
     @Column({ type: "varchar" })
-    betType!: string;
+    casinoType!: string;
 
     @Column("decimal", { precision: 10, scale: 2 })
     amount!: number;
@@ -27,7 +27,10 @@ export class CasinoBet {
     @Column({ default: "pending" })
     status!: "pending" | "won" | "lost";
 
-    @CreateDateColumn({ type: "" })
+    @Column({ type: "jsonb", nullable: true })
+    data: any;
+
+    @CreateDateColumn({ type: "timestamp" })
     createdAt!: Date;
 
     @UpdateDateColumn({ type: "timestamp" })
