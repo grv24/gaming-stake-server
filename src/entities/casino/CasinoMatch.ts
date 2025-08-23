@@ -11,7 +11,7 @@ export class CasinoMatch {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: "varchar" })
+    @Column({ type: "varchar", unique: true })
     mid!: String;
 
     @Column({ type: "varchar", length: 255 })

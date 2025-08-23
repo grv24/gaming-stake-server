@@ -17,39 +17,47 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     });
     const apiData = response.data;
 
+    // 1) Handle current match (only if exists)
+    if (apiData?.data?.mid) {
+      const currentMid = String(apiData.data.mid);
 
-    // 1) Handle current match
-    const currentMatch = {
-      mid: String(apiData.data.mid),
-      casinoType,
-      winner: null, 
-      data: apiData.data,
-    };
-
-    const exists = await matchRepo.findOne({ where: { mid: currentMatch.mid } });
-    if (!exists) {
-      await matchRepo.save(currentMatch);
-      console.log(`Inserted new match ${currentMatch.mid}`);
+      await matchRepo
+        .upsert(
+          {
+            mid: currentMid,
+            casinoType,
+            winner: null, 
+            data: apiData.data,
+          },
+          ["mid"] // unique column for conflict
+        )
+        .then(() => console.log(`Upserted current match ${currentMid}`))
+        .catch((err) => console.error(`Failed to upsert match ${currentMid}:`, err));
+    } else {
+      console.log(`[CRON] No live match for ${casinoType}`);
     }
 
     // 2) Handle last 10 results
-    if (apiData.result?.res) {
+    if (apiData?.result?.res) {
       for (const r of apiData.result.res) {
-        const resultMatch = {
-          mid: String(r.mid),
-          casinoType,
-          winner: r.win,
-          data: r,
-        };
+        const resultMid = String(r.mid);
 
-        const existingResult = await matchRepo.findOne({
-          where: { mid: resultMatch.mid },
-        });
-
-        if (!existingResult) {
-          await matchRepo.save(resultMatch);
-          console.log(`Stored past result ${resultMatch.mid} with winner ${r.win}`);
-        }
+        await matchRepo
+          .upsert(
+            {
+              mid: resultMid,
+              casinoType,
+              winner: r.win,
+              // data: r,
+            },
+            ["mid"] // if mid already exists, update winner
+          )
+          .then(() =>
+            console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
+          )
+          .catch((err) =>
+            console.error(`Failed to upsert past result ${resultMid}:`, err)
+          );
       }
     }
 
