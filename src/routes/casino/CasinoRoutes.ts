@@ -10,7 +10,7 @@ import {
 
 const router = Router();
 
-// GET /api/casino?casinoType=teen33
+router.get("/odds", getCasinoData);
 
 router.post("/", createCasino);
 router.get("/", getAllCasinos);

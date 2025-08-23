@@ -25,6 +25,7 @@ import { startCasinoCronJobs } from './cron/CasinoCronJob';
 import { initRedisPubSub } from './config/redisPubSub';
 import { AccountTrasaction } from './entities/Transactions/AccountTransactions';
 import { DefaultCasino } from './entities/casino/DefaultCasino';
+import { CasinoMatch } from './entities/casino/CasinoMatch';
 
 dotenv.config();
 
@@ -54,7 +55,8 @@ export const AppDataSource = new DataSource({
         InternationalCasinoSettings, 
         MatkaSettings,
         AccountTrasaction,
-        DefaultCasino
+        DefaultCasino,
+        CasinoMatch
     ],
     synchronize: true,
     logging: process.env.NODE_ENV === 'development',
@@ -70,7 +72,7 @@ const startServer = async () => {
 
     // cron jobs
 
-    // startCasinoCronJobs();
+    startCasinoCronJobs();
 
 
     const PORT = process.env.PORT || 4000;
