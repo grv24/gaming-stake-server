@@ -14,7 +14,7 @@ export const createWhitelist = async (req: Request, res: Response) => {
 
     const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
 
-    const createdById = req.user?.id;
+    const createdById = req.user?.userId;
 
     if (!req.body.TechAdminUrl || !req.body.CommonName || !createdById) {
       await queryRunner.rollbackTransaction();

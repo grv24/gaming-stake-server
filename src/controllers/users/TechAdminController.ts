@@ -21,6 +21,8 @@ export const createTechAdmin = async (req: Request, res: Response) => {
     try {
         const uplineId = req.user?.userId;
 
+        console.log("******************************************************************" , uplineId);
+
         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
         const techAdminRepo = queryRunner.manager.getRepository(TechAdmin);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
@@ -86,10 +88,10 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             partnerShipWiseCommission = false,
             commissionLena = true,
             commissionDena = false,
-            commissionToType,
-            matchCommission,
-            partnershipToType,
-            partnership,
+            // commissionToType,
+            // matchCommission,
+            // partnershipToType,
+            // partnership,
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -167,12 +169,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             commissionLena,
             commissionDena,
             isPanelCommission,
-            commissionToType,
-            commissionToUserId: uplineId,
-            matchCommission,
-            partnershipToType,
-            partnershipToUserId: uplineId,
-            partnership,
+            // commissionToType,
+            // commissionToUserId: uplineId,
+            // matchCommission,
+            // partnershipToType,
+            // partnershipToUserId: uplineId,
+            // partnership,
 
             // Settings IDs will be added after creation
         };
@@ -213,12 +215,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: soccerSettings.minExposure || 0,
                 maxExposure: soccerSettings.maxExposure || 0,
                 winningLimit: soccerSettings.winningLimit || 0,
-                commissionToType: soccerSettings.commissionToType || 'techAdmin',
-                commissionToUserId: soccerSettings.commissionToUserId || null,
-                matchCommission: soccerSettings.matchCommission || 0,
-                partnershipToType: soccerSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: soccerSettings.partnershipToUserId || null,
-                partnership: soccerSettings.partnership || 0
+                // commissionToType: soccerSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: soccerSettings.commissionToUserId || null,
+                // matchCommission: soccerSettings.matchCommission || 0,
+                // partnershipToType: soccerSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: soccerSettings.partnershipToUserId || null,
+                // partnership: soccerSettings.partnership || 0
             }),
             createSettings(cricketSettingsRepo, {
                 isWhiteListed: cricketSettings.isWhiteListed || false,
@@ -241,12 +243,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: cricketSettings.minExposure || 0,
                 maxExposure: cricketSettings.maxExposure || 0,
                 winningLimit: cricketSettings.winningLimit || 0,
-                commissionToType: cricketSettings.commissionToType || 'techAdmin',
-                commissionToUserId: cricketSettings.commissionToUserId || null,
-                matchCommission: cricketSettings.matchCommission || 0,
-                partnershipToType: cricketSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: cricketSettings.partnershipToUserId || null,
-                partnership: cricketSettings.partnership || 0
+                // commissionToType: cricketSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: cricketSettings.commissionToUserId || null,
+                // matchCommission: cricketSettings.matchCommission || 0,
+                // partnershipToType: cricketSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: cricketSettings.partnershipToUserId || null,
+                // partnership: cricketSettings.partnership || 0
             }),
             createSettings(tennisSettingsRepo, {
                 isWhiteListed: tennisSettings.isWhiteListed || false,
@@ -264,12 +266,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: tennisSettings.minExposure || 0,
                 maxExposure: tennisSettings.maxExposure || 0,
                 winningLimit: tennisSettings.winningLimit || 0,
-                commissionToType: tennisSettings.commissionToType || 'techAdmin',
-                commissionToUserId: tennisSettings.commissionToUserId || null,
-                matchCommission: tennisSettings.matchCommission || 0,
-                partnershipToType: tennisSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: tennisSettings.partnershipToUserId || null,
-                partnership: tennisSettings.partnership || 0
+                // commissionToType: tennisSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: tennisSettings.commissionToUserId || null,
+                // matchCommission: tennisSettings.matchCommission || 0,
+                // partnershipToType: tennisSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: tennisSettings.partnershipToUserId || null,
+                // partnership: tennisSettings.partnership || 0
             }),
             createSettings(matkaSettingsRepo, {
                 isWhiteListed: matkaSettings.isWhiteListed || false,
@@ -283,12 +285,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: matkaSettings.minExposure || 0,
                 maxExposure: matkaSettings.maxExposure || 0,
                 winningLimit: matkaSettings.winningLimit || 0,
-                commissionToType: matkaSettings.commissionToType || 'techAdmin',
-                commissionToUserId: matkaSettings.commissionToUserId || null,
-                matchCommission: matkaSettings.matchCommission || 0,
-                partnershipToType: matkaSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: matkaSettings.partnershipToUserId || null,
-                partnership: matkaSettings.partnership || 0
+                // commissionToType: matkaSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: matkaSettings.commissionToUserId || null,
+                // matchCommission: matkaSettings.matchCommission || 0,
+                // partnershipToType: matkaSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: matkaSettings.partnershipToUserId || null,
+                // partnership: matkaSettings.partnership || 0
             }),
             createSettings(casinoSettingsRepo, {
                 isWhiteListed: casinoSettings.isWhiteListed || false,
@@ -302,12 +304,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: casinoSettings.minExposure || 0,
                 maxExposure: casinoSettings.maxExposure || 0,
                 winningLimit: casinoSettings.winningLimit || 0,
-                commissionToType: casinoSettings.commissionToType || 'techAdmin',
-                commissionToUserId: casinoSettings.commissionToUserId || null,
-                matchCommission: casinoSettings.matchCommission || 0,
-                partnershipToType: casinoSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: casinoSettings.partnershipToUserId || null,
-                partnership: casinoSettings.partnership || 0
+                // commissionToType: casinoSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: casinoSettings.commissionToUserId || null,
+                // matchCommission: casinoSettings.matchCommission || 0,
+                // partnershipToType: casinoSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: casinoSettings.partnershipToUserId || null,
+                // partnership: casinoSettings.partnership || 0
             }),
             createSettings(internationalCasinoSettingsRepo, {
                 isWhiteListed: internationalCasinoSettings.isWhiteListed || false,
@@ -321,12 +323,12 @@ export const createTechAdmin = async (req: Request, res: Response) => {
                 minExposure: internationalCasinoSettings.minExposure || 0,
                 maxExposure: internationalCasinoSettings.maxExposure || 0,
                 winningLimit: internationalCasinoSettings.winningLimit || 0,
-                commissionToType: internationalCasinoSettings.commissionToType || 'techAdmin',
-                commissionToUserId: internationalCasinoSettings.commissionToUserId || null,
-                matchCommission: internationalCasinoSettings.matchCommission || 0,
-                partnershipToType: internationalCasinoSettings.partnershipToType || 'techAdmin',
-                partnershipToUserId: internationalCasinoSettings.partnershipToUserId || null,
-                partnership: internationalCasinoSettings.partnership || 0
+                // commissionToType: internationalCasinoSettings.commissionToType || 'techAdmin',
+                // commissionToUserId: internationalCasinoSettings.commissionToUserId || null,
+                // matchCommission: internationalCasinoSettings.matchCommission || 0,
+                // partnershipToType: internationalCasinoSettings.partnershipToType || 'techAdmin',
+                // partnershipToUserId: internationalCasinoSettings.partnershipToUserId || null,
+                // partnership: internationalCasinoSettings.partnership || 0
             })
         ]);
 

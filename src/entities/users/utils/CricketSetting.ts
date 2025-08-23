@@ -79,8 +79,8 @@ export class CricketSettings {
   @Column({ default: 0 })
   winningLimit!: number;
 
-  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] })
-  commissionUplineType !: string;
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] , nullable: true })
+  commissionUplineType !: string | null;
 
   @Column({ type: "uuid", nullable: true })
   commissionUplineUserId !: string;
@@ -91,8 +91,8 @@ export class CricketSettings {
   @Column({ type: 'int', default: 0 })
   commissionOwn !: number;
 
-  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] })
-  partnershipUplineType !: string;
+  @Column({ type: "varchar", enum: ["techAdmin", "admin", "miniAdmin", "superMaster", "master", "superAgent", "agent"] , nullable: true })
+  partnershipUplineType !: string | null;
 
   @Column({ type: "uuid", nullable: true })
   partnershipUplineUserId !: string;
