@@ -21,12 +21,6 @@ export class CasinoBet {
     @Column({ type: "varchar", length: 255 })
     matchId!: string;
 
-    @Column({ type: "varchar" })
-    casinoType!: string;
-
-    @Column({ type: 'float', default: 0 })
-    amount!: number;
-
     @Column({ type: "jsonb", nullable: true })
     commission: any;
 
@@ -40,7 +34,7 @@ export class CasinoBet {
     status!: "pending" | "won" | "lost";
 
     @Column({ type: "jsonb", nullable: true })
-    data: any;
+    betData: any;
 
     @CreateDateColumn({ type: "timestamp" })
     createdAt!: Date;

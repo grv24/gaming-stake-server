@@ -13,30 +13,23 @@ export const createBet = async (req: Request, res: Response) => {
     const userExposure = req.user.AccountDetails.Exposure;
     const userExposureLimit = req.user.AccountDetails.ExposureLimit;
 
-    const { matchId, casinoType, amount, data, exposure, commission, partnership } = req.body;
+    const { betData, exposure, commission, partnership } = req.body;
 
-    if (!userId || !casinoType || !amount) {
+    if (!userId || !betData?.stake) {
       return res.status(400).json({
         status: false,
         message: "Missing required fields: userId, casinoType, and amount are required"
       });
     }
 
-    if (!CASINO_TYPES.includes(casinoType)) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid casino type"
-      });
-    }
-
-    if (amount > userBalance - userExposure) {
+    if (betData?.stake > userBalance - userExposure) {
       return res.status(400).json({
         status: false,
         message: "exceeded exposure limit"
       });
     }
 
-    if (amount + userExposure > userExposureLimit) {
+    if (betData?.stake + userExposure > userExposureLimit) {
       return res.status(400).json({
         status: false,
         message: "exceeded exposure limit"
@@ -46,13 +39,11 @@ export const createBet = async (req: Request, res: Response) => {
     const bet = casinoBetRepository.create({
       userId,
       userType: req.__type,
-      casinoType,
-      amount,
       exposure,
       commission,
       partnership,
-      data,
-      matchId: matchId || null,
+      betData,
+      matchId: betData?.mid || null,
       status: "pending",
     });
 
