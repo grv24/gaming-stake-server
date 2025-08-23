@@ -26,6 +26,7 @@ import { initRedisPubSub } from './config/redisPubSub';
 import { AccountTrasaction } from './entities/Transactions/AccountTransactions';
 import { DefaultCasino } from './entities/casino/DefaultCasino';
 import { CasinoMatch } from './entities/casino/CasinoMatch';
+import { CasinoBet } from './entities/casino/CasinoBet';
 
 dotenv.config();
 
@@ -56,7 +57,8 @@ export const AppDataSource = new DataSource({
         MatkaSettings,
         AccountTrasaction,
         DefaultCasino,
-        CasinoMatch
+        CasinoMatch,
+        CasinoBet
     ],
     synchronize: true,
     logging: process.env.NODE_ENV === 'development',
