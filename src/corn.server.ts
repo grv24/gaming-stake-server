@@ -8,11 +8,11 @@
  * - Sports odds updates every 30 seconds
  * - Casino data processing every 2 minutes
  * - Graceful shutdown handling
- * - Independent DB connection
+ * - Independent DB connection with limited pool
  * 
  * Architecture:
  * - Separate from main server to avoid blocking API requests
- * - Uses dedicated database connection to prevent connection pool exhaustion
+ * - Uses dedicated database connection with small pool size
  * - Structured logging with configurable levels
  * - Graceful shutdown to prevent data corruption
  * - NO HTTP SERVER - runs silently without exposing any ports
@@ -22,14 +22,13 @@
 import "reflect-metadata";
 import dotenv from "dotenv";
 import { DataSource } from "typeorm";
-import { connectRedis } from "./config/redisConfig";
+import { connectRedis, getRedisClient } from "./config/redisConfig";
 import { initRedisPubSub } from "./config/redisPubSub";
 import { startCasinoCronJobs } from "./cron/CasinoCronJob";
 import { startSportCronJobs } from "./cron/SportsCronJob";
 import pino from "pino";
 
-// Database entities for TypeORM configuration
-// These entities define the data models that the cron service needs to access
+// Entities
 import { Developer } from "./entities/users/DeveloperUser";
 import { TechAdmin } from "./entities/users/TechAdminUser";
 import { SuperMaster } from "./entities/users/SuperMasterUser";
@@ -51,33 +50,19 @@ import { CasinoSettings } from "./entities/users/utils/CasinoSetting";
 import { InternationalCasinoSettings } from "./entities/users/utils/InternationalCasino";
 import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
 
-// Load environment variables from .env file
+// Load env
 dotenv.config();
 
-// Setup structured logging with configurable levels
-// LOG_LEVEL can be set in .env: debug, info, warn, error
-// Defaults to 'info' for production, can be set to 'error' to reduce noise
+// Logger
 const logger = pino({ 
   level: process.env.LOG_LEVEL || "info",
-  // Add service context to all log messages
-  base: {
-    service: 'cron-service'
-  }
+  base: { service: "cron-service" }
 });
 
-// Mark this process as a cron service for identification
-// This helps distinguish cron service logs from main application logs
 process.env.CRON_SERVICE = "true";
 
 /**
  * Database Configuration for Cron Service
- * 
- * Creates an independent database connection specifically for cron operations.
- * This separation ensures:
- * - Cron jobs don't interfere with main application database connections
- * - Connection pool exhaustion is prevented
- * - Database operations can be optimized for batch processing
- * - Independent connection management and monitoring
  */
 export const CronDataSource = new DataSource({
   type: "postgres",
@@ -86,9 +71,7 @@ export const CronDataSource = new DataSource({
   username: process.env.POSTGRES_USERNAME,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DATABASE,
-  // All entities that cron service needs to access
   entities: [
-    // User hierarchy - for authentication and authorization checks
     Developer,
     TechAdmin,
     SuperMaster,
@@ -98,14 +81,11 @@ export const CronDataSource = new DataSource({
     MiniAdmin,
     Admin,
     Client,
-    // System entities - for whitelist and transaction tracking
     Whitelist,
     AccountTrasaction,
-    // Casino entities - for game data and betting operations
     DefaultCasino,
     CasinoMatch,
     CasinoBet,
-    // Settings entities - for configuration management
     SoccerSettings,
     TennisSettings,
     CricketSettings,
@@ -113,84 +93,86 @@ export const CronDataSource = new DataSource({
     InternationalCasinoSettings,
     MatkaSettings,
   ],
-  synchronize: false, // Disable auto-sync for safety in production
-  logging: false, // Disable TypeORM logging to reduce noise
-  name: "cron-service", // Unique connection name to avoid conflicts
+  synchronize: false,
+  logging: false,
+  name: "cron-service",
+  // 🔑 Optimized pool size for connection stability
+  extra: {
+    max: 8,
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 10000,
+    maxUses: 1000, // Recycle connections after 1000 uses
+  },
 });
 
 /**
- * Main function to initialize and start the cron service
- * 
- * This function orchestrates the startup sequence:
- * 1. Establishes database connection
- * 2. Connects to Redis for caching and pub/sub
- * 3. Starts scheduled cron jobs
- * 4. Sets up graceful shutdown handlers
- * 
- * IMPORTANT: This service runs silently without any HTTP server or port exposure.
- * It only executes background cron jobs and does not accept any incoming connections.
- * 
- * Error handling ensures the process exits cleanly if startup fails
+ * Main function to start cron service
  */
 const startCronService = async () => {
   try {
     logger.info("Starting Cron Service (silent mode - no ports)...");
 
-    // Initialize database connection for cron operations
-    // This connection is separate from the main application
-    await CronDataSource.initialize();
-    logger.info("Database connected (cron service)");
+    // Database with retry mechanism
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        await CronDataSource.initialize();
+        logger.info("Database connected (cron service)");
+        break;
+      } catch (error: any) {
+        retries--;
+        if (error.message?.includes("too many clients") && retries > 0) {
+          logger.warn(`Database connection failed (${retries} retries left), waiting 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          throw error;
+        }
+      }
+    }
 
-    // Initialize Redis for caching and pub/sub functionality
-    // Redis is used for:
-    // - Caching frequently accessed data
-    // - Pub/sub for real-time updates
-    // - Session management
-    // NOTE: Cron service does NOT use socket handlers - it only publishes to Redis
+    // Redis
     await connectRedis();
     initRedisPubSub();
     logger.info("Redis connected (cron service)");
 
-    // Start scheduled cron jobs
-    // These jobs run in the background and handle:
-    // - Sports odds updates (every 30 seconds)
-    // - Casino data processing (every 2 minutes)
-    // NOTE: No HTTP server is started - this is a silent background service
+    // Start jobs
     startCasinoCronJobs();
     startSportCronJobs();
     logger.info("Cron jobs started successfully");
 
-    // Log service status and monitoring information
     logger.info("Cron service running silently in background (no ports exposed)");
     logger.debug("Monitoring schedule: sports odds=30s, casino=2m, batch=5");
 
     /**
-     * Graceful shutdown handler
-     * 
-     * Ensures clean shutdown by:
-     * - Closing database connections properly
-     * - Allowing current operations to complete
-     * - Preventing data corruption
-     * - Logging shutdown progress
+     * Graceful shutdown
      */
     const shutdown = async () => {
       logger.warn("Shutting down cron service gracefully...");
-      CronDataSource.destroy().then(() => {
-        logger.info("Database connection closed");
+      try {
+        if (CronDataSource.isInitialized) {
+          await CronDataSource.destroy();
+          logger.info("Database connection pool closed");
+        }
+        const redisClient = getRedisClient();
+        if (redisClient.status === 'ready') {
+          await redisClient.quit();
+          logger.info("Redis connection closed");
+        }
+      } catch (err) {
+        logger.error({ err }, "Error during shutdown");
+      } finally {
         process.exit(0);
-      });
+      }
     };
 
-    // Register shutdown handlers for different termination signals
-    process.on("SIGTERM", shutdown); // Termination signal (e.g., from Docker, Kubernetes)
-    process.on("SIGINT", shutdown);  // Interrupt signal (e.g., Ctrl+C from terminal)
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+
   } catch (error) {
-    // Log detailed error information and exit with error code
     logger.error({ err: error }, "Cron service startup failed");
     process.exit(1);
   }
 };
 
-// Start the cron service when this file is executed
-// This is the entry point for the cron service process
+// Entry
 startCronService();

@@ -61,6 +61,12 @@ export const AppDataSource = new DataSource({
   ],
   synchronize: true,
   logging: process.env.NODE_ENV === "development",
+  // 🔑 Limit pool size to prevent connection exhaustion
+  extra: {
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  },
 });
 
 const startServer = async () => {
