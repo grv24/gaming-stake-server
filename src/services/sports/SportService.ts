@@ -1,0 +1,110 @@
+import axios from "axios";
+import { getRedisClient } from "../../config/redisConfig";
+
+// Define sport types
+type SportType = 'cricket' | 'soccer' | 'tennis';
+
+// Function to fetch and store sports data in Redis
+export const fetchAndStoreSportsData = async (sportType: SportType) => {
+  try {
+    const redisClient = getRedisClient();
+
+    let apiUrl = '';
+    
+    // Determine API endpoint based on sport type
+        switch (sportType) {
+      case 'cricket':
+        apiUrl = 'http://localhost:8085/api/new/getlistdata?sport_id=4';
+        break;
+      case 'soccer':
+        apiUrl = 'http://localhost:4000/api/new/getlistdata?sport_id=1';
+        break;
+      case 'tennis':
+        apiUrl = 'http://localhost:4000/api/new/getlistdata?sport_id=2';
+        break;
+      default:
+        throw new Error(`Unknown sport type: ${sportType}`);
+    }
+
+    // Fetch from API
+    const response = await axios.get(apiUrl);
+    const apiData = response.data;
+
+    // Store data in Redis with expiration
+    await redisClient.set(
+      `sports:${sportType}:data`,
+      JSON.stringify(apiData),
+      "EX",
+      300 // 5 minutes expiration
+    );
+
+    console.log(`[SPORTS] Stored data for ${sportType} in Redis`);
+    return apiData;
+
+  } catch (err: any) {
+    console.error(`[SPORTS] Failed to fetch data for ${sportType}:`, err.message);
+    return null;
+  }
+};
+
+// Individual functions for each sport
+export const fetchCricketData = async () => {
+  return fetchAndStoreSportsData('cricket');
+};
+
+export const fetchSoccerData = async () => {
+  return fetchAndStoreSportsData('soccer');
+};
+
+export const fetchTennisData = async () => {
+  return fetchAndStoreSportsData('tennis');
+};
+
+// Function to fetch all sports data
+export const fetchAllSportsData = async () => {
+  try {
+    const results = await Promise.allSettled([
+      fetchCricketData(),
+      fetchSoccerData(),
+      fetchTennisData()
+    ]);
+    
+    return results.map(result => 
+      result.status === 'fulfilled' ? result.value : null
+    );
+  } catch (error) {
+    console.error('Error fetching all sports data:', error);
+    return [];
+  }
+};
+
+// Function to get sports data from Redis
+export const getSportsData = async (sportType: SportType) => {
+  try {
+    const redisClient = getRedisClient();
+    const data = await redisClient.get(`sports:${sportType}:data`);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error(`Error getting data for ${sportType}:`, error);
+    return null;
+  }
+};
+
+// Function to get all sports data from Redis
+export const getAllSportsData = async () => {
+  try {
+    const redisClient = getRedisClient();
+    const sports: SportType[] = ['cricket', 'soccer', 'tennis'];
+    const result: Record<string, any> = {};
+    
+    for (const sport of sports) {
+      const data = await redisClient.get(`sports:${sport}:data`);
+      result[sport] = data ? JSON.parse(data) : null;
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error getting all sports data:', error);
+    return {};
+  }
+};
