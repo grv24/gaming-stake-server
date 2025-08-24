@@ -3,9 +3,19 @@ import { processOddsData } from '../services/sports/OddsService';
 
 // List of events to monitor (starts with some examples, grows as users request events)
 let eventsToMonitor: any = [];
+let cronJobsStarted = false;
 
 // Cron job to fetch data every second for all events
 export const startSportCronJobs = () => {
+  // Prevent multiple starts
+  if (cronJobsStarted) {
+    console.log("[CRON] Sports cron jobs already started");
+    return;
+  }
+  
+  cronJobsStarted = true;
+  console.log('Odds cron job started');
+  
   cron.schedule('* * * * * *', async () => {
     if (eventsToMonitor.length === 0) {
       return;
@@ -21,8 +31,6 @@ export const startSportCronJobs = () => {
     );
   });
 }
-
-console.log('Odds cron job started');
 
 // Function to add event to monitoring if not already present
 export const addEventToMonitor = (sportId: string, eventId: string): boolean => {
