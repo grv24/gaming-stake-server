@@ -36,8 +36,7 @@ export class Buttons {
     labelAndValues!: PricePreferenceItem[];
 
     @Column({
-        type: "enum",
-        enum: ["casino", "sports"],
+        type: "varchar"
     })
     gameType!: "casino" | "sports";
 
