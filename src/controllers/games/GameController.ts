@@ -11,7 +11,7 @@ export const getButtonByUserId = async (req: Request, res: Response) => {
 
         const userId = req.user?.userId;
 
-        const { gameType } = req.params;
+        const { gameType } = req.query;
         const gt = gameType as GameType;
 
         if (!userId || !gameType) {
@@ -41,7 +41,7 @@ export const updateButtonByUserId = async (req: Request, res: Response) => {
 
     try {
         const userId = req.user?.userId;
-        const { gameType } = req.params;
+        const { gameType } = req.query;
         const gt = gameType as GameType;
         const { labelAndValues } = req.body;
 

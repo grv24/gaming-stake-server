@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { format } from "date-fns";
 import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
@@ -882,25 +883,84 @@ export const getOwnExposure = async (req: Request, res: Response) => {
     }
 };
 
+export const getAccountTransactions = async (req: Request, res: Response) => {
+    try {
+        const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
 
-// export const getOwnB = async (req: Request, res: Response) => {
-//     try {
-//         const userRepository = AppDataSource.getRepository(USER_TABLES[req.user?.__type]);
+        const userId = req.user?.userId; // assuming middleware sets req.user
+        if (!userId) {
+            return res.status(401).json({
+                status: false,
+                message: "Unauthorized",
+            });
+        }
 
-//         const user = await userRepository.findOne({
-//             where: { id: req.user?.userId }
-//         });
+        const {
+            startDate,
+            endDate,
+            type = "all",
+            page = 1,
+            limit = 10,
+        } = req.query as {
+            startDate?: string;
+            endDate?: string;
+            type?: "all" | "deposit" | "withdraw";
+            page?: string;
+            limit?: string;
+        };
 
-//         if (!user) {
-//             return res.status(404).json({ status: false, message: "No user found" });
-//         }
+        const qb = accountTxRepo
+            .createQueryBuilder("tx")
+            .where("tx.downlineUserId = :userId", { userId });
 
-//         return res.status(200).json({
-//             status: true,
-//             balance: user.balance
-//         });
-//     } catch (error) {
-//         console.error("Error fetching balance:", error);
-//         return res.status(500).json({ status: false, message: "Internal server error", error });
-//     }
-// };
+        // Filter by date range
+        if (startDate && endDate) {
+            qb.andWhere("tx.createdAt BETWEEN :start AND :end", {
+                start: new Date(startDate),
+                end: new Date(endDate),
+            });
+        } else if (startDate) {
+            qb.andWhere("tx.createdAt >= :start", { start: new Date(startDate) });
+        } else if (endDate) {
+            qb.andWhere("tx.createdAt <= :end", { end: new Date(endDate) });
+        }
+
+        // Filter by type
+        if (type !== "all") {
+            qb.andWhere("tx.type = :type", { type });
+        }
+
+        // Pagination
+        const skip = (Number(page) - 1) * Number(limit);
+        qb.skip(skip).take(Number(limit));
+        qb.orderBy("tx.createdAt", "DESC");
+
+        const [transactions, total] = await qb.getManyAndCount();
+
+        const transformed = transactions.map((tx, index) => ({
+            sNo: skip + index + 1,
+            date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+            credit: tx.type === "deposit" ? tx.amount : 0,
+            debit: tx.type === "withdraw" ? tx.amount : 0,
+            remarks: tx.remarks,
+        }));
+        return res.status(200).json({
+            status: true,
+            message: "Transactions fetched successfully",
+            data: transformed,
+            pagination: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages: Math.ceil(total / Number(limit)),
+            },
+        });
+    } catch (error: any) {
+        console.error("Error fetching transactions:", error);
+        return res.status(500).json({
+            status: false,
+            message: "Internal server error",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+    }
+};

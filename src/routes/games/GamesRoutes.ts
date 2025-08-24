@@ -4,7 +4,7 @@ import { clientAuth } from "../../middlewares/RoleAuth";
 
 const router = express.Router();
 
-router.get("/buttons/:gameType", clientAuth, getButtonByUserId);
-router.put("/buttons/:gameType", clientAuth, updateButtonByUserId);
+router.get("/buttons", clientAuth, getButtonByUserId);
+router.put("/buttons", clientAuth, updateButtonByUserId);
 
 export default router;
