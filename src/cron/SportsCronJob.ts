@@ -1,28 +1,36 @@
 // import cron from 'node-cron';
 // import { processOddsData } from '../services/sports/OddsService';
 
-// // List of events to monitor (starts with some examples, grows as users request events)
-// let eventsToMonitor: any = [];
+// List of events to monitor (starts with some examples, grows as users request events)
+let eventsToMonitor: any = [];
+let cronJobsStarted = false;
 
-// // Cron job to fetch data every second for all events
-// export const startSportCronJobs = () => {
-//   cron.schedule('* * * * * *', async () => {
-//     if (eventsToMonitor.length === 0) {
-//       return;
-//     }
+// Cron job to fetch data every second for all events
+export const startSportCronJobs = () => {
+  // Prevent multiple starts
+  if (cronJobsStarted) {
+    console.log("[CRON] Sports cron jobs already started");
+    return;
+  }
+  
+  cronJobsStarted = true;
+  console.log('Odds cron job started');
+  
+  cron.schedule('* * * * * *', async () => {
+    if (eventsToMonitor.length === 0) {
+      return;
+    }
 
 //     console.log(`[CRON] Processing ${eventsToMonitor.length} events`);
 
-//     // Process all events in parallel
-//     await Promise.all(
-//       eventsToMonitor.map((event: { sportId: string; eventId: string; }) =>
-//         processOddsData(event.sportId, event.eventId)
-//       )
-//     );
-//   });
-// }
-
-// console.log('Odds cron job started');
+    // Process all events in parallel
+    await Promise.all(
+      eventsToMonitor.map((event: { sportId: string; eventId: string; }) =>
+        processOddsData(event.sportId, event.eventId)
+      )
+    );
+  });
+}
 
 // // Function to add event to monitoring if not already present
 // export const addEventToMonitor = (sportId: string, eventId: string): boolean => {

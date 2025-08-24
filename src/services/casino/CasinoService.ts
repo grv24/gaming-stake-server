@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
 import { getRedisPublisher } from "../../config/redisPubSub";
-import { AppDataSource } from "../../server";
+import { CronDataSource } from "../../corn.server";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
@@ -10,8 +10,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
     const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
-    const matchRepo = AppDataSource.getRepository(CasinoMatch);
-    const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const matchRepo = CronDataSource.getRepository(CasinoMatch);
+    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
 
     // Fetch from API
     const response = await axios.get(`http://localhost:8085/api/new/casino`, {
@@ -104,7 +104,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 };
 
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
-  const queryRunner = AppDataSource.createQueryRunner();
+  const queryRunner = CronDataSource.createQueryRunner();
   
   try {
     await queryRunner.connect();
