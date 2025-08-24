@@ -8,7 +8,13 @@
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "serve": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cron": "ts-node cron-service.ts",
+    "cron:dev": "nodemon cron-service.ts",
+    "api": "ts-node src/server.ts",
+    "api:dev": "nodemon src/server.ts",
+    "dev:all": "concurrently \"npm run api:dev\" \"npm run cron:dev\"",
+    "start:all": "concurrently \"npm run api\" \"npm run cron\""
   },
   "repository": {
     "type": "git",
@@ -51,6 +57,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.3",
     "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

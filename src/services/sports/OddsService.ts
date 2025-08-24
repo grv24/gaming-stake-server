@@ -7,8 +7,13 @@ export const fetchOddsData = async (sportId: string, eventId: string) => {
   try {
     const apiUrl = `http://localhost:8085/api/new/getdataodds?sport_id=${sportId}&eventid=${eventId}`;
     
-    // Fetch from API
-    const response = await axios.get(apiUrl, { timeout: 5000 });
+    // Fetch from API with timeout
+    const response = await axios.get(apiUrl, { 
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Casino-Server/1.0'
+      }
+    });
     const apiData = response.data;
 
     return {

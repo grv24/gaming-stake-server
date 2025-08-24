@@ -3,6 +3,7 @@ import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../Helpers/users/Roles";
+import { getRedisPublisher } from "../../config/redisPubSub";
 
 export const createBet = async (req: Request, res: Response) => {
   const casinoBetRepository = AppDataSource.getRepository(CasinoBet);
@@ -73,6 +74,56 @@ export const createBet = async (req: Request, res: Response) => {
       status: false,
       message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Manual trigger for testing casino events
+export const triggerCasinoEvent = async (req: Request, res: Response) => {
+  try {
+    const { casinoType = 'dt6' } = req.body;
+    
+    const redisPublisher = getRedisPublisher();
+    
+    const testData = {
+      casinoType,
+      current: {
+        mid: `manual_${casinoType}_${Date.now()}`,
+        status: 'live',
+        data: { 
+          manual: true,
+          timestamp: Date.now()
+        }
+      },
+      results: [
+        {
+          mid: `manual_result_${casinoType}_1`,
+          win: 'A',
+          timestamp: Date.now()
+        }
+      ]
+    };
+
+    const channel = `casino_odds_updates:${casinoType}`;
+    const message = JSON.stringify(testData);
+
+    console.log(`📤 [MANUAL] Publishing to channel: ${channel}`);
+    console.log(`📄 [MANUAL] Message: ${message}`);
+
+    await redisPublisher.publish(channel, message);
+    console.log(`✅ [MANUAL] Successfully published to ${channel}`);
+
+    res.json({
+      success: true,
+      message: `Casino event triggered for ${casinoType}`,
+      data: testData
+    });
+  } catch (error: any) {
+    console.error('❌ [MANUAL] Failed to trigger casino event:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to trigger casino event',
+      error: error.message
     });
   }
 };

@@ -6,16 +6,32 @@ import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 
+// Function to get the appropriate DataSource
+const getDataSource = () => {
+  // Check if we're in the cron service context
+  if (process.env.CRON_SERVICE === 'true') {
+    // Import dynamically to avoid circular dependencies
+    const { CronDataSource } = require('../../../cron-service');
+    return CronDataSource;
+  }
+  return AppDataSource;
+};
+
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
     const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
-    const matchRepo = AppDataSource.getRepository(CasinoMatch);
-    const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const dataSource = getDataSource();
+    const matchRepo = dataSource.getRepository(CasinoMatch);
+    const casinoBetRepo = dataSource.getRepository(CasinoBet);
 
-    // Fetch from API
+    // Fetch from API with timeout
     const response = await axios.get(`http://localhost:8085/api/new/casino`, {
       params: { casinoType },
+      timeout: 5000, // Reduced timeout for every-second execution
+      headers: {
+        'User-Agent': 'Casino-Server/1.0'
+      }
     });
     const apiData = response.data;
 
@@ -34,7 +50,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           ["mid"] // unique column for conflict
         )
         .then(() => console.log(`Upserted current match ${currentMid}`))
-        .catch((err) =>
+        .catch((err: any) =>
           console.error(`Failed to upsert match ${currentMid}:`, err)
         );
 
@@ -67,7 +83,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           .then(() =>
             console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
           )
-          .catch((err) =>
+          .catch((err: any) =>
             console.error(`Failed to upsert past result ${resultMid}:`, err)
           );
 
@@ -85,14 +101,24 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     }
 
     // 3) Publish update (send both keys)
-    await redisPublisher.publish(
-      `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
-      JSON.stringify({
-        casinoType,
-        current: apiData?.data || null,
-        results: apiData?.result?.res || [],
-      })
-    );
+    const publishData = {
+      casinoType,
+      current: apiData?.data || null,
+      results: apiData?.result?.res || [],
+    };
+
+    const channel = `casino_odds_updates:${casinoType}`;
+    const message = JSON.stringify(publishData);
+
+    console.log(`📤 [CASINO] Publishing to channel: ${channel}`);
+    console.log(`📄 [CASINO] Message: ${message}`);
+
+    try {
+      await redisPublisher.publish(channel, message);
+      console.log(`✅ [CASINO] Successfully published to ${channel}`);
+    } catch (publishError) {
+      console.error(`❌ [CASINO] Failed to publish to ${channel}:`, publishError);
+    }
 
     console.log(`[CRON] Updated & published odds for ${casinoType}`);
 

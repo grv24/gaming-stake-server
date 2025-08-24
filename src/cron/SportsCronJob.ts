@@ -4,25 +4,37 @@ import { processOddsData } from '../services/sports/OddsService';
 // List of events to monitor (starts with some examples, grows as users request events)
 let eventsToMonitor: any = [];
 
-// Cron job to fetch data every second for all events
+// Cron job to fetch data every 30 seconds for all events (instead of every second)
 export const startSportCronJobs = () => {
-  cron.schedule('* * * * * *', async () => {
+  cron.schedule('*/30 * * * * *', async () => {
     if (eventsToMonitor.length === 0) {
       return;
     }
 
     console.log(`[CRON] Processing ${eventsToMonitor.length} events`);
 
-    // Process all events in parallel
-    await Promise.all(
-      eventsToMonitor.map((event: { sportId: string; eventId: string; }) =>
-        processOddsData(event.sportId, event.eventId)
-      )
-    );
+    try {
+      // Process all events in parallel with timeout
+      const promises = eventsToMonitor.map((event: { sportId: string; eventId: string; }) =>
+        Promise.race([
+          processOddsData(event.sportId, event.eventId),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 10000) // 10 second timeout
+          )
+        ]).catch(error => {
+          console.error(`[CRON] Error processing event ${event.sportId}:${event.eventId}:`, error.message);
+          return null;
+        })
+      );
+
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('[CRON] Error in sports cron job:', error);
+    }
   });
 }
 
-console.log('Odds cron job started');
+console.log('Odds cron job started (30-second interval)');
 
 // Function to add event to monitoring if not already present
 export const addEventToMonitor = (sportId: string, eventId: string): boolean => {
