@@ -15,6 +15,7 @@ import techAdminUserRouter from './routes/users/TechAdminRoutes';
 import whitelistRouter from './routes/whitelist/WhitelistRoutes';
 import CasinoRouter from './routes/casino/CasinoRoutes';
 import SportRouter from './routes/sports/SportRoutes';
+import GamesRouter from './routes/games/GamesRoutes';
 
 
 const app: Application = express();
@@ -38,5 +39,6 @@ app.use('/api/v1/users/tech-admins/', techAdminUserRouter);
 app.use('/api/v1/whitelists', whitelistRouter);
 app.use('/api/v1/casinos', CasinoRouter);
 app.use('/api/v1/sports', SportRouter);
+app.use('/api/v1/games', GamesRouter)
 
 export default app;

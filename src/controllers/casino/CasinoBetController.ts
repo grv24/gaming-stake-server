@@ -127,3 +127,50 @@ export const triggerCasinoEvent = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getCasinoBets = async (req: Request, res: Response) => {
+  try {
+    const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const { mid, slug } = req.query;
+
+    if (!mid && !slug) {
+      return res.status(400).json({
+        success: false,
+        message: "Either mid (matchId) or slug (gameSlug) parameter is required"
+      });
+    }
+
+    let queryBuilder = casinoBetRepo.createQueryBuilder("bet");
+
+    if (mid) {
+      queryBuilder = queryBuilder.where("bet.matchId = :mid", { mid });
+    }
+
+    if (slug) {
+      if (mid) {
+        queryBuilder = queryBuilder.andWhere("bet.betData->>'gameSlug' = :slug", { slug });
+      } else {
+        queryBuilder = queryBuilder.where("bet.betData->>'gameSlug' = :slug", { slug });
+      }
+    }
+
+    const bets = await queryBuilder.getMany();
+
+    res.json({
+      success: true,
+      data: bets,
+      count: bets.length,
+      filters: {
+        mid: mid || null,
+        slug: slug || null
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching casino bets:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch casino bets'
+    });
+  }
+};
