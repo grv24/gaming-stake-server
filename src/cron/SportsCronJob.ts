@@ -1,5 +1,5 @@
-// import cron from 'node-cron';
-// import { processOddsData } from '../services/sports/OddsService';
+import cron from 'node-cron';
+import { processOddsData } from '../services/sports/OddsService';
 
 // List of events to monitor (starts with some examples, grows as users request events)
 let eventsToMonitor: any = [];
