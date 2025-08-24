@@ -2,12 +2,7 @@ import cron from 'node-cron';
 import { processOddsData } from '../services/sports/OddsService';
 
 // List of events to monitor (starts with some examples, grows as users request events)
-let eventsToMonitor = [
-  { sportId: "4", eventId: "12345" }, // Example events
-  { sportId: "4", eventId: "67890" },
-  { sportId: "1", eventId: "11111" },
-  { sportId: "2", eventId: "22222" }
-];
+let eventsToMonitor: any = [];
 
 // Cron job to fetch data every second for all events
 cron.schedule('* * * * * *', async () => {
@@ -19,7 +14,7 @@ cron.schedule('* * * * * *', async () => {
   
   // Process all events in parallel
   await Promise.all(
-    eventsToMonitor.map(event => 
+    eventsToMonitor.map((event: { sportId: string; eventId: string; }) => 
       processOddsData(event.sportId, event.eventId)
     )
   );
@@ -30,7 +25,7 @@ console.log('Odds cron job started');
 // Function to add event to monitoring if not already present
 export const addEventToMonitor = (sportId: string, eventId: string): boolean => {
   const eventKey = `${sportId}:${eventId}`;
-  const exists = eventsToMonitor.some(e => `${e.sportId}:${e.eventId}` === eventKey);
+  const exists = eventsToMonitor.some((e: { sportId: any; eventId: any; }) => `${e.sportId}:${e.eventId}` === eventKey);
   
   if (!exists) {
     eventsToMonitor.push({ sportId, eventId });
@@ -44,7 +39,7 @@ export const addEventToMonitor = (sportId: string, eventId: string): boolean => 
 // Function to remove event from monitoring
 export const removeEventFromMonitor = (sportId: string, eventId: string): boolean => {
   const initialLength = eventsToMonitor.length;
-  eventsToMonitor = eventsToMonitor.filter(e => 
+  eventsToMonitor = eventsToMonitor.filter((e: { sportId: string; eventId: string; }) => 
     !(e.sportId === sportId && e.eventId === eventId)
   );
   
@@ -63,5 +58,5 @@ export const getMonitoredEvents = () => {
 
 // Function to check if event is being monitored
 export const isEventMonitored = (sportId: string, eventId: string): boolean => {
-  return eventsToMonitor.some(e => e.sportId === sportId && e.eventId === eventId);
+  return eventsToMonitor.some((e: { sportId: string; eventId: string; }) => e.sportId === sportId && e.eventId === eventId);
 };
