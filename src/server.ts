@@ -21,13 +21,13 @@ import { Agent } from './entities/users/AgentUser';
 import { MiniAdmin } from './entities/users/MiniAdminUser';
 import { Admin } from './entities/users/AdminUser';
 import { Client } from './entities/users/ClientUser';
-import { startCasinoCronJobs } from './cron/CasinoCronJob';
+// import { startCasinoCronJobs } from './cron/CasinoCronJob';
 import { initRedisPubSub } from './config/redisPubSub';
 import { AccountTrasaction } from './entities/Transactions/AccountTransactions';
 import { DefaultCasino } from './entities/casino/DefaultCasino';
 import { CasinoMatch } from './entities/casino/CasinoMatch';
 import { CasinoBet } from './entities/casino/CasinoBet';
-import { startSportCronJobs } from './cron/SportsCronJob';
+// import { startSportCronJobs } from './cron/SportsCronJob';
 
 dotenv.config();
 
@@ -75,8 +75,8 @@ const startServer = async () => {
 
     // cron jobs
 
-    startCasinoCronJobs();
-    startSportCronJobs();
+    // startCasinoCronJobs();
+    // startSportCronJobs();
 
 
     const PORT = process.env.PORT || 4000;

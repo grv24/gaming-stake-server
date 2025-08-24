@@ -10,9 +10,9 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
     const redisClient = getRedisClient();
 
     let apiUrl = '';
-    
+
     // Determine API endpoint based on sport type
-        switch (sportType) {
+    switch (sportType) {
       case 'cricket':
         apiUrl = 'http://localhost:8085/api/new/getlistdata?sport_id=4';
         break;
@@ -68,8 +68,8 @@ export const fetchAllSportsData = async () => {
       fetchSoccerData(),
       fetchTennisData()
     ]);
-    
-    return results.map(result => 
+
+    return results.map(result =>
       result.status === 'fulfilled' ? result.value : null
     );
   } catch (error) {
@@ -96,15 +96,70 @@ export const getAllSportsData = async () => {
     const redisClient = getRedisClient();
     const sports: SportType[] = ['cricket', 'soccer', 'tennis'];
     const result: Record<string, any> = {};
-    
+
     for (const sport of sports) {
       const data = await redisClient.get(`sports:${sport}:data`);
       result[sport] = data ? JSON.parse(data) : null;
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error getting all sports data:', error);
     return {};
+  }
+};
+
+const getSportDataWithFallback = async (sportType: SportType) => {
+
+  const redisData = await getSportsData(sportType);
+
+  if (redisData) {
+    return redisData;
+  }
+
+  return await fetchAndStoreSportsData(sportType);
+};
+
+export const getFilteredIPlayMatches = async (limit: number = 10) => {
+  try {
+    const sports: SportType[] = ['cricket', 'soccer', 'tennis'];
+    const allMatches = [];
+
+    for (const sportType of sports) {
+      const sportData = await getSportDataWithFallback(sportType);
+
+      if (sportType == 'cricket') {
+
+        const iplayMatches = sportData
+          .filter((match: any) => match.iplay === true)
+          .map((match: any) => ({
+            ...match,
+            sportType
+          }));
+
+        allMatches.push(...iplayMatches);
+
+      } else {
+        if (sportData && sportData.success && sportData.data && sportData.data.t1) {
+
+          const iplayMatches = sportData.data.t1
+            .filter((match: any) => match.iplay === true)
+            .map((match: any) => ({
+              ...match,
+              sportType
+            }));
+
+          allMatches.push(...iplayMatches);
+        }
+      }
+    }
+
+    return allMatches
+      .sort((a, b) => new Date(a.stime).getTime() - new Date(b.stime).getTime())
+      .slice(0, limit);
+
+  } catch (error) {
+    console.error('Error getting filtered iplay matches:', error);
+    return [];
   }
 };
