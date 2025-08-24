@@ -27,6 +27,7 @@ import { AccountTrasaction } from './entities/Transactions/AccountTransactions';
 import { DefaultCasino } from './entities/casino/DefaultCasino';
 import { CasinoMatch } from './entities/casino/CasinoMatch';
 import { CasinoBet } from './entities/casino/CasinoBet';
+import { startSportCronJobs } from './cron/SportsCronJob';
 
 dotenv.config();
 
@@ -75,6 +76,7 @@ const startServer = async () => {
     // cron jobs
 
     startCasinoCronJobs();
+    startSportCronJobs();
 
 
     const PORT = process.env.PORT || 4000;
