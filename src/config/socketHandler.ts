@@ -182,19 +182,19 @@ export function setupSocket(server: HttpServer) {
   });
 
   // Sports Odds listener - SIMPLIFIED VERSION
-  redisSubscriber.subscribe("odds_updates", (err) => {
-    if (err) console.error("Failed to subscribe to odds_updates:", err);
-    else console.log("Subscribed to odds_updates channel");
+  redisSubscriber.subscribe("sports_odds_updates", (err) => {
+    if (err) console.error("Failed to subscribe to sports_odds_updates:", err);
+    else console.log("Subscribed to sports_odds_updates channel");
   });
 
   redisSubscriber.on("message", (channel, message) => {
-    if (channel === "odds_updates") {
+    if (channel === "sports_odds_updates") {
       try {
         const update = JSON.parse(message);
         const { sport_id, event_id, data } = update;
 
         // Broadcast to ALL connected users
-        io.emit("oddsUpdate", update);
+        io.emit("sportsOddsUpdate", update);
 
         console.log(
           `[SOCKET] Broadcasted odds update for sport ${sport_id}, event ${event_id}`
