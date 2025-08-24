@@ -60,7 +60,7 @@ export const createBet = async (req: Request, res: Response) => {
       });
     }
     user.exposure += betData?.stake;
-
+    await userRepo.save(user);
 
     return res.status(201).json({
       status: true,
