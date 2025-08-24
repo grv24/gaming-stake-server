@@ -6,6 +6,7 @@ let eventsToMonitor: any = [];
 
 // Cron job to fetch data every 30 seconds for all events (instead of every second)
 export const startSportCronJobs = () => {
+  console.log('Odds cron job started (30-second interval)');
   cron.schedule('*/30 * * * * *', async () => {
     if (eventsToMonitor.length === 0) {
       return;
@@ -33,8 +34,6 @@ export const startSportCronJobs = () => {
     }
   });
 }
-
-console.log('Odds cron job started (30-second interval)');
 
 // Function to add event to monitoring if not already present
 export const addEventToMonitor = (sportId: string, eventId: string): boolean => {
