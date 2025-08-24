@@ -15,6 +15,7 @@ import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
+import { Buttons } from '../../entities/games/Buttons';
 
 export const createClient = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -946,7 +947,7 @@ export const clientLogin = async (req: Request, res: Response) => {
                 error: 'Invalid Client account'
             });
         }
-        
+
 
         if (client.userLocked) {
             return res.status(403).json({
@@ -1069,7 +1070,6 @@ export const clientLogin = async (req: Request, res: Response) => {
             data: {
                 token,
                 isActive: client.isActive,
-                // user: safeUserData,
                 socketRequired: true
             }
         });
@@ -1088,59 +1088,75 @@ export const clientLogin = async (req: Request, res: Response) => {
     }
 };
 
-
 export const changeOwnPassword = async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
     try {
-
         const { currentPassword, newPassword } = req.body;
 
-        const clientRepo = AppDataSource.getRepository(Client);
+        const clientRepo = queryRunner.manager.getRepository(Client);
+        const buttonsRepo = queryRunner.manager.getRepository(Buttons);
 
-        const clientUser = await clientRepo.findOne({ where: { id: req.user?.userId } });
+        const clientUser = await clientRepo.findOne({
+            where: { id: req.user?.userId }
+        });
 
         if (!clientUser) {
+            await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'User not found'
-            })
+                error: "User not found"
+            });
         }
 
         if (clientUser?.user_password !== currentPassword) {
+            await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'Current password does not match'
-            })
+                error: "Current password does not match"
+            });
         }
-
-
-        // const transactionCode = generateTransactionCode(8);
-        // clientUser.transactionPassword = transactionCode;
 
         clientUser.isActive = true;
         clientUser.user_password = newPassword;
-        
+
         await clientRepo.save(clientUser);
+
+        await buttonsRepo.save(
+            buttonsRepo.create({
+                userId: req.user?.userId,
+                gameType: "casino"
+            })
+        );
+
+        await buttonsRepo.save(
+            buttonsRepo.create({
+                userId: req.user?.userId,
+                gameType: "sports"
+            })
+        );
+
+        await queryRunner.commitTransaction();
 
         return res.status(200).json({
             success: true,
-            message: 'User is now active',
+            message: "User is now active",
             data: {
                 transactionPassword: clientUser.transactionPassword
             }
         });
 
     } catch (error: any) {
-        console.error('Error changing own password:', error);
+        console.error("Error changing own password:", error);
+        await queryRunner.rollbackTransaction();
 
-        const errorMessage = process.env.NODE_ENV === 'development'
-            ? error instanceof Error ? error.message : 'Unknown error'
-            : 'Internal server error';
-
-        res.status(500).json({
+        return res.status(500).json({
             status: false,
-            message: "something went wrong"
+            message: "Something went wrong"
         });
+    } finally {
+        await queryRunner.release();
     }
-
-}
+};
