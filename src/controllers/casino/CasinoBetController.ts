@@ -10,27 +10,40 @@ export const createBet = async (req: Request, res: Response) => {
   try {
 
     const userId = req.user.userId;
-    const userBalance = req.user.AccountDetails.Balance;
-    const userExposure = req.user.AccountDetails.Exposure;
-    const userExposureLimit = req.user.AccountDetails.ExposureLimit;
-
+    
     const { betData, exposure, commission, partnership } = req.body;
+    
+    const userRepo = AppDataSource.getRepository(USER_TABLES[req.__type!]);
+    
+    const user = await userRepo.findOne({ where: { id: userId } });
 
-    if (!userId || !betData?.stake) {
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        message: "User not found"
+      });
+    }
+
+    const userBalance = Number(user.balance);
+    const userExposure = Number(user.exposure);
+    const userExposureLimit = Number(user.exposureLimit);
+    const stakeAmount = Number(betData?.stake);
+
+    if (!userId || !stakeAmount) {
       return res.status(400).json({
         status: false,
         message: "Missing required fields: userId, casinoType, and amount are required"
       });
     }
 
-    if (betData?.stake > userBalance - userExposure) {
+    if (stakeAmount > userBalance - userExposure) {
       return res.status(400).json({
         status: false,
-        message: "exceeded exposure limit"
+        message: "Not enough balance"
       });
     }
 
-    if (betData?.stake + userExposure > userExposureLimit) {
+    if (stakeAmount + userExposure > userExposureLimit) {
       return res.status(400).json({
         status: false,
         message: "exceeded exposure limit"
@@ -50,18 +63,9 @@ export const createBet = async (req: Request, res: Response) => {
 
     await casinoBetRepository.save(bet);
 
-    const userRepo = AppDataSource.getRepository(USER_TABLES[req.__type!]);
-    const user = await userRepo.findOne({ where: { id: userId } });
-    if (!user) {
-      return res.status(401).json({
-        status: false,
-        message: "User not found"
-      });
-    }
-    user.exposure = Number(user.exposure) + Number(betData?.stake);
+    user.exposure = userExposure + stakeAmount;
 
     await userRepo.save(user);
-
 
     return res.status(201).json({
       status: true,
