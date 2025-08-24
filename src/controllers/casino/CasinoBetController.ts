@@ -58,7 +58,9 @@ export const createBet = async (req: Request, res: Response) => {
         message: "User not found"
       });
     }
-    user.exposure += betData?.stake;
+    user.exposure = Number(user.exposure) + Number(betData?.stake);
+
+    await userRepo.save(user);
 
 
     return res.status(201).json({

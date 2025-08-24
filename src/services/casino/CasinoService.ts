@@ -158,7 +158,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       } else {
         newStatus = "lost";
         profitLoss = parseFloat(betData.loss) || 0;
-        user.balance = Number(user.balance) + profitLoss;
+        user.balance = Number(user.balance) - profitLoss;
       }
 
       user.exposure = Number(user.exposure) - stakeAmount;
