@@ -59,7 +59,7 @@ export const createBet = async (req: Request, res: Response) => {
         message: "User not found"
       });
     }
-    user.exposure += betData?.stake;
+    user.exposure = Number(user.exposure) + Number(betData?.stake);
     await userRepo.save(user);
 
     return res.status(201).json({
@@ -82,15 +82,15 @@ export const createBet = async (req: Request, res: Response) => {
 export const triggerCasinoEvent = async (req: Request, res: Response) => {
   try {
     const { casinoType = 'dt6' } = req.body;
-    
+
     const redisPublisher = getRedisPublisher();
-    
+
     const testData = {
       casinoType,
       current: {
         mid: `manual_${casinoType}_${Date.now()}`,
         status: 'live',
-        data: { 
+        data: {
           manual: true,
           timestamp: Date.now()
         }

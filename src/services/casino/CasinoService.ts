@@ -131,7 +131,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   const queryRunner = AppDataSource.createQueryRunner();
-  
+
   try {
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -163,7 +163,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       const userRepo = queryRunner.manager.getRepository(USER_TABLES[bet.userType]);
 
       // Find user within the transaction
-      const user = await userRepo.findOne({ 
+      const user = await userRepo.findOne({
         where: { id: bet.userId },
         lock: { mode: "pessimistic_write" }
       });
@@ -180,14 +180,14 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       if (winner === betSid) {
         newStatus = "won";
         profitLoss = parseFloat(betData.profit) || 0;
-        user.balance = Number(user.balance) + profitLoss;
+        user.balance = Number(user.balance) + Number(profitLoss);
       } else {
         newStatus = "lost";
         profitLoss = parseFloat(betData.loss) || 0;
-        user.balance = Number(user.balance) - profitLoss;
+        user.balance = Number(user.balance) - Number(profitLoss);
       }
 
-      user.exposure = Number(user.exposure) - stakeAmount;
+      user.exposure = Number(user.exposure) - Number(stakeAmount);
 
       // Update user
       await userRepo.save(user);
