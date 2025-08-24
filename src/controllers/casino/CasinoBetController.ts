@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CASINO_TYPES } from "../../Helpers/Request/Validation";
+import { USER_TABLES } from "../../Helpers/users/Roles";
 
 export const createBet = async (req: Request, res: Response) => {
   const casinoBetRepository = AppDataSource.getRepository(CasinoBet);
@@ -48,6 +49,17 @@ export const createBet = async (req: Request, res: Response) => {
     });
 
     await casinoBetRepository.save(bet);
+
+    const userRepo = AppDataSource.getRepository(USER_TABLES[req.__type!]);
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        message: "User not found"
+      });
+    }
+    user.exposure += betData?.stake;
+
 
     return res.status(201).json({
       status: true,

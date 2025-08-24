@@ -4,6 +4,7 @@ import { getRedisPublisher } from "../../config/redisPubSub";
 import { AppDataSource } from "../../server";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
+import { USER_TABLES } from "../../Helpers/users/Roles";
 
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
@@ -102,9 +103,13 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   }
 };
 
-// Helper function to update CasinoBet records with results
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
+  const queryRunner = AppDataSource.createQueryRunner();
+  
   try {
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     // Find all pending bets for this match ID
     const pendingBets = await casinoBetRepo.find({
       where: {
@@ -115,60 +120,80 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
     if (pendingBets.length === 0) {
       console.log(`No pending bets found for match ${mid}`);
+      await queryRunner.release();
       return;
     }
 
-    for (const bet of pendingBets) {
-      try {
-        const betData = bet.data || {};
-        const betSid = betData.sid || betData.betData?.sid;
-        
-        if (!betSid) {
-          console.log(`Bet ${bet.id} has no SID, skipping result update`);
-          continue;
-        }
+    const updatePromises = pendingBets.map(async (bet: any) => {
+      const betData = bet.betData || {};
+      const betSid = betData.sid;
 
-        // Determine if the bet won or lost based on the winner
-        let newStatus: "won" | "lost" = "lost";
-        let profitLoss = 0;
-
-        if (winner === betSid) {
-          // Bet won - calculate winnings
-          newStatus = "won";
-          const betAmount = bet.amount || 0;
-          const betRate = betData.betRate || betData.matchOdd || 1;
-          profitLoss = betAmount * (betRate - 1); // Profit calculation
-        } else {
-          // Bet lost - amount is lost
-          newStatus = "lost";
-          profitLoss = - (bet.amount || 0); // Negative amount for loss
-        }
-
-        // Update the bet with result
-        await casinoBetRepo.update(bet.id, {
-          status: newStatus,
-          profitLoss: profitLoss,
-          // You might want to store additional result information
-          data: {
-            ...betData,
-            result: {
-              winner: winner,
-              settledAt: new Date(),
-              profitLoss: profitLoss
-            }
-          }
-        });
-
-        console.log(`Updated bet ${bet.id} for match ${mid}: ${newStatus} with profit/loss: ${profitLoss}`);
-
-      } catch (betError) {
-        console.error(`Error updating bet ${bet.id}:`, betError);
+      if (!betSid) {
+        console.log(`Bet ${bet.id} has no SID, skipping result update`);
+        return;
       }
-    }
 
+      // Get user repository for the specific user type
+      const userRepo = queryRunner.manager.getRepository(USER_TABLES[bet.userType]);
+
+      // Find user within the transaction
+      const user = await userRepo.findOne({ 
+        where: { id: bet.userId },
+        lock: { mode: "pessimistic_write" }
+      });
+
+      if (!user) {
+        console.log(`User ${bet.userId} not found for bet ${bet.id}`);
+        return;
+      }
+
+      const stakeAmount = parseFloat(betData.stake) || 0;
+      let newStatus: "won" | "lost" = "lost";
+      let profitLoss = 0;
+
+      if (winner === betSid) {
+        newStatus = "won";
+        profitLoss = parseFloat(betData.profit) || 0;
+        user.balance = Number(user.balance) + profitLoss;
+      } else {
+        newStatus = "lost";
+        profitLoss = parseFloat(betData.loss) || 0;
+        user.balance = Number(user.balance) + profitLoss;
+      }
+
+      user.exposure = Number(user.exposure) - stakeAmount;
+
+      // Update user
+      await userRepo.save(user);
+
+      // Update bet
+      await queryRunner.manager.update(CasinoBet, bet.id, {
+        status: newStatus,
+        betData: {
+          ...betData,
+          result: {
+            winner: winner,
+            settledAt: new Date(),
+            profitLoss: profitLoss,
+            stake: stakeAmount,
+            betRate: betData.betRate || betData.matchOdd || 1,
+            status: newStatus,
+            settled: true
+          }
+        }
+      });
+
+      console.log(`Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
+    });
+
+    await Promise.all(updatePromises);
+    await queryRunner.commitTransaction();
     console.log(`Updated ${pendingBets.length} bets for match ${mid}`);
 
   } catch (error) {
+    await queryRunner.rollbackTransaction();
     console.error(`Error updating bets for match ${mid}:`, error);
+  } finally {
+    await queryRunner.release();
   }
 };
