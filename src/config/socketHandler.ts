@@ -181,26 +181,34 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   });
 
-  // Sports Odds listener - SIMPLIFIED VERSION
+  // for sports odds
   redisSubscriber.subscribe("sports_odds_updates", (err) => {
-    if (err) console.error("Failed to subscribe to sports_odds_updates:", err);
-    else console.log("Subscribed to sports_odds_updates channel");
+    if (err) {
+      console.error("Failed to subscribe to sports_odds_updates:", err);
+    } else {
+      console.log("Successfully subscribed to sports_odds_updates channel");
+    }
   });
 
   redisSubscriber.on("message", (channel, message) => {
+    console.log(`Received message on channel: ${channel}`);
+
     if (channel === "sports_odds_updates") {
       try {
         const update = JSON.parse(message);
-        const { sport_id, event_id, data } = update;
+        console.log(`Parsed sports update:`, JSON.stringify(update, null, 2));
 
-        // Broadcast to ALL connected users
-        io.emit("sportsOddsUpdate", update);
+        // Broadcast to ALL connected users with consistent event name
+        io.emit("sportsOddsUpdate", {
+          sportId: update.sport_id,
+          eventId: update.event_id,
+          data: update.data,
+          timestamp: update.timestamp
+        });
 
-        console.log(
-          `[SOCKET] Broadcasted odds update for sport ${sport_id}, event ${event_id}`
-        );
+        console.log(`[SOCKET] Broadcasted odds update for sport ${update.sport_id}, event ${update.event_id}`);
       } catch (error) {
-        console.error("Error parsing odds update:", error);
+        console.error("Error parsing sports odds update:", error, "Raw message:", message);
       }
     }
   });

@@ -1,6 +1,5 @@
 import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
-import { getRedisPublisher } from "../../config/redisPubSub";
 import { CronDataSource } from "../../corn.server";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
@@ -8,7 +7,6 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
-    const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
     const matchRepo = CronDataSource.getRepository(CasinoMatch);
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
@@ -16,66 +14,54 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     // Fetch from API
     const response = await axios.get(`http://localhost:8085/api/new/casino`, {
       params: { casinoType },
+      timeout: 10000
     });
     const apiData = response.data;
 
-    // 1) Handle current match (only if exists)
+    // 1) Handle current match
     if (apiData?.data?.mid) {
       const currentMid = String(apiData.data.mid);
 
-      await matchRepo
-        .upsert(
-          {
-            mid: currentMid,
-            casinoType,
-            winner: null,
-            data: apiData.data,
-          },
-          ["mid"] // unique column for conflict
-        )
-        .then(() => console.log(`Upserted current match ${currentMid}`))
-        .catch((err) =>
-          console.error(`Failed to upsert match ${currentMid}:`, err)
-        );
+      await matchRepo.upsert(
+        {
+          mid: currentMid,
+          casinoType,
+          winner: null,
+          data: apiData.data,
+        },
+        ["mid"]
+      );
+      console.log(`Upserted current match ${currentMid}`);
 
-      // Store current match separately in Redis
       await redisClient.set(
         `casino:${casinoType}:current`,
         JSON.stringify(apiData.data),
         "EX",
         600
       );
-    } else {
-      console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-    // 2) Handle last 10 results and update CasinoBet records
+    // 2) Handle results and settle bets
     if (apiData?.result?.res) {
       for (const r of apiData.result.res) {
         const resultMid = String(r.mid);
+        const winner = String(r.win);
 
         // Update CasinoMatch with winner
-        await matchRepo
-          .upsert(
-            {
-              mid: resultMid,
-              casinoType,
-              winner: r.win,
-            },
-            ["mid"] // if mid already exists, update winner
-          )
-          .then(() =>
-            console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
-          )
-          .catch((err) =>
-            console.error(`Failed to upsert past result ${resultMid}:`, err)
-          );
+        await matchRepo.upsert(
+          {
+            mid: resultMid,
+            casinoType,
+            winner: winner,
+          },
+          ["mid"]
+        );
+        console.log(`Upserted past result ${resultMid} with winner ${winner}`);
 
         // Update CasinoBet records for this match
-        await updateCasinoBetsWithResult(resultMid, r.win, casinoBetRepo);
+        await updateCasinoBetsWithResult(resultMid, winner, casinoBetRepo);
       }
 
-      // Store results separately in Redis
       await redisClient.set(
         `casino:${casinoType}:results`,
         JSON.stringify(apiData.result.res),
@@ -84,18 +70,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       );
     }
 
-    // 3) Publish update (send both keys)
-    await redisPublisher.publish(
-      `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
-      JSON.stringify({
-        casinoType,
-        current: apiData?.data || null,
-        results: apiData?.result?.res || [],
-      })
-    );
-
-    console.log(`[CRON] Updated & published odds for ${casinoType}`);
-
+    console.log(`[CRON] Updated odds for ${casinoType}`);
     return apiData;
   } catch (err: any) {
     console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
@@ -105,13 +80,13 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   const queryRunner = CronDataSource.createQueryRunner();
-  
+
   try {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     // Find all pending bets for this match ID
-    const pendingBets = await casinoBetRepo.find({
+    const pendingBets = await queryRunner.manager.find(CasinoBet, {
       where: {
         matchId: mid,
         status: "pending"
@@ -124,52 +99,67 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       return;
     }
 
-    const updatePromises = pendingBets.map(async (bet: any) => {
-      const betData = bet.betData || {};
-      const betSid = betData.sid;
+    console.log(`Found ${pendingBets.length} pending bets for match ${mid}`);
 
-      if (!betSid) {
-        console.log(`Bet ${bet.id} has no SID, skipping result update`);
-        return;
-      }
+    for (const bet of pendingBets) {
+      try {
+        const betData = bet.betData || {};
+        const betSid = betData.sid ? String(betData.sid) : null;
 
-      // Get user repository for the specific user type
-      const userRepo = queryRunner.manager.getRepository(USER_TABLES[bet.userType]);
+        if (!betSid) {
+          console.log(`Bet ${bet.id} has no SID, skipping`);
+          continue;
+        }
 
-      // Find user within the transaction
-      const user = await userRepo.findOne({ 
-        where: { id: bet.userId },
-        lock: { mode: "pessimistic_write" }
-      });
+        console.log(`Processing bet ${bet.id}: user bet on ${betSid}, winner is ${winner}`);
 
-      if (!user) {
-        console.log(`User ${bet.userId} not found for bet ${bet.id}`);
-        return;
-      }
+        // Get the correct user repository
+        const userEntity = USER_TABLES[bet.userType as any];
+        if (!userEntity) {
+          console.log(`Unknown user type: ${bet.userType} for bet ${bet.id}`);
+          continue;
+        }
 
-      const stakeAmount = parseFloat(betData.stake) || 0;
-      let newStatus: "won" | "lost" = "lost";
-      let profitLoss = 0;
+        const userRepo = queryRunner.manager.getRepository(userEntity);
 
-      if (winner === betSid) {
-        newStatus = "won";
-        profitLoss = parseFloat(betData.profit) || 0;
-        user.balance = Number(user.balance) + profitLoss;
-      } else {
-        newStatus = "lost";
-        profitLoss = parseFloat(betData.loss) || 0;
-        user.balance = Number(user.balance) - profitLoss;
-      }
+        // Find user with lock
+        const user = await userRepo.findOne({
+          where: { id: bet.userId },
+          lock: { mode: "pessimistic_write" }
+        });
 
-      user.exposure = Number(user.exposure) - stakeAmount;
+        if (!user) {
+          console.log(`User ${bet.userId} not found for bet ${bet.id}`);
+          continue;
+        }
 
-      // Update user
-      await userRepo.save(user);
+        const stakeAmount = parseFloat(betData.stake) || 0;
+        const potentialProfit = parseFloat(betData.profit) || 0;
+        const potentialLoss = parseFloat(betData.loss) || 0;
 
-      // Update bet
-      await queryRunner.manager.update(CasinoBet, bet.id, {
-        status: newStatus,
-        betData: {
+        let newStatus: "won" | "lost" = "lost";
+        let profitLoss = 0;
+
+        if (winner === betSid) {
+          newStatus = "won";
+          profitLoss = potentialProfit;
+          user.balance = (Number(user.balance) + profitLoss).toFixed(2);
+          console.log(`Bet ${bet.id} WON: Adding ${profitLoss} to balance`);
+        } else {
+          newStatus = "lost";
+          profitLoss = -potentialLoss; // Negative value for loss
+          user.balance = (Number(user.balance) - potentialLoss).toFixed(2);
+          console.log(`Bet ${bet.id} LOST: Subtracting ${potentialLoss} from balance`);
+        }
+
+        // Reduce exposure by stake amount
+        user.exposure = (Number(user.exposure) - stakeAmount).toFixed(2);
+
+        // Update user
+        await userRepo.save(user);
+
+        // Update bet
+        const updatedBetData = {
           ...betData,
           result: {
             winner: winner,
@@ -180,19 +170,32 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
             status: newStatus,
             settled: true
           }
-        }
-      });
+        };
 
-      console.log(`Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
-    });
+        await queryRunner.manager.update(
+          CasinoBet,
+          { id: bet.id },
+          {
+            status: newStatus,
+            betData: updatedBetData
+          }
+        );
 
-    await Promise.all(updatePromises);
+        console.log(`Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
+
+      } catch (betError) {
+        console.error(`Error processing bet ${bet.id}:`, betError);
+        // Continue with other bets even if one fails
+      }
+    }
+
     await queryRunner.commitTransaction();
-    console.log(`Updated ${pendingBets.length} bets for match ${mid}`);
+    console.log(`Successfully updated ${pendingBets.length} bets for match ${mid}`);
 
   } catch (error) {
     await queryRunner.rollbackTransaction();
     console.error(`Error updating bets for match ${mid}:`, error);
+    throw error; // Re-throw to handle in calling function
   } finally {
     await queryRunner.release();
   }

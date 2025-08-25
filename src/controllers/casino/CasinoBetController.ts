@@ -29,6 +29,16 @@ export const createBet = async (req: Request, res: Response) => {
     const userExposureLimit = Number(user.exposureLimit);
     const stakeAmount = Number(betData?.stake);
 
+    console.log("*************************************************************************************************************************************************************");
+
+      console.log("balance :", userBalance);
+      console.log("exposure", userExposure);
+
+      console.log("exposure limit", userExposureLimit);
+      console.log("amount", stakeAmount);
+
+    console.log("*************************************************************************************************************************************************************");
+
     if (!userId || !stakeAmount) {
       return res.status(400).json({
         status: false,
@@ -64,10 +74,15 @@ export const createBet = async (req: Request, res: Response) => {
     await casinoBetRepository.save(bet);
 
     user.exposure = userExposure + stakeAmount;
-
     await userRepo.save(user);
 
-    return res.status(201).json({
+  console.log("*************************************************************After bet place******************************************************************************************");
+  
+  console.log("exposure", user.exposure);
+  
+  console.log("*************************************************************************************************************************************************************");
+
+  return res.status(201).json({
       status: true,
       message: "Bet placed successfully",
       data: bet,

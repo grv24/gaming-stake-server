@@ -56,16 +56,15 @@ export const publishOddsUpdate = async (sportId: string, eventId: string, data: 
   try {
     const redisPublisher = getRedisPublisher();
 
-    await redisPublisher.publish(
-      `sports_odds_updates`,
-      JSON.stringify({
-        type: 'sports_odds_updates',
-        sport_id: sportId,
-        event_id: eventId,
-        data: data,
-        timestamp: Date.now()
-      })
-    );
+    const message = JSON.stringify({
+      type: 'sports_odds_updates',
+      sport_id: sportId,
+      event_id: eventId,
+      data: data,
+      timestamp: Date.now()
+    });
+
+    await redisPublisher.publish("sports_odds_updates", message);
 
     console.log(`[ODDS] Published update for sport ${sportId}, event ${eventId}`);
     return true;
