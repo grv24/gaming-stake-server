@@ -6,7 +6,7 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 
 export const createBet = async (req: Request, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
-  
+
   try {
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -15,11 +15,11 @@ export const createBet = async (req: Request, res: Response) => {
     const { betData, exposure, commission, partnership } = req.body;
 
     // Validate required fields
-    if (!userId || !betData || !betData.stake || !betData.mid || !betData.slugName) {
+    if (!userId || !betData || !betData?.stake || !betData?.mid || !betData?.gameSlug) {
       await queryRunner.rollbackTransaction();
       return res.status(400).json({
         status: false,
-        message: "Missing required fields: userId, betData with stake, mid, and slugName are required"
+        message: "Missing required fields: userId, betData with stake, mid, and gameSlug are required"
       });
     }
 
@@ -27,7 +27,7 @@ export const createBet = async (req: Request, res: Response) => {
     const casinoBetRepository = queryRunner.manager.getRepository(CasinoBet);
 
     // Get user with lock to prevent race conditions
-    const user = await userRepo.findOne({ 
+    const user = await userRepo.findOne({
       where: { id: userId },
       lock: { mode: "pessimistic_write" }
     });
@@ -218,14 +218,14 @@ export const casinoResult = async (req: Request, res: Response) => {
     const {
       startTime,
       endTime,
-      slugName,
+      gameSlug,
       search,
       page = 1,
       limit = 10,
     } = req.query as {
       startTime?: string;
       endTime?: string;
-      slugName?: string;
+      gameSlug?: string;
       search?: string;
       page?: string;
       limit?: string;
@@ -246,15 +246,15 @@ export const casinoResult = async (req: Request, res: Response) => {
       qb.andWhere("bet.createdAt <= :end", { end: new Date(endTime) });
     }
 
-    if (slugName) {
-      qb.andWhere("bet.betData ->> 'slugName' ILIKE :slugName", {
-        slugName: `%${slugName}%`,
+    if (gameSlug) {
+      qb.andWhere("bet.betData ->> 'gameSlug' ILIKE :gameSlug", {
+        gameSlug: `%${gameSlug}%`,
       });
     }
 
     if (search) {
       qb.andWhere(
-        `(bet.betData ->> 'slugName' ILIKE :search 
+        `(bet.betData ->> 'gameSlug' ILIKE :search 
           OR bet.betData -> 'result' ->> 'status' ILIKE :search
           OR bet.matchId ILIKE :search)`,
         { search: `%${search}%` }
@@ -267,9 +267,8 @@ export const casinoResult = async (req: Request, res: Response) => {
 
     const [bets, total] = await qb.getManyAndCount();
 
-    // ✅ transform result: pick only required fields if result exists
     const transformed = bets
-      .filter((bet) => bet.betData?.result) // only include those with result
+      .filter((bet) => bet.betData?.result)
       .map((bet) => {
         return {
           id: bet.id,
@@ -306,11 +305,11 @@ export const casinoResult = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getCurrentBet = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     const { slug } = req.query;
+
 
     if (!userId) {
       return res.status(401).json({
@@ -328,17 +327,13 @@ export const getCurrentBet = async (req: Request, res: Response) => {
 
     const currentBetRepo = AppDataSource.getRepository(CasinoBet);
 
-    const latestBet = await currentBetRepo.findOne({
-      where: {
-        userId: userId,
-        betData: {
-          slugName: slug 
-        }
-      },
-      order: {
-        createdAt: "DESC"
-      }
-    });
+    const latestBet = await currentBetRepo
+      .createQueryBuilder("bet")
+      .where("bet.userId = :userId", { userId })
+      .andWhere("bet.betData ->> 'gameSlug' = :slug", { slug })
+      .orderBy("bet.createdAt", "DESC")
+      .getOne();
+
 
     if (!latestBet) {
       return res.status(404).json({
