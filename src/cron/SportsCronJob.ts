@@ -9,7 +9,7 @@ let cronJobsStarted = false;
 export const startSportCronJobs = () => {
   // Prevent multiple starts
   if (cronJobsStarted) {
-    console.log("[CRON] Sports cron jobs already started");
+    // console.log("[CRON] Sports cron jobs already started");
     return;
   }
   

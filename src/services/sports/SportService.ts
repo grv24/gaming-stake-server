@@ -30,6 +30,11 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
     const response = await axios.get(apiUrl);
     const apiData = response.data;
 
+    console.log(`*********************************** ${sportType} ******************************`);
+    console.log(apiData);
+    console.log(`******************************************************************************`);
+
+
     // Store data in Redis with expiration
     await redisClient.set(
       `sports:${sportType}:data`,

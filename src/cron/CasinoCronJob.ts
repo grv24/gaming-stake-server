@@ -18,6 +18,6 @@ export const startCasinoCronJobs = () => {
     cron.schedule("* * * * * *", async () => {
       await fetchAndUpdateCasinoOdds(casinoType);
     });
-    console.log(`[CRON] Scheduled job for ${casinoType}`);
+    // console.log(`[CRON] Scheduled job for ${casinoType}`);
   });
 };
