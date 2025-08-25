@@ -24,7 +24,7 @@ export const startLiveMatchesCron = () => {
       const soccerMatches = await fetchAndStoreSportsData("soccer");
       soccerMatches?.data?.t1?.forEach((m: any) => {
         if (m.iplay) {
-          newEvents.push({ sportId: "1", eventId: m.eventid });
+          newEvents.push({ sportId: "1", eventId: m.gmid });
         }
       });
 
@@ -32,7 +32,7 @@ export const startLiveMatchesCron = () => {
       const tennisMatches = await fetchAndStoreSportsData("tennis");
       tennisMatches?.data?.t1?.forEach((m: any) => {
         if (m.iplay) {
-          newEvents.push({ sportId: "2", eventId: m.eventid });
+          newEvents.push({ sportId: "2", eventId: m.gmid });
         }
       });
 
