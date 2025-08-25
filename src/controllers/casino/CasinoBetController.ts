@@ -200,3 +200,49 @@ export const casinoResult = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+export const getCurrentBet = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "User not authenticated" 
+      });
+    }
+
+    const currentBetRepo = AppDataSource.getRepository(CasinoBet);
+
+    // Get the latest bet for this user
+    const latestBet = await currentBetRepo.findOne({
+      where: { 
+        userId: userId  // Assuming the column is named 'userId'
+      },
+      order: { 
+        createdAt: "DESC"  // Order by creation date, newest first
+      }
+    });
+
+    if (!latestBet) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "No bets found for this user" 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: latestBet
+    });
+
+  } catch (err: any) {
+    console.error("Error fetching latest bet:", err);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error",
+      error: err.message 
+    });
+  }
+}
