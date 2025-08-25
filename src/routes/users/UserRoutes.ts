@@ -1,5 +1,5 @@
 import express from 'express';
-import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance, getOwnExposure } from '../../controllers/users/UserControllers';
+import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance, getOwnExposure, getAccountTransactions } from '../../controllers/users/UserControllers';
 import { clientAuth } from '../../middlewares/RoleAuth';
 
 const router = express.Router();
@@ -15,6 +15,8 @@ router.patch('/lock', clientAuth, lockUserOrBetAndDownlineMultiTable);
 router.patch('/set-exposure-limit', clientAuth, setExposureLimitForDownline);
 router.patch('/set-credit-ref', clientAuth, setCreditRefForDownline);
 router.patch('/change-password-downline', clientAuth, changePasswordOfDownline);
+
+router.get('/account-transactions', clientAuth, getAccountTransactions);
 
 // need to create this to handle user and bet status
 // /api/v1/users/change-user-lock-and-bet-lock/${userId}`,

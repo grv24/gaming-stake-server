@@ -50,7 +50,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-    console.log(apiData);
+    // console.log(apiData);
 
     // 2) Handle last 10 results and update CasinoBet records
     if (apiData?.result?.res) {

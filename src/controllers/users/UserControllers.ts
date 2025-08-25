@@ -5,6 +5,7 @@ import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import { Whitelist } from "../../entities/whitelist/Whitelist";
 import { TechAdmin } from "../../entities/users/TechAdminUser";
+import { format } from "date-fns";
 
 export const addBalance = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -904,3 +905,85 @@ export const getOwnExposure = async (req: Request, res: Response) => {
 //         return res.status(500).json({ status: false, message: "Internal server error", error });
 //     }
 // };
+
+export const getAccountTransactions = async (req: Request, res: Response) => {
+    try {
+        const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
+
+        const userId = req.user?.userId; // assuming middleware sets req.user
+        if (!userId) {
+            return res.status(401).json({
+                status: false,
+                message: "Unauthorized",
+            });
+        }
+
+        const {
+            startDate,
+            endDate,
+            type = "all",
+            page = 1,
+            limit = 10,
+        } = req.query as {
+            startDate?: string;
+            endDate?: string;
+            type?: "all" | "deposit" | "withdraw";
+            page?: string;
+            limit?: string;
+        };
+
+        const qb = accountTxRepo
+            .createQueryBuilder("tx")
+            .where("tx.downlineUserId = :userId", { userId });
+
+        // Filter by date range
+        if (startDate && endDate) {
+            qb.andWhere("tx.createdAt BETWEEN :start AND :end", {
+                start: new Date(startDate),
+                end: new Date(endDate),
+            });
+        } else if (startDate) {
+            qb.andWhere("tx.createdAt >= :start", { start: new Date(startDate) });
+        } else if (endDate) {
+            qb.andWhere("tx.createdAt <= :end", { end: new Date(endDate) });
+        }
+
+        // Filter by type
+        if (type !== "all") {
+            qb.andWhere("tx.type = :type", { type });
+        }
+
+        // Pagination
+        const skip = (Number(page) - 1) * Number(limit);
+        qb.skip(skip).take(Number(limit));
+        qb.orderBy("tx.createdAt", "DESC");
+
+        const [transactions, total] = await qb.getManyAndCount();
+
+        const transformed = transactions.map((tx, index) => ({
+            sNo: skip + index + 1,
+            date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+            credit: tx.type === "deposit" ? tx.amount : 0,
+            debit: tx.type === "withdraw" ? tx.amount : 0,
+            remarks: tx.remarks,
+        }));
+        return res.status(200).json({
+            status: true,
+            message: "Transactions fetched successfully",
+            data: transformed,
+            pagination: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages: Math.ceil(total / Number(limit)),
+            },
+        });
+    } catch (error: any) {
+        console.error("Error fetching transactions:", error);
+        return res.status(500).json({
+            status: false,
+            message: "Internal server error",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+    }
+};
