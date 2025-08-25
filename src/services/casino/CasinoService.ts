@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
+import { getRedisPublisher } from "../../config/redisPubSub";
 import { CronDataSource } from "../../corn.server";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
@@ -7,6 +8,7 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
+    const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
     const matchRepo = CronDataSource.getRepository(CasinoMatch);
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
@@ -14,54 +16,66 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     // Fetch from API
     const response = await axios.get(`http://localhost:8085/api/new/casino`, {
       params: { casinoType },
-      timeout: 10000
     });
     const apiData = response.data;
 
-    // 1) Handle current match
+    // 1) Handle current match (only if exists)
     if (apiData?.data?.mid) {
       const currentMid = String(apiData.data.mid);
 
-      await matchRepo.upsert(
-        {
-          mid: currentMid,
-          casinoType,
-          winner: null,
-          data: apiData.data,
-        },
-        ["mid"]
-      );
-      console.log(`Upserted current match ${currentMid}`);
+      await matchRepo
+        .upsert(
+          {
+            mid: currentMid,
+            casinoType,
+            winner: null,
+            data: apiData.data,
+          },
+          ["mid"] // unique column for conflict
+        )
+        .then(() => console.log(`Upserted current match ${currentMid}`))
+        .catch((err) =>
+          console.error(`Failed to upsert match ${currentMid}:`, err)
+        );
 
+      // Store current match separately in Redis
       await redisClient.set(
         `casino:${casinoType}:current`,
         JSON.stringify(apiData.data),
         "EX",
         600
       );
+    } else {
+      console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-    // 2) Handle results and settle bets
+    // 2) Handle last 10 results and update CasinoBet records
     if (apiData?.result?.res) {
       for (const r of apiData.result.res) {
         const resultMid = String(r.mid);
-        const winner = String(r.win);
 
         // Update CasinoMatch with winner
-        await matchRepo.upsert(
-          {
-            mid: resultMid,
-            casinoType,
-            winner: winner,
-          },
-          ["mid"]
-        );
-        console.log(`Upserted past result ${resultMid} with winner ${winner}`);
+        await matchRepo
+          .upsert(
+            {
+              mid: resultMid,
+              casinoType,
+              winner: r.win,
+            },
+            ["mid"] // if mid already exists, update winner
+          )
+          .then(() =>
+            console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
+          )
+          .catch((err) =>
+            console.error(`Failed to upsert past result ${resultMid}:`, err)
+          );
 
         // Update CasinoBet records for this match
-        await updateCasinoBetsWithResult(resultMid, winner, casinoBetRepo);
+        await updateCasinoBetsWithResult(resultMid, r.win, casinoBetRepo);
       }
 
+      // Store results separately in Redis
       await redisClient.set(
         `casino:${casinoType}:results`,
         JSON.stringify(apiData.result.res),
@@ -70,13 +84,105 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       );
     }
 
-    console.log(`[CRON] Updated odds for ${casinoType}`);
+    // 3) Publish update (send both keys)
+    await redisPublisher.publish(
+      `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
+      JSON.stringify({
+        casinoType,
+        current: apiData?.data || null,
+        results: apiData?.result?.res || [],
+      })
+    );
+
+    console.log(`[CRON] Updated & published odds for ${casinoType}`);
+
     return apiData;
   } catch (err: any) {
     console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
     return null;
   }
 };
+
+
+// import axios from "axios";
+// import { getRedisClient } from "../../config/redisConfig";
+// import { CronDataSource } from "../../corn.server";
+// import { CasinoMatch } from "../../entities/casino/CasinoMatch";
+// import { CasinoBet } from "../../entities/casino/CasinoBet";
+// import { USER_TABLES } from "../../Helpers/users/Roles";
+
+// export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
+//   try {
+//     const redisClient = getRedisClient();
+//     const matchRepo = CronDataSource.getRepository(CasinoMatch);
+//     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
+
+//     // Fetch from API
+//     const response = await axios.get(`http://localhost:8085/api/new/casino`, {
+//       params: { casinoType },
+//       timeout: 10000
+//     });
+//     const apiData = response.data;
+
+//     // 1) Handle current match
+//     if (apiData?.data?.mid) {
+//       const currentMid = String(apiData.data.mid);
+
+//       await matchRepo.upsert(
+//         {
+//           mid: currentMid,
+//           casinoType,
+//           winner: null,
+//           data: apiData.data,
+//         },
+//         ["mid"]
+//       );
+//       console.log(`Upserted current match ${currentMid}`);
+
+//       await redisClient.set(
+//         `casino:${casinoType}:current`,
+//         JSON.stringify(apiData.data),
+//         "EX",
+//         600
+//       );
+//     }
+
+//     // 2) Handle results and settle bets
+//     if (apiData?.result?.res) {
+//       for (const r of apiData.result.res) {
+//         const resultMid = String(r.mid);
+//         const winner = String(r.win);
+
+//         // Update CasinoMatch with winner
+//         await matchRepo.upsert(
+//           {
+//             mid: resultMid,
+//             casinoType,
+//             winner: winner,
+//           },
+//           ["mid"]
+//         );
+//         console.log(`Upserted past result ${resultMid} with winner ${winner}`);
+
+//         // Update CasinoBet records for this match
+//         await updateCasinoBetsWithResult(resultMid, winner, casinoBetRepo);
+//       }
+
+//       await redisClient.set(
+//         `casino:${casinoType}:results`,
+//         JSON.stringify(apiData.result.res),
+//         "EX",
+//         600
+//       );
+//     }
+
+//     console.log(`[CRON] Updated odds for ${casinoType}`);
+//     return apiData;
+//   } catch (err: any) {
+//     console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
+//     return null;
+//   }
+// };
 
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   const queryRunner = CronDataSource.createQueryRunner();
