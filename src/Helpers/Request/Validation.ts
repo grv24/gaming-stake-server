@@ -25,3 +25,8 @@ export const CASINO_TYPES = [
   "aaa", "abj", "dt20", "lucky7eu", "dt202", "teenmuf", "joker20", "poison20", "joker1",
   "teen20c", "btable2", "goal", "ab4", "lottcard", "lucky5", "baccarat2"
 ];
+
+
+export const withRes = [
+  "teenmuf", "teen20c", "goal", "btable2", 
+]

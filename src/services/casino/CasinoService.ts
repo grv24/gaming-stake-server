@@ -48,6 +48,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       );
     } else {
       console.log(`[CRON] No live match for ${casinoType}`);
+      return;
     }
 
     // 2) Handle results - handle both cases: results.res OR results array
