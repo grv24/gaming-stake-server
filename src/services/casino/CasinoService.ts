@@ -6,7 +6,7 @@ import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { AppDataSource } from "../../server";
-import { DIFF_STRUCT_CASINO_TYPES } from "../../Helpers/Request/Validation";
+import { DIFF_STRUCT_CASINO_TYPES, ALTERNATIVE_API_CASINO_TYPES } from "../../Helpers/Request/Validation";
 
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
@@ -15,34 +15,61 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     const matchRepo = CronDataSource.getRepository(CasinoMatch);
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
 
-    // Fetch from API
-    const response = await axios.get(`http://localhost:8085/api/new/casino`, {
-      params: { casinoType },
+    // Determine which API endpoint to use
+    let apiUrl: string;
+    let params: any;
+    
+    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+      // Use alternative API endpoint
+      apiUrl = `http://localhost:8085/exchange/casino/CasinoData`;
+      params = { type: casinoType };
+    } else {
+      // Use default API endpoint
+      apiUrl = `http://localhost:8085/api/new/casino`;
+      params = { casinoType };
+    }
+
+    // Fetch from API with timeout and retry
+    const response = await axios.get(apiUrl, {
+      params,
+      timeout: 10000, // 10 second timeout
     });
     const apiData = response.data;
 
-    if (apiData?.data?.mid) {
-      const currentMid = String(apiData.data.mid);
+    // Handle current match data - check for different structures
+    let currentMid: string | null = null;
+    let currentData: any = null;
 
+    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+      // Alternative API structure (like lucky5) - data is direct, not wrapped
+      if (apiData?.mid) {
+        currentMid = String(apiData.mid);
+        currentData = apiData;
+      }
+    } else {
+      // Default API structure - data is wrapped in data object
+      if (apiData?.data?.mid || apiData?.data?.t1?.[0]?.mid || apiData?.data?.t2?.[0]?.mid) {
+        currentMid = String(apiData.data.mid || apiData?.data?.t1?.[0]?.mid || apiData?.data?.t2?.[0]?.mid);
+        currentData = apiData.data || apiData?.data?.t1?.[0] || apiData?.data?.t2?.[0];
+      }
+    }
+
+    if (currentMid && currentData) {
       await matchRepo
         .upsert(
           {
             mid: currentMid,
             casinoType,
             winner: null,
-            data: apiData.data,
+            data: currentData,
           },
           ["mid"] // unique column for conflict
-        )
-      // .then(() => console.log(`Upserted current match ${currentMid}`))
-      // .catch((err) =>
-      //   console.error(`Failed to upsert match ${currentMid}:`, err)
-      // );
+        );
 
       // Store current match separately in Redis
       await redisClient.set(
         `casino:${casinoType}:current`,
-        JSON.stringify(apiData.data),
+        JSON.stringify(currentData),
         "EX",
         600
       );
@@ -50,88 +77,64 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-
-    console.log(`*****************************${casinoType}************************`)
-
-    console.log(apiData);
-
-    console.log(`******************************************************************`)
-
-
-    // 2) Handle last 10 results and update CasinoBet records
-
-    if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-      for (const r of apiData.result.res) {
-        const resultMid = String(r.mid);
-
-        await matchRepo
-          .upsert(
-            {
-              mid: resultMid,
-              casinoType,
-              winner: r.win,
-            },
-            ["mid"]
-          )
-        // .then(() =>
-        //   console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
-        // )
-        // .catch((err) =>
-        //   console.error(`Failed to upsert past result ${resultMid}:`, err)
-        // );
-
-        // Update CasinoBet records for this match
-        await updateCasinoBetsWithResult(resultMid, r.win, casinoBetRepo);
+    // Handle results - only for default API structure (alternative API doesn't include results)
+    let results = [];
+    
+    if (!ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+      // Structure 1: apiData.result.res (original structure for teenmuf, etc.)
+      if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+        results = apiData.result.res;
+      }
+      // Structure 2: apiData.result (new structure for dt6, aaa, etc.)
+      else if (apiData?.result && Array.isArray(apiData.result)) {
+        results = apiData.result;
       }
 
-      // Store results separately in Redis
-      await redisClient.set(
-        `casino:${casinoType}:results`,
-        JSON.stringify(apiData.result),
-        "EX",
-        600
-      );
-    } else if (apiData?.result?.res) {
-      for (const r of apiData.result.res) {
-        const resultMid = String(r.mid);
+      if (results.length > 0) {
+        for (const r of results) {
+          const resultMid = String(r.mid || r.matchId);
+          // Handle both 'win' and 'result' fields, prefer 'win' if both exist
+          // For dt202, only 'result' field exists, so use it as winner
+          // For teenmuf, only 'win' field exists in result.res structure
+          const winner = r.win || r.result || r.winner;
 
-        // Update CasinoMatch with winner
-        await matchRepo
-          .upsert(
-            {
-              mid: resultMid,
-              casinoType,
-              winner: r.win,
-            },
-            ["mid"] // if mid already exists, update winner
-          )
-        // .then(() =>
-        //   console.log(`Upserted past result ${resultMid} with winner ${r.win}`)
-        // )
-        // .catch((err) =>
-        //   console.error(`Failed to upsert past result ${resultMid}:`, err)
-        // );
+          if (!resultMid || (winner !== 0 && !winner)) {
+            console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+            continue;
+          }
 
-        // Update CasinoBet records for this match
-        await updateCasinoBetsWithResult(resultMid, r.win, casinoBetRepo);
+          // Update CasinoMatch with winner
+          await matchRepo
+            .upsert(
+              {
+                mid: resultMid,
+                casinoType,
+                winner: String(winner),
+              },
+              ["mid"] // if mid already exists, update winner
+            );
+
+          // Update CasinoBet records for this match
+          await updateCasinoBetsWithResult(resultMid, String(winner), casinoBetRepo);
+        }
+
+        // Store results separately in Redis
+        await redisClient.set(
+          `casino:${casinoType}:results`,
+          JSON.stringify(results),
+          "EX",
+          600
+        );
       }
-
-      // Store results separately in Redis
-      await redisClient.set(
-        `casino:${casinoType}:results`,
-        JSON.stringify(apiData.result.res),
-        "EX",
-        600
-      );
     }
 
-    // 3) Publish update (send both keys)
+    // Publish update (send both keys)
     await redisPublisher.publish(
       `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
       JSON.stringify({
         casinoType,
-        current: apiData?.data || null,
-        results: apiData?.result?.res || [],
+        current: currentData || null,
+        results: results,
       })
     );
 
@@ -140,7 +143,12 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     return apiData;
 
   } catch (err: any) {
-    console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
+    // Handle specific network errors
+    if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED' || err.message.includes('socket hang up')) {
+      console.log(`[CRON] Network error for ${casinoType}, will retry on next cycle:`, err.message);
+    } else {
+      console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
+    }
     return null;
   }
 };
@@ -156,8 +164,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
     });
 
     if (pendingBets.length === 0) {
-      console.log(`No pending bets found for match ${mid}`);
-      return;
+      return; // No pending bets, exit silently
     }
 
     for (const bet of pendingBets) {
@@ -165,7 +172,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       const betSid = betData.sid;
 
       if (!betSid) {
-        console.log(`Bet ${bet.id} has no SID, skipping result update`);
+        console.log(`[CRON] Bet ${bet.id} has no SID, skipping result update`);
         continue;
       }
 
@@ -181,7 +188,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         });
 
         if (!user) {
-          console.log(`User ${bet.userId} not found for bet ${bet.id}`);
+          console.log(`[CRON] User ${bet.userId} not found for bet ${bet.id}`);
           return;
         }
 
@@ -219,13 +226,11 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
           }
         });
 
-        console.log(`Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
+        console.log(`[CRON] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
       });
     }
 
-    console.log(`Updated ${pendingBets.length} bets for match ${mid}`);
-
   } catch (error) {
-    console.error(`Error updating bets for match ${mid}:`, error);
+    console.error(`[CRON] Error updating bets for match ${mid}:`, error);
   }
 };

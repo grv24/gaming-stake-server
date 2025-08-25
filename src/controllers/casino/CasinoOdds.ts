@@ -73,7 +73,16 @@ export const getCasinoResults = async (req: Request, res: Response) => {
 
     // 2. If cache miss → fetch + update
     const freshData = await fetchAndUpdateCasinoOdds(String(casinoType));
-    if (!freshData?.result?.res) {
+    
+    // Handle both result structures
+    let results = [];
+    if (freshData?.result?.res && Array.isArray(freshData.result.res)) {
+      results = freshData.result.res;
+    } else if (freshData?.result && Array.isArray(freshData.result)) {
+      results = freshData.result;
+    }
+    
+    if (results.length === 0) {
       return res.status(500).json({
         status: "error",
         message: "Failed to fetch results",
@@ -83,7 +92,7 @@ export const getCasinoResults = async (req: Request, res: Response) => {
     return res.status(200).json({
       status: "success",
       message: "Results data fetched fresh",
-      results: freshData.result.res,
+      results: results,
     });
   } catch (err: any) {
     console.error("Error in getCasinoResults:", err.message);

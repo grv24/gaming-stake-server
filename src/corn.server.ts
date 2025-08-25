@@ -158,7 +158,7 @@ const startCronService = async () => {
     // NOTE: No HTTP server is started - this is a silent background service
 
     // startLiveMatchesCron();
-    // startCasinoCronJobs();
+    startCasinoCronJobs();
     // startOddsCron();
 
     logger.info("Cron jobs started successfully");
