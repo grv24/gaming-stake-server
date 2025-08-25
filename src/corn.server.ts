@@ -25,7 +25,7 @@ import { DataSource } from "typeorm";
 import { connectRedis } from "./config/redisConfig";
 import { initRedisPubSub } from "./config/redisPubSub";
 import { startCasinoCronJobs } from "./cron/CasinoCronJob";
-import { startSportCronJobs } from "./cron/SportsCronJob";
+import { startLiveMatchesCron, startOddsCron, startSportsCrons } from "./cron/SportsCronJob";
 import pino from "pino";
 
 // Database entities for TypeORM configuration
@@ -57,7 +57,7 @@ dotenv.config();
 // Setup structured logging with configurable levels
 // LOG_LEVEL can be set in .env: debug, info, warn, error
 // Defaults to 'info' for production, can be set to 'error' to reduce noise
-const logger = pino({ 
+const logger = pino({
   level: process.env.LOG_LEVEL || "info",
   // Add service context to all log messages
   base: {
@@ -156,8 +156,11 @@ const startCronService = async () => {
     // - Sports odds updates (every 30 seconds)
     // - Casino data processing (every 2 minutes)
     // NOTE: No HTTP server is started - this is a silent background service
+
+    startLiveMatchesCron();
     startCasinoCronJobs();
-    startSportCronJobs();
+    startOddsCron();
+
     logger.info("Cron jobs started successfully");
 
     // Log service status and monitoring information

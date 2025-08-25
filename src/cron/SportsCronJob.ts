@@ -1,72 +1,71 @@
 import cron from 'node-cron';
 import { processOddsData } from '../services/sports/OddsService';
+import { fetchAndStoreSportsData } from '../services/sports/SportService';
 
-// List of events to monitor (starts with some examples, grows as users request events)
-let eventsToMonitor: any = [];
-let cronJobsStarted = false;
+let eventsToMonitor: { sportId: string; eventId: string }[] = [];
 
-// Cron job to fetch data every second for all events
-export const startSportCronJobs = () => {
-  // Prevent multiple starts
-  if (cronJobsStarted) {
-    // console.log("[CRON] Sports cron jobs already started");
-    return;
-  }
-  
-  cronJobsStarted = true;
-  console.log('Odds cron job started');
-  
-  cron.schedule('* * * * * *', async () => {
-    if (eventsToMonitor.length === 0) {
-      return;
+
+export const startLiveMatchesCron = () => {
+  cron.schedule("*/3 * * * *", async () => {
+    try {
+      console.log("[CRON] Fetching live matches...");
+
+      const newEvents: { sportId: string; eventId: string }[] = [];
+
+      // Cricket
+      const cricketMatches = await fetchAndStoreSportsData("cricket");
+      cricketMatches?.forEach((m: any) => {
+        if (m.iplay) {
+          newEvents.push({ sportId: "4", eventId: m.gmid });
+        }
+      });
+
+      // Soccer
+      const soccerMatches = await fetchAndStoreSportsData("soccer");
+      soccerMatches?.data?.t1?.forEach((m: any) => {
+        if (m.iplay) {
+          newEvents.push({ sportId: "1", eventId: m.eventid });
+        }
+      });
+
+      // Tennis
+      const tennisMatches = await fetchAndStoreSportsData("tennis");
+      tennisMatches?.data?.t1?.forEach((m: any) => {
+        if (m.iplay) {
+          newEvents.push({ sportId: "2", eventId: m.eventid });
+        }
+      });
+
+      eventsToMonitor = newEvents;
+
+      console.log(`[CRON] Stored ${eventsToMonitor.length} live events`);
+
+    } catch (err: any) {
+      console.error("[CRON] Failed to fetch live matches:", err.message);
     }
-
-//     console.log(`[CRON] Processing ${eventsToMonitor.length} events`);
-
-    // Process all events in parallel
-    await Promise.all(
-      eventsToMonitor.map((event: { sportId: string; eventId: string; }) =>
-        processOddsData(event.sportId, event.eventId)
-      )
-    );
   });
-}
+};
 
-// // Function to add event to monitoring if not already present
-// export const addEventToMonitor = (sportId: string, eventId: string): boolean => {
-//   const eventKey = `${sportId}:${eventId}`;
-//   const exists = eventsToMonitor.some((e: { sportId: any; eventId: any; }) => `${e.sportId}:${e.eventId}` === eventKey);
+export const startOddsCron = () => {
+  cron.schedule("*/10 * * * * *", async () => {
+    try {
+      if (eventsToMonitor.length === 0) {
+        console.log("[ODDS-CRON] Live matches array empty.");
+        return;
+      }
 
-//   if (!exists) {
-//     eventsToMonitor.push({ sportId, eventId });
-//     console.log(`[CRON] Added event to monitor: sport ${sportId}, event ${eventId}`);
-//     return true;
-//   }
+      console.log(`[ODDS-CRON] Fetching odds for ${eventsToMonitor.length} events`);
 
-//   return false;
-// };
+      await Promise.allSettled(
+        eventsToMonitor.map((m) => processOddsData(m.sportId, m.eventId))
+      );
+    } catch (err: any) {
+      console.error("[ODDS-CRON] Error:", err.message);
+    }
+  });
+};
 
-// // Function to remove event from monitoring
-// export const removeEventFromMonitor = (sportId: string, eventId: string): boolean => {
-//   const initialLength = eventsToMonitor.length;
-//   eventsToMonitor = eventsToMonitor.filter((e: { sportId: string; eventId: string; }) =>
-//     !(e.sportId === sportId && e.eventId === eventId)
-//   );
-
-//   const removed = initialLength !== eventsToMonitor.length;
-//   if (removed) {
-//     console.log(`[CRON] Removed event from monitor: sport ${sportId}, event ${eventId}`);
-//   }
-
-//   return removed;
-// };
-
-// // Function to get all monitored events
-// export const getMonitoredEvents = () => {
-//   return [...eventsToMonitor];
-// };
-
-// // Function to check if event is being monitored
-// export const isEventMonitored = (sportId: string, eventId: string): boolean => {
-//   return eventsToMonitor.some((e: { sportId: string; eventId: string; }) => e.sportId === sportId && e.eventId === eventId);
-// };
+export const startSportsCrons = () => {
+  startLiveMatchesCron();
+  startOddsCron();
+};
