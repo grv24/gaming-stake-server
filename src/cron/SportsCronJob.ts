@@ -22,7 +22,7 @@ export const startSportCronJobs = () => {
   cronJobsStarted = true;
   console.log('Odds cron job started');
   
-  cron.schedule('* * * * * *', async () => {
+  cron.schedule('*/5 * * * * *', async () => {
     if (eventsToMonitor.length === 0) {
       return;
     }
