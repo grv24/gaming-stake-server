@@ -5,6 +5,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
+import io from 'socket.io-client';
 
 // Load environment variables
 dotenv.config();
@@ -39,6 +40,7 @@ class CasinoDebugServer {
   private server: any;
   private io: SocketIOServer;
   private redis: Redis;
+  private mainSocketClient: any; // Connection to main Socket.IO server
   private casinoData: CasinoDebugData;
   private casinoTypes: string[];
 
@@ -95,6 +97,7 @@ class CasinoDebugServer {
     this.setupMiddleware();
     this.setupRoutes();
     this.setupSocketIO();
+    this.connectToMainSocketIO();
     this.initializeCasinoData();
   }
 
@@ -178,6 +181,35 @@ class CasinoDebugServer {
       socket.on('disconnect', () => {
         console.log('❌ Debug client disconnected:', socket.id);
       });
+    });
+  }
+
+  private connectToMainSocketIO() {
+    const mainSocketUrl = process.env.SOCKET_URL || 'http://localhost:4000';
+    console.log(`🔗 Connecting to main Socket.IO server: ${mainSocketUrl}`);
+    
+    this.mainSocketClient = io(mainSocketUrl, {
+      timeout: 5000,
+      reconnection: true,
+      reconnectionAttempts: 5
+    });
+
+    this.mainSocketClient.on('connect', () => {
+      console.log('✅ Connected to main Socket.IO server');
+    });
+
+    this.mainSocketClient.on('disconnect', () => {
+      console.log('❌ Disconnected from main Socket.IO server');
+    });
+
+    this.mainSocketClient.on('connect_error', (error: any) => {
+      console.log('⚠️  Error connecting to main Socket.IO server:', error.message);
+    });
+
+    // Listen for casino odds updates from main server
+    this.mainSocketClient.on('casinoOddsUpdate', (data: any) => {
+      console.log(`📡 Received casino update from main server: ${data.casinoType}`);
+      this.updateSocketData(data.casinoType, data.data);
     });
   }
 
