@@ -128,17 +128,18 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       }
     }
 
-    // Publish update (send both keys)
+    // Publish update notification (only send Redis keys, not complete data)
     await redisPublisher.publish(
       `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
       JSON.stringify({
         casinoType,
-        current: currentData || null,
-        results: results,
+        hasCurrent: !!currentData,
+        hasResults: results.length > 0,
+        timestamp: Date.now()
       })
     );
 
-    console.log(`[CRON] Updated & published odds for ${casinoType}`);
+    console.log(`[CRON] Updated Redis & published notification for ${casinoType}`);
 
     return apiData;
 

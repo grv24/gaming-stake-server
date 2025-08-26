@@ -62,12 +62,12 @@ export const publishOddsUpdate = async (sportId: string, eventId: string, data: 
         type: 'sports_odds_updates',
         sport_id: sportId,
         event_id: eventId,
-        data: data,
+        hasData: !!data,
         timestamp: Date.now()
       })
     );
 
-    console.log(`[ODDS] Published update for sport ${sportId}, event ${eventId}`);
+    console.log(`[ODDS] Published notification for sport ${sportId}, event ${eventId}`);
     return true;
   } catch (error) {
     console.error(`[ODDS] Error publishing update:`, error);
