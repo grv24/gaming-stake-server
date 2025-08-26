@@ -201,9 +201,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   try {
     // Find all pending bets for this match ID
-    const pendingBets = await casinoBetRepo.find(CasinoBet, {
-      where: { matchId: mid, status: "pending" },
-      lock: { mode: "pessimistic_write" }
+    const pendingBets = await casinoBetRepo.find({
+      where: { matchId: mid, status: "pending" }
     });
 
 
@@ -213,8 +212,8 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
     for (const bet of pendingBets) {
       // Check if bet is already settled to prevent double processing
-      if (bet?.betData && bet.betData?.result && bet.betData?.result?.settled) {
-        console.log(`[CRON] Bet ${bet.id} already settled, skipping`);
+      if (bet.betData?.result?.settled === true || bet.status !== "pending") {
+        console.log(`[CRON] Bet ${bet.id} already settled (status: ${bet.status}), skipping`);
         continue;
       }
 
@@ -231,6 +230,17 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
       // Use a simple transaction for each bet
       await CronDataSource.transaction(async (transactionalEntityManager) => {
+        // First, check if bet is still pending with a lock to prevent race conditions
+        const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
+          where: { id: bet.id, status: "pending" },
+          lock: { mode: "pessimistic_write" }
+        });
+
+        if (!currentBet) {
+          console.log(`[CRON] Bet ${bet.id} no longer pending, skipping`);
+          return;
+        }
+
         // Find user with lock
         const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.userType], {
           where: { id: bet.userId },
@@ -266,9 +276,8 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
         user.exposure = Number(user.exposure) - stakeAmount;
 
-        // Update user and bet
-        await transactionalEntityManager.save(user);
-        await transactionalEntityManager.update(CasinoBet, { id: bet.id, status: "pending" }, {
+        // Update user and bet - update status first to prevent re-processing
+        await transactionalEntityManager.update(CasinoBet, { id: bet.id }, {
           status: newStatus,
           betData: {
             ...betData,
@@ -283,6 +292,9 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
             }
           }
         });
+        
+        // Update user balance after bet is marked as settled
+        await transactionalEntityManager.save(user);
 
         console.log(`[CRON] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
       });
