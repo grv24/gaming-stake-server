@@ -228,13 +228,21 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         let newStatus: "won" | "lost" = "lost";
         let profitLoss = 0;
 
+        console.log("***********!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ----- settlement ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!***********")
+
+        console.log(typeof stakeAmount, " --> ", stakeAmount);
+        console.log(typeof betData.profit, " --> ", betData.profit);
+        console.log(Number(user.balance))
+        
+        console.log("***********!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ----- settlement ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!***********")
+
         if (winner === betSid) {
           newStatus = "won";
           profitLoss = Number(betData.profit) || 0;
           user.balance = Number(user.balance) + profitLoss;
         } else {
           newStatus = "lost";
-          profitLoss = parseFloat(betData.loss) || 0;
+          profitLoss = Number(betData.loss) || 0;
           user.balance = Number(user.balance) - profitLoss;
         }
 
