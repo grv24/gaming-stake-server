@@ -56,11 +56,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         currentData = apiData.data;
       } else if (apiData?.data?.t1?.[0]?.mid) {
         currentMid = String(apiData.data.t1[0].mid);
-        currentData = apiData.data.t1[0];
-      } else if (apiData?.data?.t2?.[0]?.mid) {
-        currentMid = String(apiData.data.t2[0].mid);
-        currentData = apiData.data.t2[0];
-      }
+        currentData = apiData.data;
+      } 
     } else {
       // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
       // Standard wrapped data structure
@@ -69,11 +66,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         currentData = apiData.data;
       } else if (apiData?.data?.t1?.[0]?.mid) {
         currentMid = String(apiData.data.t1[0].mid);
-        currentData = apiData.data.t1[0];
-      } else if (apiData?.data?.t2?.[0]?.mid) {
-        currentMid = String(apiData.data.t2[0].mid);
-        currentData = apiData.data.t2[0];
-      }
+        currentData = apiData.data
+      } 
     }
 
     if (currentMid && currentData) {
