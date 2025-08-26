@@ -4,7 +4,7 @@
   "description": "initially commit",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/server.ts",
+    "start": "concurrently \"node dist/server.js\" \"node dist/corn.server.js\"",
     "dev": "nodemon src/server.ts",
     "cron": "nodemon src/corn.server.ts",
     "dev:all": "concurrently -n server,cron -c green,blue \"npm run dev\" \"npm run cron\"",

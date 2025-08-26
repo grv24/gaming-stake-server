@@ -170,7 +170,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
     for (const bet of pendingBets) {
       const betData = bet.betData || {};
-      const betSid = betData.sid;
+      const betSid: String = betData.sid;
 
       if (!betSid) {
         console.log(`[CRON] Bet ${bet.id} has no SID, skipping result update`);
@@ -193,13 +193,13 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
           return;
         }
 
-        const stakeAmount = parseFloat(betData.stake) || 0;
+        const stakeAmount = Number(betData.stake) || 0;
         let newStatus: "won" | "lost" = "lost";
         let profitLoss = 0;
 
         if (winner === betSid) {
           newStatus = "won";
-          profitLoss = parseFloat(betData.profit) || 0;
+          profitLoss = Number(betData.profit) || 0;
           user.balance = Number(user.balance) + profitLoss;
         } else {
           newStatus = "lost";
