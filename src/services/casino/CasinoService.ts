@@ -201,12 +201,11 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   try {
     // Find all pending bets for this match ID
-    const pendingBets = await casinoBetRepo.find({
-      where: {
-        matchId: mid,
-        status: "pending"
-      }
+    const pendingBets = await casinoBetRepo.find(CasinoBet, {
+      where: { matchId: mid, status: "pending" },
+      lock: { mode: "pessimistic_write" }
     });
+
 
     if (pendingBets.length === 0) {
       return; // No pending bets, exit silently
@@ -252,7 +251,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         console.log(typeof stakeAmount, " --> ", stakeAmount);
         console.log(typeof betData.profit, " --> ", betData.profit);
         console.log(Number(user.balance))
-        
+
         console.log("***********!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ----- settlement ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!***********")
 
         if (winner === betSid) {
@@ -269,7 +268,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
 
         // Update user and bet
         await transactionalEntityManager.save(user);
-        await transactionalEntityManager.update(CasinoBet, bet.id, {
+        await transactionalEntityManager.update(CasinoBet, { id: bet.id, status: "pending" }, {
           status: newStatus,
           betData: {
             ...betData,
