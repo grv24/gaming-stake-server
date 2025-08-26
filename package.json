@@ -8,6 +8,10 @@
     "dev": "nodemon src/server.ts",
     "cron": "nodemon src/corn.server.ts",
     "dev:all": "concurrently -n server,cron -c green,blue \"npm run dev\" \"npm run cron\"",
+    "test:load": "node load-test.js",
+    "test:db": "node db-load-test.js",
+    "test:stress": "node stress-test.js",
+    "test:all": "npm run test:load && npm run test:db && npm run test:stress",
     "build": "tsc",
     "serve": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
