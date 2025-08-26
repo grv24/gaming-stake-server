@@ -75,7 +75,7 @@ export const DIFF_STRUCT_CASINO_TYPES = [
   "btable2",
   "goal",
   "baccarat2",
-  "d16",
+  "dt6",
 ];
 
 // Casino types that use the alternative API endpoint

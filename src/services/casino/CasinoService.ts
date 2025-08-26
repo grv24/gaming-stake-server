@@ -40,17 +40,39 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     let currentMid: string | null = null;
     let currentData: any = null;
 
+    // Handle different API structures based on casino type
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      // Alternative API structure (like lucky5) - data is direct, not wrapped
+      // Alternative API structure (like lucky5, joker20, joker1, ab4, lottcard)
+      // Data is direct, not wrapped in data object
       if (apiData?.mid) {
         currentMid = String(apiData.mid);
         currentData = apiData;
       }
+    } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+      // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
+      // These have specific data structures
+      if (apiData?.data?.mid) {
+        currentMid = String(apiData.data.mid);
+        currentData = apiData.data;
+      } else if (apiData?.data?.t1?.[0]?.mid) {
+        currentMid = String(apiData.data.t1[0].mid);
+        currentData = apiData.data.t1[0];
+      } else if (apiData?.data?.t2?.[0]?.mid) {
+        currentMid = String(apiData.data.t2[0].mid);
+        currentData = apiData.data.t2[0];
+      }
     } else {
-      // Default API structure - data is wrapped in data object
-      if (apiData?.data?.mid || apiData?.data?.t1?.[0]?.mid || apiData?.data?.t2?.[0]?.mid) {
-        currentMid = String(apiData.data.mid || apiData?.data?.t1?.[0]?.mid || apiData?.data?.t2?.[0]?.mid);
-        currentData = apiData.data || apiData?.data?.t1?.[0] || apiData?.data?.t2?.[0];
+      // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
+      // Standard wrapped data structure
+      if (apiData?.data?.mid) {
+        currentMid = String(apiData.data.mid);
+        currentData = apiData.data;
+      } else if (apiData?.data?.t1?.[0]?.mid) {
+        currentMid = String(apiData.data.t1[0].mid);
+        currentData = apiData.data.t1[0];
+      } else if (apiData?.data?.t2?.[0]?.mid) {
+        currentMid = String(apiData.data.t2[0].mid);
+        currentData = apiData.data.t2[0];
       }
     }
 
@@ -77,18 +99,34 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-    // Handle results - only for default API structure (alternative API doesn't include results)
+    // Handle results - different structures for different casino types
     let results = [];
     
-    if (!ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      // Structure 1: apiData.result.res (original structure for teenmuf, etc.)
+    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+      // Alternative API casinos (lucky5, joker20, joker1, ab4, lottcard)
+      // These don't include results in API response
+      results = [];
+    } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+      // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
+      // These have specific result structures
       if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+        // Structure: apiData.result.res (for teenmuf, etc.)
         results = apiData.result.res;
-      }
-      // Structure 2: apiData.result (new structure for dt6, aaa, etc.)
-      else if (apiData?.result && Array.isArray(apiData.result)) {
+      } else if (apiData?.result && Array.isArray(apiData.result)) {
+        // Structure: apiData.result (for aaa, dt20, etc.)
         results = apiData.result;
       }
+    } else {
+      // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
+      // Standard result structure
+      if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+        // Structure: apiData.result.res
+        results = apiData.result.res;
+      } else if (apiData?.result && Array.isArray(apiData.result)) {
+        // Structure: apiData.result
+        results = apiData.result;
+      }
+    }
 
       if (results.length > 0) {
         for (const r of results) {
@@ -126,7 +164,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           600
         );
       }
-    }
 
     // Publish update notification (only send Redis keys, not complete data)
     await redisPublisher.publish(

@@ -26,6 +26,7 @@ import { connectRedis } from "./config/redisConfig";
 import { initRedisPubSub } from "./config/redisPubSub";
 import { startCasinoCronJobs } from "./cron/CasinoCronJob";
 import { startLiveMatchesCron, startOddsCron, startSportsCrons } from "./cron/SportsCronJob";
+import { CasinoDebugServer } from "./debug/debug-server";
 import pino from "pino";
 
 // Database entities for TypeORM configuration
@@ -162,6 +163,13 @@ const startCronService = async () => {
     // startOddsCron();
 
     logger.info("Cron jobs started successfully");
+
+    // Start debug server for development/testing
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEBUG === 'true') {
+      const debugServer = new CasinoDebugServer();
+      debugServer.start(4001);
+      logger.info("Debug server started on port 4001");
+    }
 
     // Log service status and monitoring information
     logger.info("Cron service running silently in background (no ports exposed)");
