@@ -7,261 +7,197 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        .status-active { color: #059669; }
-        .status-inactive { color: #6B7280; }
-        .status-error { color: #DC2626; }
-        .connection-connected { color: #059669; }
-        .connection-disconnected { color: #DC2626; }
+        .status-active { background-color: rgb(220 252 231); color: rgb(22 101 52); }
+        .status-inactive { background-color: rgb(243 244 246); color: rgb(31 41 55); }
+        .status-error { background-color: rgb(254 226 226); color: rgb(153 27 27); }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto p-4">
-        <div class="mb-6">
-            <h1 class="text-2xl font-bold mb-4">🎰 Casino Debug Dashboard</h1>
-            
-            <!-- Connection Status -->
-            <div class="flex gap-4 mb-4">
-                <div id="socketStatus" class="flex items-center gap-2">
-                    <div id="socketIndicator" class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span class="text-sm font-medium">Socket.IO: <span id="socketText">Disconnected</span></span>
-                </div>
-                
-                <div id="redisStatus" class="flex items-center gap-2">
-                    <div id="redisIndicator" class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span class="text-sm font-medium">Redis: <span id="redisText">Disconnected</span> <span id="redisStatusText" class="text-xs text-gray-500">(disconnected)</span></span>
-                </div>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">🎰 Casino Debug Dashboard</h1>
+        
+        <!-- Connection Status -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-semibold text-gray-700 mb-2">Socket.IO Status</h3>
+                <div id="socketStatus" class="text-sm">Connecting...</div>
             </div>
-
-            <!-- Control Buttons -->
-            <div class="flex gap-4 mb-4">
-                <button id="refreshBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    Refresh Data
-                </button>
-                <button id="requestAllBtn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-                    Request All Casino Data
-                </button>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-semibold text-gray-700 mb-2">Redis Status</h3>
+                <div id="redisStatus" class="text-sm">Checking...</div>
             </div>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="grid grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-4 rounded border">
-                <div id="totalCasinos" class="text-2xl font-bold text-blue-600">0</div>
-                <div class="text-sm text-gray-600">Total Casinos</div>
-            </div>
-            <div class="bg-white p-4 rounded border">
-                <div id="activeCasinos" class="text-2xl font-bold text-green-600">0</div>
-                <div class="text-sm text-gray-600">Active</div>
-            </div>
-            <div class="bg-white p-4 rounded border">
-                <div id="inactiveCasinos" class="text-2xl font-bold text-gray-600">0</div>
-                <div class="text-sm text-gray-600">Inactive</div>
-            </div>
-            <div class="bg-white p-4 rounded border">
-                <div id="errorCasinos" class="text-2xl font-bold text-red-600">0</div>
-                <div class="text-sm text-gray-600">Errors</div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-semibold text-gray-700 mb-2">Database Status</h3>
+                <div id="dbStatus" class="text-sm">Checking...</div>
             </div>
         </div>
 
         <!-- Controls -->
-        <div class="flex gap-4 mb-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Select Casino:</label>
-                <select id="casinoSelect" class="border rounded px-2 py-1 text-sm">
-                    <option value="all">All Casinos</option>
-                </select>
-            </div>
-            <div class="flex items-center gap-4">
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="showRedis" checked class="rounded">
-                    <span class="text-sm">Show Redis Data</span>
-                </label>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="showSocket" checked class="rounded">
-                    <span class="text-sm">Show Socket Data</span>
-                </label>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="showJSON" class="rounded">
-                    <span class="text-sm">Show JSON Format</span>
-                </label>
+        <div class="bg-white p-4 rounded-lg shadow mb-8">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Filter Casino:</label>
+                    <select id="casinoFilter" class="border border-gray-300 rounded px-3 py-2">
+                        <option value="all">All Casinos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Format:</label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="jsonFormat" class="mr-2">
+                        <span class="text-sm">Show JSON Format</span>
+                    </label>
+                </div>
+                <button onclick="requestAllData()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Refresh All Data
+                </button>
             </div>
         </div>
 
-        <!-- Casino Data -->
-        <div id="casinoData" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Casino Data Sections -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Redis Data -->
-            <div id="redisSection" class="space-y-2">
-                <h4 class="font-semibold text-blue-700">Redis Data:</h4>
-                <div id="redisCasinos" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">📦 Redis Data</h2>
+                <div id="redisCasinos" class="space-y-4"></div>
             </div>
 
-            <!-- Socket Data -->
-            <div id="socketSection" class="space-y-2">
-                <h4 class="font-semibold text-green-700">Socket.IO Data:</h4>
-                <div id="socketCasinos" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            <!-- Socket.IO Data -->
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">🔌 Socket.IO Data</h2>
+                <div id="socketCasinos" class="space-y-4"></div>
             </div>
-        </div>
 
-        <!-- Comparison Table -->
-        <div class="mt-6">
-            <h4 class="font-semibold mb-2">Data Comparison:</h4>
-            <div class="bg-white rounded border overflow-hidden">
-                <table class="w-full text-xs">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-3 py-2 text-left">Casino</th>
-                            <th class="px-3 py-2 text-center">Redis Status</th>
-                            <th class="px-3 py-2 text-center">Socket Status</th>
-                            <th class="px-3 py-2 text-center">Redis Current</th>
-                            <th class="px-3 py-2 text-center">Socket Current</th>
-                            <th class="px-3 py-2 text-center">Redis Results</th>
-                            <th class="px-3 py-2 text-center">Socket Results</th>
-                            <th class="px-3 py-2 text-center">Last Redis</th>
-                            <th class="px-3 py-2 text-center">Last Socket</th>
-                        </tr>
-                    </thead>
-                    <tbody id="comparisonTable"></tbody>
-                </table>
+            <!-- Bet Data -->
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">🎲 Casino Bets</h2>
+                <div id="betCasinos" class="space-y-4"></div>
             </div>
-        </div>
-
-        <!-- Last Update -->
-        <div class="mt-4 text-sm text-gray-600">
-            Last Update: <span id="lastUpdate">Never</span>
         </div>
     </div>
 
     <script>
-        // Initialize Socket.IO connection
         const socket = io();
-        let casinoData = {
-            redisData: {},
-            socketData: {},
-            totalCasinos: 0,
-            activeCasinos: 0,
-            inactiveCasinos: 0,
-            errors: 0,
-            lastUpdate: new Date(),
-            redisConnected: false,
-            redisStatus: 'disconnected'
-        };
+        let casinoData = {};
+        let selectedCasino = 'all';
+        let showJsonFormat = false;
 
-        // Connection status
-        socket.on('connect', () => {
-            updateConnectionStatus('socket', true);
-            console.log('Connected to debug server');
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            connectSocket();
         });
 
-        socket.on('disconnect', () => {
-            updateConnectionStatus('socket', false);
-            console.log('Disconnected from debug server');
-        });
+        function setupEventListeners() {
+            document.getElementById('casinoFilter').addEventListener('change', function(e) {
+                selectedCasino = e.target.value;
+                updateAllSections();
+            });
 
-        // Receive casino debug data
-        socket.on('casinoDebugData', (data) => {
-            casinoData = data;
-            updateUI();
-        });
+            document.getElementById('jsonFormat').addEventListener('change', function(e) {
+                showJsonFormat = e.target.checked;
+                updateAllSections();
+            });
+        }
 
-        // Update connection status
-        function updateConnectionStatus(type, connected) {
-            const indicator = document.getElementById(`${type}Indicator`);
-            const text = document.getElementById(`${type}Text`);
-            
-            if (type === 'redis') {
-                const statusText = document.getElementById('redisStatusText');
-                if (connected) {
-                    indicator.className = 'w-3 h-3 rounded-full bg-green-500';
-                    text.textContent = 'Connected';
-                    text.className = 'connection-connected';
-                    statusText.textContent = `(${casinoData.redisStatus})`;
-                } else {
-                    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-                    text.textContent = 'Disconnected';
-                    text.className = 'connection-disconnected';
-                    statusText.textContent = `(${casinoData.redisStatus})`;
-                }
-            } else {
-                if (connected) {
-                    indicator.className = 'w-3 h-3 rounded-full bg-green-500';
-                    text.textContent = 'Connected';
-                    text.className = 'connection-connected';
-                } else {
-                    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-                    text.textContent = 'Disconnected';
-                    text.className = 'connection-disconnected';
-                }
+        function connectSocket() {
+            socket.on('connect', () => {
+                updateConnectionStatus('socket', 'Connected', 'text-green-600');
+                socket.emit('requestAllCasinoData');
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus('socket', 'Disconnected', 'text-red-600');
+            });
+
+            socket.on('casinoDebugData', (data) => {
+                casinoData = data;
+                updateConnectionStatus('redis', data.redisStatus, data.redisConnected ? 'text-green-600' : 'text-red-600');
+                updateConnectionStatus('db', data.dbStatus, data.dbConnected ? 'text-green-600' : 'text-red-600');
+                updateCasinoFilter();
+                updateAllSections();
+            });
+        }
+
+        function updateConnectionStatus(type, status, colorClass) {
+            const element = document.getElementById(type + 'Status');
+            if (element) {
+                element.className = `text-sm ${colorClass}`;
+                element.textContent = `${type.toUpperCase()}: ${status}`;
             }
         }
 
-        // Update UI with casino data
-        function updateUI() {
-            // Update Redis connection status
-            updateConnectionStatus('redis', casinoData.redisConnected);
+        function updateCasinoFilter() {
+            const filter = document.getElementById('casinoFilter');
+            const currentValue = filter.value;
             
-            // Update summary stats
-            document.getElementById('totalCasinos').textContent = casinoData.totalCasinos;
-            document.getElementById('activeCasinos').textContent = casinoData.activeCasinos;
-            document.getElementById('inactiveCasinos').textContent = casinoData.inactiveCasinos;
-            document.getElementById('errorCasinos').textContent = casinoData.errors;
-            document.getElementById('lastUpdate').textContent = new Date(casinoData.lastUpdate).toLocaleTimeString();
-
-            // Update casino select options
-            updateCasinoSelect();
-
-            // Update casino data sections
-            updateCasinoSections();
-
-            // Update comparison table
-            updateComparisonTable();
-        }
-
-        // Update casino select dropdown
-        function updateCasinoSelect() {
-            const select = document.getElementById('casinoSelect');
-            const currentValue = select.value;
-            const casinoTypes = Object.keys(casinoData.redisData);
+            filter.innerHTML = '<option value="all">All Casinos</option>';
             
-            // Clear existing options except "All"
-            select.innerHTML = '<option value="all">All Casinos</option>';
+            const allCasinos = new Set([
+                ...Object.keys(casinoData.redisData || {}),
+                ...Object.keys(casinoData.socketData || {}),
+                ...Object.keys(casinoData.betData || {})
+            ]);
             
-            // Add casino options
-            casinoTypes.forEach(type => {
+            allCasinos.forEach(casino => {
                 const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                select.appendChild(option);
+                option.value = casino;
+                option.textContent = casino;
+                filter.appendChild(option);
             });
             
-            // Restore selected value if it still exists
-            if (casinoTypes.includes(currentValue)) {
-                select.value = currentValue;
-            }
+            filter.value = currentValue;
         }
 
-        // Update casino data sections
-        function updateCasinoSections() {
-            const showRedis = document.getElementById('showRedis').checked;
-            const showSocket = document.getElementById('showSocket').checked;
-            const selectedCasino = document.getElementById('casinoSelect').value;
-            
-            // Show/hide sections
-            document.getElementById('redisSection').style.display = showRedis ? 'block' : 'none';
-            document.getElementById('socketSection').style.display = showSocket ? 'block' : 'none';
-            
-            // Update Redis casinos
-            if (showRedis) {
-                updateCasinoSection('redisCasinos', casinoData.redisData, selectedCasino, 'blue');
-            }
-            
-            // Update Socket casinos
-            if (showSocket) {
-                updateCasinoSection('socketCasinos', casinoData.socketData, selectedCasino, 'green');
-            }
+        function updateAllSections() {
+            updateCasinoSection('redisCasinos', casinoData.redisData || {}, selectedCasino, 'blue');
+            updateCasinoSection('socketCasinos', casinoData.socketData || {}, selectedCasino, 'green');
+            updateBetSection('betCasinos', casinoData.betData || {}, selectedCasino, 'purple');
         }
 
-        // Update a casino section
         function updateCasinoSection(containerId, data, selectedCasino, color) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const casinoTypes = selectedCasino === 'all' 
+                ? Object.keys(data) 
+                : Object.keys(data).filter(type => type === selectedCasino);
+            
+            casinoTypes.forEach(casinoType => {
+                const casino = data[casinoType];
+                if (!casino) return;
+                
+                // Determine which time field to show based on the section
+                const isRedisSection = containerId === 'redisCasinos';
+                const timeField = isRedisSection ? 'lastRedisUpdate' : 'lastSocketUpdate';
+                const timeValue = casino[timeField];
+                
+                const card = document.createElement('div');
+                card.className = 'bg-white p-3 rounded border';
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h5 class="font-medium text-${color}-600">${casinoType}</h5>
+                        <span class="text-xs px-2 py-1 rounded status-${casino.status}">${casino.status}</span>
+                    </div>
+                    <div class="text-xs space-y-1">
+                        <div>Current: ${casino.hasCurrent ? '✅' : '❌'} (${casino.currentSize} bytes)</div>
+                        <div>Results: ${casino.hasResults ? '✅' : '❌'} (${casino.resultsSize} bytes)</div>
+                        <div>Last Update: ${timeValue ? new Date(timeValue).toLocaleTimeString() : 'Never'}</div>
+                    </div>
+                    ${casino.redisData || casino.socketData ? `
+                        <details class="mt-2">
+                            <summary class="text-xs text-${color}-500 cursor-pointer">View Data</summary>
+                            <div class="mt-1 space-y-2">
+                                ${formatCasinoData(casino.redisData || casino.socketData, color)}
+                            </div>
+                        </details>
+                    ` : ''}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateBetSection(containerId, data, selectedCasino, color) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
             
@@ -281,15 +217,17 @@
                         <span class="text-xs px-2 py-1 rounded status-${casino.status}">${casino.status}</span>
                     </div>
                     <div class="text-xs space-y-1">
-                        <div>Current: ${casino.hasCurrent ? '✅' : '❌'} (${casino.currentSize} bytes)</div>
-                        <div>Results: ${casino.hasResults ? '✅' : '❌'} (${casino.resultsSize} bytes)</div>
-                        <div>Last Update: ${casino.lastRedisUpdate ? new Date(casino.lastRedisUpdate).toLocaleTimeString() : 'Never'}</div>
+                        <div>Total Bets: ${casino.totalBets}</div>
+                        <div>Pending: ${casino.pendingBets} | Won: ${casino.wonBets} | Lost: ${casino.lostBets}</div>
+                        <div>Total Stake: ₹${casino.totalStake.toFixed(2)}</div>
+                        <div>Total Profit: ₹${casino.totalProfit.toFixed(2)}</div>
+                        <div>Last Update: ${casino.lastBetUpdate ? new Date(casino.lastBetUpdate).toLocaleTimeString() : 'Never'}</div>
                     </div>
-                    ${casino.redisData || casino.socketData ? `
+                    ${casino.recentBets && casino.recentBets.length > 0 ? `
                         <details class="mt-2">
-                            <summary class="text-xs text-${color}-500 cursor-pointer">View Data</summary>
-                            <div class="mt-1 space-y-2">
-                                ${formatCasinoData(casino.redisData || casino.socketData, color)}
+                            <summary class="text-xs text-${color}-500 cursor-pointer">Recent Bets (${casino.recentBets.length})</summary>
+                            <div class="mt-1 space-y-1">
+                                ${formatBetData(casino.recentBets, color)}
                             </div>
                         </details>
                     ` : ''}
@@ -298,137 +236,78 @@
             });
         }
 
-        // Update comparison table
-        function updateComparisonTable() {
-            const tbody = document.getElementById('comparisonTable');
-            tbody.innerHTML = '';
-            
-            const casinoTypes = Object.keys(casinoData.redisData);
-            
-            casinoTypes.forEach(casinoType => {
-                const redisCasino = casinoData.redisData[casinoType];
-                const socketCasino = casinoData.socketData[casinoType];
-                
-                const row = document.createElement('tr');
-                row.className = 'border-t';
-                row.innerHTML = `
-                    <td class="px-3 py-2 font-medium">${casinoType}</td>
-                    <td class="px-3 py-2 text-center status-${redisCasino?.status || 'inactive'}">${redisCasino?.status || 'unknown'}</td>
-                    <td class="px-3 py-2 text-center status-${socketCasino?.status || 'inactive'}">${socketCasino?.status || 'unknown'}</td>
-                    <td class="px-3 py-2 text-center">${redisCasino?.hasCurrent ? '✅' : '❌'}</td>
-                    <td class="px-3 py-2 text-center">${socketCasino?.hasCurrent ? '✅' : '❌'}</td>
-                    <td class="px-3 py-2 text-center">${redisCasino?.hasResults ? '✅' : '❌'}</td>
-                    <td class="px-3 py-2 text-center">${socketCasino?.hasResults ? '✅' : '❌'}</td>
-                    <td class="px-3 py-2 text-center text-xs">${redisCasino?.lastRedisUpdate ? new Date(redisCasino.lastRedisUpdate).toLocaleTimeString() : '-'}</td>
-                    <td class="px-3 py-2 text-center text-xs">${socketCasino?.lastSocketUpdate ? new Date(socketCasino.lastSocketUpdate).toLocaleTimeString() : '-'}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        // Event listeners
-        document.getElementById('refreshBtn').addEventListener('click', () => {
-            fetch('/api/casino-debug/refresh', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => console.log('Refresh response:', data))
-                .catch(error => console.error('Refresh error:', error));
-        });
-
-        document.getElementById('requestAllBtn').addEventListener('click', () => {
-            socket.emit('requestAllCasinoData');
-        });
-
-        document.getElementById('casinoSelect').addEventListener('change', updateCasinoSections);
-        document.getElementById('showRedis').addEventListener('change', updateCasinoSections);
-        document.getElementById('showSocket').addEventListener('change', updateCasinoSections);
-        document.getElementById('showJSON').addEventListener('change', updateCasinoSections);
-
-        // Format casino data for display
         function formatCasinoData(data, color) {
-            if (!data) return '<div class="text-xs text-gray-500">No data available</div>';
+            if (!data) return '<div class="text-gray-500">No data available</div>';
             
-            const showJSON = document.getElementById('showJSON').checked;
-            
-            if (showJSON) {
-                // Show only JSON format
-                return `
-                    <div class="bg-gray-50 p-2 rounded">
-                        <div class="text-xs font-medium text-${color}-600 mb-1">JSON Data:</div>
-                        <pre class="bg-white p-2 rounded border text-[10px] overflow-auto max-h-64">${JSON.stringify(data, null, 2)}</pre>
-                    </div>
-                `;
+            if (showJsonFormat) {
+                return `<pre class="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">${JSON.stringify(data, null, 2)}</pre>`;
             }
             
             let html = '';
             
-            // Handle current data
             if (data.current) {
-                html += `
-                    <div class="bg-gray-50 p-2 rounded">
-                        <div class="text-xs font-medium text-${color}-600 mb-1">Current Data:</div>
-                        <div class="text-xs space-y-1">
-                            ${formatDataItem(data.current)}
-                        </div>
-                    </div>
-                `;
+                html += `<div class="text-xs">
+                    <div class="font-medium text-${color}-600 mb-1">Current Data:</div>
+                    ${formatDataItem(data.current)}
+                </div>`;
             }
             
-            // Handle results data
             if (data.results && Array.isArray(data.results)) {
-                html += `
-                    <div class="bg-gray-50 p-2 rounded">
-                        <div class="text-xs font-medium text-${color}-600 mb-1">Results Data (${data.results.length} items):</div>
-                        <div class="text-xs space-y-1 max-h-32 overflow-y-auto">
-                            ${data.results.map(item => formatDataItem(item)).join('')}
-                        </div>
-                    </div>
-                `;
+                html += `<div class="text-xs">
+                    <div class="font-medium text-${color}-600 mb-1">Results (${data.results.length}):</div>
+                    ${data.results.slice(0, 3).map(item => formatDataItem(item)).join('')}
+                    ${data.results.length > 3 ? `<div class="text-gray-500">... and ${data.results.length - 3} more</div>` : ''}
+                </div>`;
             }
             
-            // If data is not in current/results format, show as is
-            if (!data.current && !data.results) {
-                html += `
-                    <div class="bg-gray-50 p-2 rounded">
-                        <div class="text-xs font-medium text-${color}-600 mb-1">Raw Data:</div>
-                        <div class="text-xs">
-                            ${formatDataItem(data)}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            return html;
-        }
-        
-        // Format individual data item
-        function formatDataItem(item) {
-            if (!item) return '<div class="text-gray-500">null</div>';
-            
-            if (typeof item === 'object') {
-                const entries = Object.entries(item);
-                return entries.map(([key, value]) => {
-                    const displayValue = value === null || value === undefined ? 'null' : 
-                                       typeof value === 'string' ? `"${value}"` : 
-                                       typeof value === 'object' ? JSON.stringify(value) : value;
-                    return `<div class="flex justify-between"><span class="font-medium">${key}:</span> <span class="text-gray-700">${displayValue}</span></div>`;
-                }).join('');
-            }
-            
-            return `<div class="text-gray-700">${item}</div>`;
-        }
-        
-        // Format results array in a more readable way
-        function formatResultsArray(results) {
-            if (!Array.isArray(results)) return formatDataItem(results);
-            
-            return results.map((item, index) => {
-                const itemHtml = formatDataItem(item);
-                return `<div class="border-l-2 border-gray-300 pl-2 mb-1">${itemHtml}</div>`;
-            }).join('');
+            return html || '<div class="text-gray-500">No structured data available</div>';
         }
 
-        // Initial UI update
-        updateUI();
+        function formatBetData(bets, color) {
+            if (!bets || bets.length === 0) return '<div class="text-gray-500">No bets available</div>';
+            
+            if (showJsonFormat) {
+                return `<pre class="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">${JSON.stringify(bets, null, 2)}</pre>`;
+            }
+            
+            return bets.map(bet => `
+                <div class="text-xs border-l-2 border-${color}-300 pl-2 mb-1">
+                    <div class="flex justify-between">
+                        <span class="font-medium">${bet.matchId}</span>
+                        <span class="status-${bet.status} px-1 rounded text-xs">${bet.status}</span>
+                    </div>
+                    <div class="text-gray-600">
+                        Stake: ₹${bet.stake || 0} | Profit/Loss: ₹${bet.profitLoss || 0}
+                    </div>
+                    <div class="text-gray-500 text-xs">
+                        ${new Date(bet.createdAt).toLocaleString()}
+                    </div>
+                    ${bet.betData ? `
+                        <details class="mt-1">
+                            <summary class="text-xs text-${color}-500 cursor-pointer">View Bet Details</summary>
+                            <pre class="text-xs bg-gray-50 p-1 rounded mt-1 overflow-auto max-h-24">${JSON.stringify(bet.betData, null, 2)}</pre>
+                        </details>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function formatDataItem(item) {
+            if (!item) return '<div class="text-gray-500">No data</div>';
+            
+            if (typeof item === 'object') {
+                const entries = Object.entries(item).slice(0, 5); // Show first 5 properties
+                return entries.map(([key, value]) => 
+                    `<div class="text-gray-600">${key}: ${String(value).substring(0, 20)}${String(value).length > 20 ? '...' : ''}</div>`
+                ).join('');
+            }
+            
+            return `<div class="text-gray-600">${String(item).substring(0, 50)}${String(item).length > 50 ? '...' : ''}</div>`;
+        }
+
+        function requestAllData() {
+            socket.emit('requestAllCasinoData');
+        }
     </script>
 </body>
 </html>
