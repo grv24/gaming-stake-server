@@ -157,9 +157,9 @@ const startCronService = async () => {
     // - Casino data processing (every 2 minutes)
     // NOTE: No HTTP server is started - this is a silent background service
 
-    startLiveMatchesCron();
+    // startLiveMatchesCron();
     startCasinoCronJobs();
-    startOddsCron();
+    // startOddsCron();
 
     logger.info("Cron jobs started successfully");
 

@@ -5,7 +5,7 @@ import { getRedisPublisher } from "../../config/redisPubSub";
 // Function to fetch odds data from API
 export const fetchOddsData = async (sportId: string, eventId: string) => {
   try {
-    const apiUrl = `http://localhost:8085/api/new/getdataodds?sport_id=${sportId}&eventid=${eventId}`;
+    const apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/getdataodds?sport_id=${sportId}&eventid=${eventId}`;
     
     // Fetch from API
     const response = await axios.get(apiUrl, { timeout: 5000 });

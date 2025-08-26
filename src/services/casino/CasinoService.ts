@@ -21,11 +21,11 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
       // Use alternative API endpoint
-      apiUrl = `http://localhost:8085/exchange/casino/CasinoData`;
+      apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
       params = { type: casinoType };
     } else {
       // Use default API endpoint
-      apiUrl = `http://localhost:8085/api/new/casino`;
+      apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
       params = { casinoType };
     }
 
@@ -98,7 +98,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           // For teenmuf, only 'win' field exists in result.res structure
           const winner = r.win || r.result || r.winner;
 
-          if (!resultMid || (winner !== 0 && !winner)) {
+          if (!resultMid) {
             console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
             continue;
           }

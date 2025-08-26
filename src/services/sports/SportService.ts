@@ -14,13 +14,13 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
     // Determine API endpoint based on sport type
     switch (sportType) {
       case 'cricket':
-        apiUrl = 'http://localhost:8085/api/new/getlistdata?sport_id=4';
+        apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/getlistdata?sport_id=4`;
         break;
       case 'soccer':
-        apiUrl = 'http://localhost:8085/api/new/getlistdata?sport_id=1';
+        apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/getlistdata?sport_id=1`;
         break;
       case 'tennis':
-        apiUrl = 'http://localhost:8085/api/new/getlistdata?sport_id=2';
+        apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/getlistdata?sport_id=2`;
         break;
       default:
         throw new Error(`Unknown sport type: ${sportType}`);
