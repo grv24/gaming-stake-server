@@ -18,7 +18,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     // Determine which API endpoint to use
     let apiUrl: string;
     let params: any;
-    
+
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
       // Use alternative API endpoint
       apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
@@ -57,7 +57,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       } else if (apiData?.data?.t1?.[0]?.mid) {
         currentMid = String(apiData.data.t1[0].mid);
         currentData = apiData.data;
-      } 
+      }
     } else {
       // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
       // Standard wrapped data structure
@@ -66,21 +66,20 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         currentData = apiData.data;
       } else if (apiData?.data?.t1?.[0]?.mid) {
         currentMid = String(apiData.data.t1[0].mid);
-        currentData = apiData.data
-      } 
+        currentData = apiData.data;
+      }
     }
 
     if (currentMid && currentData) {
-      await matchRepo
-        .upsert(
-          {
-            mid: currentMid,
-            casinoType,
-            winner: null,
-            data: currentData,
-          },
-          ["mid"] // unique column for conflict
-        );
+      await matchRepo.upsert(
+        {
+          mid: currentMid,
+          casinoType,
+          winner: null,
+          data: currentData,
+        },
+        ["mid"] // unique column for conflict
+      );
 
       // Store current match separately in Redis
       await redisClient.set(
@@ -95,7 +94,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     // Handle results - different structures for different casino types
     let results = [];
-    
+
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
       // Alternative API casinos (lucky5, joker20, joker1, ab4, lottcard)
       // These don't include results in API response
@@ -122,42 +121,45 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       }
     }
 
-      if (results.length > 0) {
-        for (const r of results) {
-          const resultMid = String(r.mid || r.matchId);
-          // Handle both 'win' and 'result' fields, prefer 'win' if both exist
-          // For dt202, only 'result' field exists, so use it as winner
-          // For teenmuf, only 'win' field exists in result.res structure
-          const winner = r.win || r.result || r.winner;
+    if (results.length > 0) {
+      for (const r of results) {
+        const resultMid = String(r.mid || r.matchId);
+        // Handle both 'win' and 'result' fields, prefer 'win' if both exist
+        // For dt202, only 'result' field exists, so use it as winner
+        // For teenmuf, only 'win' field exists in result.res structure
+        const winner = r.win || r.result || r.winner;
 
-          if (!resultMid) {
-            console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
-            continue;
-          }
-
-          // Update CasinoMatch with winner
-          await matchRepo
-            .upsert(
-              {
-                mid: resultMid,
-                casinoType,
-                winner: String(winner),
-              },
-              ["mid"] // if mid already exists, update winner
-            );
-
-          // Update CasinoBet records for this match
-          await updateCasinoBetsWithResult(resultMid, String(winner), casinoBetRepo);
+        if (!resultMid) {
+          console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+          continue;
         }
 
-        // Store results separately in Redis
-        await redisClient.set(
-          `casino:${casinoType}:results`,
-          JSON.stringify(results),
-          "EX",
-          600
+        // Update CasinoMatch with winner
+        await matchRepo.upsert(
+          {
+            mid: resultMid,
+            casinoType,
+            winner: String(winner),
+          },
+          ["mid"] // if mid already exists, update winner
+        );
+
+        // Update CasinoBet records for this match
+        await updateCasinoBetsWithResult(
+          resultMid,
+          String(winner),
+          casinoBetRepo
         );
       }
+
+      // Store results separately in Redis
+      await redisClient.set(
+        `casino:${casinoType}:results`,
+        JSON.stringify(results),
+        "EX",
+        600
+      );
+    }
 
     // Publish update notification (only send Redis keys, not complete data)
     await redisPublisher.publish(
@@ -166,20 +168,31 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         casinoType,
         hasCurrent: !!currentData,
         hasResults: results.length > 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     );
 
-    console.log(`[CRON] Updated Redis & published notification for ${casinoType}`);
+    console.log(
+      `[CRON] Updated Redis & published notification for ${casinoType}`
+    );
 
     return apiData;
-
   } catch (err: any) {
     // Handle specific network errors
-    if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED' || err.message.includes('socket hang up')) {
-      console.log(`[CRON] Network error for ${casinoType}, will retry on next cycle:`, err.message);
+    if (
+      err.code === "ECONNRESET" ||
+      err.code === "ECONNABORTED" ||
+      err.message.includes("socket hang up")
+    ) {
+      console.log(
+        `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
+        err.message
+      );
     } else {
-      console.error(`[CRON] Failed to fetch odds for ${casinoType}:`, err.message);
+      console.error(
+        `[CRON] Failed to fetch odds for ${casinoType}:`,
+        err.message
+      );
     }
     return null;
   }
@@ -200,6 +213,12 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
     }
 
     for (const bet of pendingBets) {
+      // Check if bet is already settled to prevent double processing
+      if (bet?.betData && bet.betData?.result && bet.betData?.result?.settled) {
+        console.log(`[CRON] Bet ${bet.id} already settled, skipping`);
+        continue;
+      }
+
       const betData = bet.betData || {};
       const betSid: String = betData.sid;
 
