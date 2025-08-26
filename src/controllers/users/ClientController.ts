@@ -15,6 +15,7 @@ import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
+import { Buttons } from '../../entities/games/Buttons';
 
 export const createClient = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -946,7 +947,7 @@ export const clientLogin = async (req: Request, res: Response) => {
                 error: 'Invalid Client account'
             });
         }
-        
+
 
         if (client.userLocked) {
             return res.status(403).json({
@@ -1096,6 +1097,7 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
         const { currentPassword, newPassword } = req.body;
 
         const clientRepo = AppDataSource.getRepository(Client);
+        const buttonsRepo = AppDataSource.getRepository(Buttons);
 
         const clientUser = await clientRepo.findOne({ where: { id: req.user?.userId } });
 
@@ -1119,8 +1121,22 @@ export const changeOwnPassword = async (req: Request, res: Response) => {
 
         clientUser.isActive = true;
         clientUser.user_password = newPassword;
-        
+
         await clientRepo.save(clientUser);
+
+        const b1 = buttonsRepo.create({
+            userId: req.user?.userId,
+            gameType: "casino"
+        });
+
+        const b2 = buttonsRepo.create({
+            userId: req.user?.userId,
+            gameType: "sports"
+        });
+
+        await buttonsRepo.save(b1);
+        await buttonsRepo.save(b2);
+
 
         return res.status(200).json({
             success: true,
