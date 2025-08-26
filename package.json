@@ -8,13 +8,16 @@
     "dev": "nodemon src/server.ts",
     "cron": "nodemon src/corn.server.ts",
     "dev:all": "concurrently -n server,cron -c green,blue \"npm run dev\" \"npm run cron\"",
-    "test:load": "node load-test.js",
-    "test:db": "node db-load-test.js",
-    "test:stress": "node stress-test.js",
-    "test:all": "npm run test:load && npm run test:db && npm run test:stress",
+
     "build": "tsc",
     "serve": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+
+    "debug:server": "ts-node src/debug/debug-server.ts",
+    "debug:ui": "open http://localhost:4001/debug",
+    "debug:start": "npm run debug:server",
+    "debug:full": "npm run debug:server & sleep 3 && open http://localhost:4001/debug",
+    "debug": "./start-debug.sh"
   },
   "repository": {
     "type": "git",
@@ -49,6 +52,7 @@
     "redis": "^4.7.1",
     "reflect-metadata": "^0.2.2",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "socks-proxy-agent": "^8.0.5",
     "typeorm": "^0.3.24",
     "zod": "^3.25.67"
@@ -61,6 +65,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.3",
+    "@types/socket.io-client": "^1.4.36",
     "@types/uuid": "^10.0.0",
     "concurrently": "^9.2.0",
     "ts-node": "^10.9.2",
