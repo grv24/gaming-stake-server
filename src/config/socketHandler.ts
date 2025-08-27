@@ -203,20 +203,20 @@ const checkRedisCasinoData = async () => {
 export function setupSocket(server: HttpServer, dataSource: DataSource) {
   const io = new Server(server, {
     cors: {
-      origin:
-        process.env.NODE_ENV === "production"
-          ? process.env.ALLOWED_ORIGINS?.split(",") || []
-          : "*",
+      origin: "*",
       methods: ["GET", "POST", "OPTIONS"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     },
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000,
     upgradeTimeout: 10000,
     maxHttpBufferSize: 1e8,
+    path: '/socket.io/',
+    serveClient: false,
+    cookie: false,
   });
 
   const redisSubscriber = getRedisSubscriber();
