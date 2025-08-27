@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllSportsDataController, getCricketData, getFIlteredData, getSoccerData, getTennisData } from "../../controllers/sports/SportControllers";
+import { getAllSportsDataController, getCricketData, getFIlteredData, getOddsData, getSoccerData, getTennisData } from "../../controllers/sports/SportControllers";
 // import { getSportsList } from "../../controllers/sports/SportControllers";
 
 const router = Router();
@@ -12,6 +12,7 @@ router.get('/soccer-latest-matches-diamond', getSoccerData);
 router.get('/tennis-latest-matches-diamond', getTennisData);
 router.get('/all-latest-matches-diamond', getAllSportsDataController);
 router.get('/current-matches', getFIlteredData);
+router.get('/live-match-odds/:sportId/:eventId', getOddsData);
 
 
 export default router;

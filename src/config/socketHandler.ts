@@ -207,9 +207,16 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         process.env.NODE_ENV === "production"
           ? process.env.ALLOWED_ORIGINS?.split(",") || []
           : "*",
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "OPTIONS"],
       credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e8,
   });
 
   const redisSubscriber = getRedisSubscriber();
