@@ -217,12 +217,23 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     path: '/socket.io/',
     serveClient: false,
     cookie: false,
+    // Add these for proxy support
+    allowRequest: (req, callback) => {
+      callback(null, true); // Allow all requests
+    },
   });
 
   const redisSubscriber = getRedisSubscriber();
 
+  // Add error handling
+  io.engine.on("connection_error", (err) => {
+    console.error("Socket.IO connection error:", err);
+  });
+
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
+    console.log("Socket headers:", socket.handshake.headers);
+    console.log("Socket query:", socket.handshake.query);
 
     // Broadcast all casino data when user connects
     socket.on("requestAllCasinoData", async () => {
