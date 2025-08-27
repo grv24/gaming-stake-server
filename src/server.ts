@@ -74,6 +74,10 @@ const startServer = async () => {
     initRedisPubSub();
 
     const PORT = process.env.PORT || 4000;
+    
+    // Set trust proxy BEFORE creating server
+    app.set("trust proxy", true);
+    
     const server = http.createServer(app);
 
     // Setup Socket.IO
@@ -81,8 +85,6 @@ const startServer = async () => {
 
     // Make io accessible in routes
     app.set("socketio", io);
-
-    app.set("trust proxy", true);
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

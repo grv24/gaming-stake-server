@@ -33,6 +33,16 @@ app.get('/', (req, res) => {
   });
 });
 
+// Socket.IO debug route
+app.get('/socket.io/', (req, res) => {
+  res.json({ 
+    message: 'Socket.IO endpoint reached', 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
+  });
+});
+
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/users/developers/', developerUserRouter);
 app.use('/api/v1/users/admins/', adminUserRouter);
