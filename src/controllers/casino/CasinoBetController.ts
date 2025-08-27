@@ -3,6 +3,8 @@ import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../Helpers/users/Roles";
+import { CronDataSource } from "../../corn.server";
+import { getRedisClient } from "../../config/redisConfig";
 
 export const createBet = async (req: Request, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -356,3 +358,203 @@ export const getCurrentBet = async (req: Request, res: Response) => {
     });
   }
 }
+
+export const settleUserCasinoBets = async (req: Request, res: Response) => {
+  try {
+    const { casinoType, mid } = req.body;
+    const userId = req.user?.userId;
+    
+    // Validate input
+    if (!casinoType || !mid) {
+      return res.status(400).json({
+        success: false,
+        message: "casinoType and mid are required in the request body"
+      });
+    }
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required"
+      });
+    }
+
+    const redisClient = getRedisClient();
+    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
+    
+    // Get results from Redis for this casino type
+    const resultsKey = `casino:${casinoType}:results`;
+    const resultsData = await redisClient.get(resultsKey);
+    
+    if (!resultsData) {
+      return res.status(404).json({
+        success: false,
+        message: `No results found in Redis for casino type: ${casinoType}`
+      });
+    }
+
+    let results;
+    try {
+      results = JSON.parse(resultsData);
+    } catch (parseError) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to parse results data from Redis"
+      });
+    }
+
+    // Find the specific result for the requested mid
+    const result = results.find((r: any) => {
+      const resultMid = String(r.mid || r.matchId);
+      return resultMid === String(mid);
+    });
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: `Match ID ${mid} not found in results for casino type: ${casinoType}`
+      });
+    }
+      
+    // Extract winner from result (handle different field names)
+    const winner = result.win || result.result || result.winner;
+    
+    if (!winner) {
+      return res.status(404).json({
+        success: false,
+        message: `Winner not determined for match ID ${mid}`
+      });
+    }
+
+    // Find pending bets for this match ID, casino type, and specific user
+    const pendingBets = await casinoBetRepo.find({
+      where: { 
+        matchId: mid, 
+        userId: userId,
+        status: "pending" 
+      }
+    });
+
+    if (pendingBets.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No pending bets found for this user and match",
+        settledCount: 0,
+        matchId: mid,
+        casinoType: casinoType,
+        winner: winner,
+        userId: userId
+      });
+    }
+
+    let settledCount = 0;
+    let errors = [];
+
+    for (const bet of pendingBets) {
+      try {
+        // Check if bet is already settled to prevent double processing
+        if (bet.betData?.result?.settled === true || bet.status !== "pending") {
+          console.log(`[PATCH] Bet ${bet.id} already settled (status: ${bet.status}), skipping`);
+          continue;
+        }
+
+        const betData = bet.betData || {};
+        const betSid: String = betData.sid;
+
+        if (!betSid) {
+          console.log(`[PATCH] Bet ${bet.id} has no SID, skipping result update`);
+          errors.push({ betId: bet.id, error: "No SID found" });
+          continue;
+        }
+
+        // Use a transaction for each bet
+        await CronDataSource.transaction(async (transactionalEntityManager) => {
+          // First, check if bet is still pending with a lock to prevent race conditions
+          const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
+            where: { id: bet.id, status: "pending", userId: userId },
+            lock: { mode: "pessimistic_write" }
+          });
+
+          if (!currentBet) {
+            console.log(`[PATCH] Bet ${bet.id} no longer pending, skipping`);
+            return;
+          }
+
+          // Find user with lock
+          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.betData.gameSlug], {
+            where: { id: userId },
+            lock: { mode: "pessimistic_write" }
+          });
+
+          if (!user) {
+            console.log(`[PATCH] User ${userId} not found for bet ${bet.id}`);
+            errors.push({ betId: bet.id, error: "User not found" });
+            return;
+          }
+
+          const stakeAmount = Number(betData.stake) || 0;
+          let newStatus: "won" | "lost" = "lost";
+          let profitLoss = 0;
+
+          if (winner === betSid) {
+            newStatus = "won";
+            profitLoss = Number(betData.profit) || 0;
+            user.balance = Number(user.balance) + profitLoss;
+          } else {
+            newStatus = "lost";
+            profitLoss = Number(betData.loss) || 0;
+            user.balance = Number(user.balance) - profitLoss;
+          }
+
+          user.exposure = Number(user.exposure) - stakeAmount;
+
+          // Update user and bet - update status first to prevent re-processing
+          await transactionalEntityManager.update(CasinoBet, { id: bet.id }, {
+            status: newStatus,
+            betData: {
+              ...betData,
+              result: {
+                winner: winner,
+                settledAt: new Date(),
+                profitLoss: profitLoss,
+                stake: stakeAmount,
+                betRate: betData.betRate || betData.matchOdd || 1,
+                status: newStatus,
+                settled: true
+              }
+            }
+          });
+          
+          // Update user balance after bet is marked as settled
+          await transactionalEntityManager.save(user);
+
+          console.log(`[PATCH] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
+          settledCount++;
+        });
+      } catch (error: any) {
+        console.error(`[PATCH] Error processing bet ${bet.id}:`, error);
+        errors.push({ betId: bet.id, error: error.message });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Settlement completed for user ${userId} on match ${mid} (${casinoType})`,
+      settledCount,
+      errorCount: errors.length,
+      matchId: mid,
+      casinoType: casinoType,
+      winner: winner,
+      userId: userId,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error: any) {
+    console.error(`[PATCH] Error in settleUserCasinoBets:`, error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during settlement",
+      error: error.message
+    });
+  }
+};
