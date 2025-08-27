@@ -7,7 +7,7 @@ import {
     updateCasino,
     deleteCasino
 } from "../../controllers/casino/DefaultCasino";
-import { casinoResult , createBet, getCurrentBet } from "../../controllers/casino/CasinoBetController";
+import { casinoResult, createBet, getCurrentBet, settleUserCasinoBets } from "../../controllers/casino/CasinoBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
 
 const router = Router();
@@ -23,5 +23,7 @@ router.get("/", getAllCasinos);
 router.get("/:id", getCasinoById);
 router.put("/:id", updateCasino);
 router.delete("/:id", deleteCasino);
+
+router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
 
 export default router;
