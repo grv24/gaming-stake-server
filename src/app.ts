@@ -24,7 +24,14 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
 
-
+// Root route handler
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Server is running', 
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/users/developers/', developerUserRouter);
