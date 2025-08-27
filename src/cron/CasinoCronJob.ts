@@ -15,7 +15,7 @@ export const startCasinoCronJobs = () => {
   console.log("[CRON] Starting casino cron jobs...");
   
   CASINO_TYPES.forEach((casinoType) => {
-    cron.schedule("* * * * * *", async () => {
+    cron.schedule("*/5 * * * * *", async () => {
       await fetchAndUpdateCasinoOdds(casinoType);
     });
     // console.log(`[CRON] Scheduled job for ${casinoType}`);
