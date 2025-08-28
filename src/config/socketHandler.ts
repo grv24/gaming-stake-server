@@ -64,8 +64,16 @@ const broadcastAllCasinoData = async (io: Server) => {
 
     let broadcastCount = 0;
     let activeCount = 0;
+    let skippedCount = 0;
 
     for (const casinoType of casinoTypesToBroadcast) {
+      // Check if room has any subscribers before proceeding
+      const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+      if (!room || room.size === 0) {
+        skippedCount++;
+        continue; // Skip broadcasting to empty rooms
+      }
+
       const currentKey = `casino:${casinoType}:current`;
       const resultsKey = `casino:${casinoType}:results`;
 
@@ -83,32 +91,32 @@ const broadcastAllCasinoData = async (io: Server) => {
         resultsData = JSON.parse(resultsRedisData);
       }
 
-      // Broadcast casino data only to users subscribed to this casino type
-      io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
-        casinoType,
-        data: {
-          casinoType,
-          current: currentData,
-          results: resultsData,
-          timestamp: Date.now(),
-          source: "redis_cache",
-          hasData: !!(currentData || resultsData.length > 0)
-        }
-      });
-
-      broadcastCount++;
+      // Only broadcast if there's actual data
       if (currentData || resultsData.length > 0) {
+        io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
+          casinoType,
+          data: {
+            casinoType,
+            current: currentData,
+            results: resultsData,
+            timestamp: Date.now(),
+            source: "redis_cache",
+            hasData: true
+          }
+        });
+
+        broadcastCount++;
         activeCount++;
-        console.log(`[SOCKET] Broadcasted active data for: ${casinoType} to ${io.sockets.adapter.rooms.get(`casino:${casinoType}`)?.size || 0} users`);
+        console.log(`[SOCKET] Broadcasted active data for: ${casinoType} to ${room.size} users`);
       } else {
-        console.log(`[SOCKET] Broadcasted empty data for: ${casinoType} to ${io.sockets.adapter.rooms.get(`casino:${casinoType}`)?.size || 0} users`);
+        console.log(`[SOCKET] No data to broadcast for: ${casinoType} (room has ${room.size} users)`);
       }
     }
 
-    console.log(`[SOCKET] Completed broadcasting all casino data from cache`);
+    console.log(`[SOCKET] Completed broadcasting casino data from cache`);
     console.log(`[SOCKET] Total broadcasted: ${broadcastCount} casino types`);
+    console.log(`[SOCKET] Skipped (empty rooms): ${skippedCount} casino types`);
     console.log(`[SOCKET] Active with data: ${activeCount} casino types`);
-    console.log(`[SOCKET] Inactive/empty: ${broadcastCount - activeCount} casino types`);
   } catch (error) {
     console.error("[SOCKET] Error broadcasting all casino data:", error);
   }
@@ -497,6 +505,13 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         const notification = JSON.parse(message);
         const casinoType = channel.split(":")[1]; // Extract casinoType from channel name
 
+        // Check if room has any subscribers before proceeding
+        const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+        if (!room || room.size === 0) {
+          console.log(`[SOCKET] Skipping update for ${casinoType} - no subscribers`);
+          return; // Skip processing if no subscribers
+        }
+
         // Get Redis client to fetch actual data
         const { getRedisClient } = await import("../config/redisConfig");
         const redisClient = getRedisClient();
@@ -521,21 +536,27 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
           }
         }
 
-        // Broadcast only to users subscribed to this casinoType room
-        io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
-          casinoType,
-          data: {
+        // Only broadcast if there's actual data
+        if (currentData || resultsData.length > 0) {
+          io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
             casinoType,
-            current: currentData,
-            results: resultsData,
-            timestamp: notification.timestamp,
-            source: "live_update"
-          }
-        });
+            data: {
+              casinoType,
+              current: currentData,
+              results: resultsData,
+              timestamp: notification.timestamp,
+              source: "live_update"
+            }
+          });
 
-        console.log(
-          `[SOCKET] Broadcasted casino odds update for: ${casinoType} to ${io.sockets.adapter.rooms.get(`casino:${casinoType}`)?.size || 0} users`
-        );
+          console.log(
+            `[SOCKET] Broadcasted casino odds update for: ${casinoType} to ${room.size} users`
+          );
+        } else {
+          console.log(
+            `[SOCKET] No data to broadcast for: ${casinoType} (room has ${room.size} users)`
+          );
+        }
       } catch (error) {
         console.error("Error processing casino odds update:", error);
       }
@@ -586,9 +607,26 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   });
 
-  // Periodic broadcast of all casino data (every 5 minutes)
+  // Smart periodic broadcast - only runs if there are active casino subscribers
   setInterval(async () => {
-    await broadcastAllCasinoData(io);
+    // Check if any casino rooms have subscribers
+    let hasSubscribers = false;
+    const casinoTypes = await discoverCasinoTypesFromRedis();
+    
+    for (const casinoType of casinoTypes) {
+      const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+      if (room && room.size > 0) {
+        hasSubscribers = true;
+        break;
+      }
+    }
+    
+    if (hasSubscribers) {
+      console.log("[SOCKET] Periodic broadcast triggered - active subscribers found");
+      await broadcastAllCasinoData(io);
+    } else {
+      console.log("[SOCKET] Periodic broadcast skipped - no active subscribers");
+    }
   }, 5 * 60 * 1000); // 5 minutes
 
   return io;
