@@ -14,10 +14,19 @@
     "test": "echo \"Error: no test specified\" && exit 1",
 
     "debug:server": "ts-node src/debug/debug-server.ts",
-    "debug:ui": "open http://localhost:4001/debug",
+    "debug:ui": "open http://localhost:4002",
     "debug:start": "npm run debug:server",
-    "debug:full": "npm run debug:server & sleep 3 && open http://localhost:4001/debug",
-    "debug": "./start-debug.sh"
+    "debug:full": "npm run debug:server & sleep 3 && open http://localhost:4002",
+    "debug": "npm run debug:full",
+    "debug:stop": "pkill -f 'debug-server'",
+    "debug:restart": "npm run debug:stop && sleep 2 && npm run debug:server",
+    "debug:clean": "npm run debug:stop && sleep 1 && npm run debug:server",
+    "debug:test": "curl -s http://localhost:4002/api/system-stats | jq '.'",
+    "debug:status": "curl -s http://localhost:4002/api/socket/active | jq '.'",
+    "debug:casino": "curl -s http://localhost:4002/api/casino-list?limit=5 | jq '.'",
+    "debug:odds": "curl -s http://localhost:4002/api/casino-odds/dt6 | jq '.success, .socketStarted'",
+    "debug:start-casino": "curl -s -X POST http://localhost:4002/api/socket/start/dt6 | jq '.'",
+    "debug:stop-casino": "curl -s -X POST http://localhost:4002/api/socket/stop/dt6 | jq '.'"
   },
   "repository": {
     "type": "git",

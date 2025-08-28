@@ -3,311 +3,1178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casino Debug Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Casino Odds Debug</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        .status-active { background-color: rgb(220 252 231); color: rgb(22 101 52); }
-        .status-inactive { background-color: rgb(243 244 246); color: rgb(31 41 55); }
-        .status-error { background-color: rgb(254 226 226); color: rgb(153 27 27); }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border-radius: 15px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connected {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .odds-section {
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .odds-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .odds-header h2 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+        }
+
+        .odds-controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: end;
+            flex-wrap: wrap;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .control-group select {
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+            background: #ffffff;
+            color: #495057;
+            min-width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #117a8b;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .odds-display {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .odds-display pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .success {
+            color: #155724;
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #28a745;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #721c24;
+            background: #f8d7da;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #dc3545;
+            font-weight: bold;
+        }
+            border-left: 3px solid #dc3545;
+        }
+
+        .info {
+            color: #0c5460;
+            background: #d1ecf1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .odds-data {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #007bff;
+            border: 1px solid #e9ecef;
+        }
+
+        .odds-results {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #28a745;
+            border: 1px solid #e9ecef;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+
+        .socket-info {
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .socket-info h3 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .socket-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .active-updates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .update-tag {
+            background: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .update-tag:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        .socket-management {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border-left: 4px solid #007bff;
+            border: 1px solid #e9ecef;
+        }
+
+        .socket-management h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .socket-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .active-casino-buttons {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .casino-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .casino-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .casino-button .casino-name {
+            font-weight: bold;
+        }
+
+        .casino-button .stop-icon {
+            background: #dc3545;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .casino-button .stop-icon:hover {
+            background: #c82333;
+        }
+
+        /* New 3-Column Dashboard Styles */
+        .casino-dashboard {
+            margin: 30px 0;
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f8f9fa;
+        }
+
+        .dashboard-header h3 {
+            color: #2c3e50;
+            font-size: 1.4rem;
+            margin: 0;
+        }
+
+        .dashboard-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .casino-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .casino-card {
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .casino-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-color: #007bff;
+        }
+
+        .casino-card.active {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #f8fff9, #ffffff);
+        }
+
+        .casino-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .casino-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .casino-slug {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .leave-button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .leave-button:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+
+        .casino-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .casino-column {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .column-header {
+            font-weight: bold;
+            color: #495057;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #007bff;
+        }
+
+        .column-header.odds {
+            border-left-color: #28a745;
+        }
+
+        .column-header.results {
+            border-left-color: #ffc107;
+        }
+
+        .column-content {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            min-height: 80px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #495057;
+            overflow-y: auto;
+            max-height: 120px;
+        }
+
+        .column-content.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .casino-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: pulse 2s infinite;
+        }
+
+        .casino-status.active {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .casino-timestamp {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f1f3f4;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 1.1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #dee2e6;
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-8">🎰 Casino Debug Dashboard</h1>
-        
-        <!-- Connection Status -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="font-semibold text-gray-700 mb-2">Socket.IO Status</h3>
-                <div id="socketStatus" class="text-sm">Connecting...</div>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎲 Casino Odds Debug</h1>
+            <p>Real-time casino odds monitoring and testing</p>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">Connecting...</div>
+
+        <div class="socket-info">
+            <h3>🔌 Socket Status</h3>
+            <div class="socket-controls">
+                <button class="btn btn-primary" onclick="refreshActiveConnections()">Refresh Status</button>
+                <button class="btn btn-warning" onclick="stopAllConnections()">Stop All</button>
             </div>
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="font-semibold text-gray-700 mb-2">Redis Status</h3>
-                <div id="redisStatus" class="text-sm">Checking...</div>
+            <div class="active-updates" id="activeUpdates">
+                <span class="update-tag">No active updates</span>
             </div>
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="font-semibold text-gray-700 mb-2">Database Status</h3>
-                <div id="dbStatus" class="text-sm">Checking...</div>
+            <div class="active-casino-buttons" id="activeCasinoButtons">
+                <!-- Individual casino buttons will be added here -->
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="bg-white p-4 rounded-lg shadow mb-8">
-            <div class="flex flex-wrap gap-4 items-center">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Filter Casino:</label>
-                    <select id="casinoFilter" class="border border-gray-300 rounded px-3 py-2">
-                        <option value="all">All Casinos</option>
+        <div class="odds-section">
+            <div class="odds-header">
+                <h2>🎯 Casino Odds Dashboard</h2>
+            </div>
+            
+            <div class="odds-controls">
+                <div class="control-group">
+                    <label>Select Casino Type</label>
+                    <select id="casinoTypeSelect">
+                        <option value="">Choose a casino...</option>
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Format:</label>
-                    <label class="flex items-center">
-                        <input type="checkbox" id="jsonFormat" class="mr-2">
-                        <span class="text-sm">Show JSON Format</span>
-                    </label>
+                <button class="btn btn-primary" onclick="getCasinoOdds()">Get Odds</button>
+                <button class="btn btn-success" onclick="getCasinoResults()">Get Results</button>
+                <button class="btn btn-info" onclick="getCasinoData()">Get All Data</button>
+                <button class="btn btn-warning" onclick="clearDisplay()">Clear Display</button>
+            </div>
+            
+            <div class="socket-management">
+                <h4>🔌 Socket Management</h4>
+                <div class="socket-buttons">
+                    <button class="btn btn-primary" onclick="startSocketUpdates()">Start Updates</button>
+                    <button class="btn btn-danger" onclick="stopSocketUpdates()">Stop Updates</button>
                 </div>
-                <button onclick="requestAllData()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    Refresh All Data
-                </button>
             </div>
-        </div>
-
-        <!-- Casino Data Sections -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Redis Data -->
-            <div>
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">📦 Redis Data</h2>
-                <div id="redisCasinos" class="space-y-4"></div>
+            
+            <!-- New 3-Column Layout -->
+            <div class="casino-dashboard">
+                <div class="dashboard-header">
+                    <h3>🎲 Active Casino Monitoring</h3>
+                    <div class="dashboard-stats">
+                        <span class="stat-item">
+                            <span class="stat-label">Active:</span>
+                            <span class="stat-value" id="activeCount">0</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-label">Total:</span>
+                            <span class="stat-value" id="totalCount">0</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="casino-grid" id="casinoGrid">
+                    <!-- Casino cards will be dynamically added here -->
+                </div>
             </div>
-
-            <!-- Socket.IO Data -->
-            <div>
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">🔌 Socket.IO Data</h2>
-                <div id="socketCasinos" class="space-y-4"></div>
-            </div>
-
-            <!-- Bet Data -->
-            <div>
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">🎲 Casino Bets</h2>
-                <div id="betCasinos" class="space-y-4"></div>
+            
+            <div id="oddsDisplay" class="odds-display">
+                <div class="loading">Select a casino type to view detailed odds...</div>
             </div>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let casinoData = {};
-        let selectedCasino = 'all';
-        let showJsonFormat = false;
+        let activeCasinoUpdates = new Set();
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            setupEventListeners();
-            connectSocket();
+        // Connection status
+        socket.on('connect', () => {
+            document.getElementById('connectionStatus').textContent = 'Connected';
+            document.getElementById('connectionStatus').className = 'connection-status connected';
         });
 
-        function setupEventListeners() {
-            document.getElementById('casinoFilter').addEventListener('change', function(e) {
-                selectedCasino = e.target.value;
-                updateAllSections();
-            });
+        socket.on('disconnect', () => {
+            document.getElementById('connectionStatus').textContent = 'Disconnected';
+            document.getElementById('connectionStatus').className = 'connection-status disconnected';
+        });
 
-            document.getElementById('jsonFormat').addEventListener('change', function(e) {
-                showJsonFormat = e.target.checked;
-                updateAllSections();
-            });
-        }
+        // Casino odds updates
+        socket.on('casinoOddsUpdate', (data) => {
+            console.log('🎲 Received casino odds update:', data);
+            // Automatically add to active updates if we receive data for this casino
+            if (!activeCasinoUpdates.has(data.casinoType)) {
+                activeCasinoUpdates.add(data.casinoType);
+                updateActiveUpdatesDisplay();
+            }
+            displayLiveOddsUpdate(data);
+        });
 
-        function connectSocket() {
-            socket.on('connect', () => {
-                updateConnectionStatus('socket', 'Connected', 'text-green-600');
-                socket.emit('requestAllCasinoData');
-            });
+        socket.on('startCasinoUpdates', (data) => {
+            console.log('🔌 Started casino updates for:', data.casinoType);
+            activeCasinoUpdates.add(data.casinoType);
+            updateActiveUpdatesDisplay();
+        });
 
-            socket.on('disconnect', () => {
-                updateConnectionStatus('socket', 'Disconnected', 'text-red-600');
-            });
+        socket.on('stopCasinoUpdates', (data) => {
+            console.log('🔌 Stopped casino updates for:', data.casinoType);
+            activeCasinoUpdates.delete(data.casinoType);
+            updateActiveUpdatesDisplay();
+        });
 
-            socket.on('casinoDebugData', (data) => {
-                casinoData = data;
-                updateConnectionStatus('redis', data.redisStatus, data.redisConnected ? 'text-green-600' : 'text-red-600');
-                updateConnectionStatus('db', data.dbStatus, data.dbConnected ? 'text-green-600' : 'text-red-600');
-                updateCasinoFilter();
-                updateAllSections();
-            });
-        }
+        // Load casino types
+        async function loadCasinoTypes() {
+            try {
+                const response = await fetch('/api/casino-list?limit=100');
+                const result = await response.json();
 
-        function updateConnectionStatus(type, status, colorClass) {
-            const element = document.getElementById(type + 'Status');
-            if (element) {
-                element.className = `text-sm ${colorClass}`;
-                element.textContent = `${type.toUpperCase()}: ${status}`;
+                if (result.success) {
+                    const select = document.getElementById('casinoTypeSelect');
+                    select.innerHTML = '<option value="">Choose a casino...</option>';
+                    
+                    result.data.casinos.forEach(casino => {
+                        const option = document.createElement('option');
+                        option.value = casino.slug;
+                        option.textContent = `${casino.gameName} (${casino.slug})`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load casino types:', error);
             }
         }
 
-        function updateCasinoFilter() {
-            const filter = document.getElementById('casinoFilter');
-            const currentValue = filter.value;
-            
-            filter.innerHTML = '<option value="all">All Casinos</option>';
-            
-            const allCasinos = new Set([
-                ...Object.keys(casinoData.redisData || {}),
-                ...Object.keys(casinoData.socketData || {}),
-                ...Object.keys(casinoData.betData || {})
-            ]);
-            
-            allCasinos.forEach(casino => {
-                const option = document.createElement('option');
-                option.value = casino;
-                option.textContent = casino;
-                filter.appendChild(option);
-            });
-            
-            filter.value = currentValue;
-        }
-
-        function updateAllSections() {
-            updateCasinoSection('redisCasinos', casinoData.redisData || {}, selectedCasino, 'blue');
-            updateCasinoSection('socketCasinos', casinoData.socketData || {}, selectedCasino, 'green');
-            updateBetSection('betCasinos', casinoData.betData || {}, selectedCasino, 'purple');
-        }
-
-        function updateCasinoSection(containerId, data, selectedCasino, color) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
-            const casinoTypes = selectedCasino === 'all' 
-                ? Object.keys(data) 
-                : Object.keys(data).filter(type => type === selectedCasino);
-            
-            casinoTypes.forEach(casinoType => {
-                const casino = data[casinoType];
-                if (!casino) return;
-                
-                // Determine which time field to show based on the section
-                const isRedisSection = containerId === 'redisCasinos';
-                const timeField = isRedisSection ? 'lastRedisUpdate' : 'lastSocketUpdate';
-                const timeValue = casino[timeField];
-                
-                const card = document.createElement('div');
-                card.className = 'bg-white p-3 rounded border';
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <h5 class="font-medium text-${color}-600">${casinoType}</h5>
-                        <span class="text-xs px-2 py-1 rounded status-${casino.status}">${casino.status}</span>
-                    </div>
-                    <div class="text-xs space-y-1">
-                        <div>Current: ${casino.hasCurrent ? '✅' : '❌'} (${casino.currentSize} bytes)</div>
-                        <div>Results: ${casino.hasResults ? '✅' : '❌'} (${casino.resultsSize} bytes)</div>
-                        <div>Last Update: ${timeValue ? new Date(timeValue).toLocaleTimeString() : 'Never'}</div>
-                    </div>
-                    ${casino.redisData || casino.socketData ? `
-                        <details class="mt-2">
-                            <summary class="text-xs text-${color}-500 cursor-pointer">View Data</summary>
-                            <div class="mt-1 space-y-2">
-                                ${formatCasinoData(casino.redisData || casino.socketData, color)}
-                            </div>
-                        </details>
-                    ` : ''}
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function updateBetSection(containerId, data, selectedCasino, color) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
-            const casinoTypes = selectedCasino === 'all' 
-                ? Object.keys(data) 
-                : Object.keys(data).filter(type => type === selectedCasino);
-            
-            casinoTypes.forEach(casinoType => {
-                const casino = data[casinoType];
-                if (!casino) return;
-                
-                const card = document.createElement('div');
-                card.className = 'bg-white p-3 rounded border';
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <h5 class="font-medium text-${color}-600">${casinoType}</h5>
-                        <span class="text-xs px-2 py-1 rounded status-${casino.status}">${casino.status}</span>
-                    </div>
-                    <div class="text-xs space-y-1">
-                        <div>Total Bets: ${casino.totalBets}</div>
-                        <div>Pending: ${casino.pendingBets} | Won: ${casino.wonBets} | Lost: ${casino.lostBets}</div>
-                        <div>Total Stake: ₹${casino.totalStake.toFixed(2)}</div>
-                        <div>Total Profit: ₹${casino.totalProfit.toFixed(2)}</div>
-                        <div>Last Update: ${casino.lastBetUpdate ? new Date(casino.lastBetUpdate).toLocaleTimeString() : 'Never'}</div>
-                    </div>
-                    ${casino.recentBets && casino.recentBets.length > 0 ? `
-                        <details class="mt-2">
-                            <summary class="text-xs text-${color}-500 cursor-pointer">Recent Bets (${casino.recentBets.length})</summary>
-                            <div class="mt-1 space-y-1">
-                                ${formatBetData(casino.recentBets, color)}
-                            </div>
-                        </details>
-                    ` : ''}
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function formatCasinoData(data, color) {
-            if (!data) return '<div class="text-gray-500">No data available</div>';
-            
-            if (showJsonFormat) {
-                return `<pre class="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">${JSON.stringify(data, null, 2)}</pre>`;
+        // Get casino odds
+        async function getCasinoOdds() {
+            const casinoType = document.getElementById('casinoTypeSelect').value;
+            if (!casinoType) {
+                displayOddsResult({ error: 'Please select a casino type' });
+                return;
             }
-            
-            let html = '';
-            
-            if (data.current) {
-                html += `<div class="text-xs">
-                    <div class="font-medium text-${color}-600 mb-1">Current Data:</div>
-                    ${formatDataItem(data.current)}
-                </div>`;
+
+            try {
+                const response = await fetch(`/api/casino-odds/${casinoType}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayOddsResult({
+                        success: true,
+                        title: `Casino Odds - ${casinoType}`,
+                        message: result.message,
+                        data: result.data,
+                        source: result.source,
+                        timestamp: result.timestamp,
+                        socketStarted: result.socketStarted
+                    });
+
+                    if (result.socketStarted) {
+                        activeCasinoUpdates.add(casinoType);
+                        updateActiveUpdatesDisplay();
+                    }
+                } else {
+                    displayOddsResult({ error: result.error || 'Failed to fetch odds' });
+                }
+            } catch (error) {
+                displayOddsResult({ error: `Failed to fetch odds: ${error.message}` });
             }
-            
-            if (data.results && Array.isArray(data.results)) {
-                html += `<div class="text-xs">
-                    <div class="font-medium text-${color}-600 mb-1">Results (${data.results.length}):</div>
-                    ${data.results.slice(0, 3).map(item => formatDataItem(item)).join('')}
-                    ${data.results.length > 3 ? `<div class="text-gray-500">... and ${data.results.length - 3} more</div>` : ''}
-                </div>`;
-            }
-            
-            return html || '<div class="text-gray-500">No structured data available</div>';
         }
 
-        function formatBetData(bets, color) {
-            if (!bets || bets.length === 0) return '<div class="text-gray-500">No bets available</div>';
-            
-            if (showJsonFormat) {
-                return `<pre class="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">${JSON.stringify(bets, null, 2)}</pre>`;
+        // Get casino results
+        async function getCasinoResults() {
+            const casinoType = document.getElementById('casinoTypeSelect').value;
+            if (!casinoType) {
+                displayOddsResult({ error: 'Please select a casino type' });
+                return;
             }
+
+            try {
+                const response = await fetch(`/api/casino-results/${casinoType}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayOddsResult({
+                        success: true,
+                        title: `Casino Results - ${casinoType}`,
+                        message: result.message,
+                        data: result.results,
+                        source: result.source,
+                        timestamp: result.timestamp
+                    });
+                } else {
+                    displayOddsResult({ error: result.error || 'Failed to fetch results' });
+                }
+            } catch (error) {
+                displayOddsResult({ error: `Failed to fetch results: ${error.message}` });
+            }
+        }
+
+        // Get complete casino data
+        async function getCasinoData() {
+            const casinoType = document.getElementById('casinoTypeSelect').value;
+            if (!casinoType) {
+                displayOddsResult({ error: 'Please select a casino type' });
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/casino-data/${casinoType}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayOddsResult({
+                        success: true,
+                        title: `Complete Casino Data - ${casinoType}`,
+                        message: result.message,
+                        data: result.data,
+                        source: result.source,
+                        timestamp: result.timestamp,
+                        socketStarted: result.socketStarted
+                    });
+
+                    if (result.socketStarted) {
+                        activeCasinoUpdates.add(casinoType);
+                        updateActiveUpdatesDisplay();
+                    }
+                } else {
+                    displayOddsResult({ error: result.error || 'Failed to fetch casino data' });
+                }
+            } catch (error) {
+                displayOddsResult({ error: `Failed to fetch casino data: ${error.message}` });
+            }
+        }
+
+        // Display odds result
+        function displayOddsResult(result) {
+            const display = document.getElementById('oddsDisplay');
             
-            return bets.map(bet => `
-                <div class="text-xs border-l-2 border-${color}-300 pl-2 mb-1">
-                    <div class="flex justify-between">
-                        <span class="font-medium">${bet.matchId}</span>
-                        <span class="status-${bet.status} px-1 rounded text-xs">${bet.status}</span>
-                    </div>
-                    <div class="text-gray-600">
-                        Stake: ₹${bet.stake || 0} | Profit/Loss: ₹${bet.profitLoss || 0}
-                    </div>
-                    <div class="text-gray-500 text-xs">
-                        ${new Date(bet.createdAt).toLocaleString()}
-                    </div>
-                    ${bet.betData ? `
-                        <details class="mt-1">
-                            <summary class="text-xs text-${color}-500 cursor-pointer">View Bet Details</summary>
-                            <pre class="text-xs bg-gray-50 p-1 rounded mt-1 overflow-auto max-h-24">${JSON.stringify(bet.betData, null, 2)}</pre>
-                        </details>
-                    ` : ''}
+            if (result.error) {
+                display.innerHTML = `<div class="error">❌ ${result.error}</div>`;
+                return;
+            }
+
+            let html = `
+                <div class="success">✅ ${result.title}</div>
+                <div class="info">
+                    <strong>Message:</strong> ${result.message}<br>
+                    <strong>Source:</strong> ${result.source}<br>
+                    <strong>Timestamp:</strong> ${new Date(result.timestamp).toLocaleString()}
+                    ${result.socketStarted ? '<br><strong>🔌 Socket Updates:</strong> Started' : ''}
                 </div>
-            `).join('');
+            `;
+
+            if (result.data) {
+                if (result.data.current) {
+                    html += `
+                        <div class="odds-data">
+                            <strong>Current Match Data:</strong>
+                            <pre>${JSON.stringify(result.data.current, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+                if (result.data.results && result.data.results.length > 0) {
+                    html += `
+                        <div class="odds-results">
+                            <strong>Results (${result.data.results.length}):</strong>
+                            <pre>${JSON.stringify(result.data.results, null, 2)}</pre>
+                        </div>
+                    `;
+                } else if (Array.isArray(result.data)) {
+                    html += `
+                        <div class="odds-results">
+                            <strong>Results (${result.data.length}):</strong>
+                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="odds-data">
+                            <strong>Data:</strong>
+                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            }
+
+            display.innerHTML = html;
         }
 
-        function formatDataItem(item) {
-            if (!item) return '<div class="text-gray-500">No data</div>';
+        // Display live odds updates
+        function displayLiveOddsUpdate(data) {
+            // Update the casino card if it exists
+            updateCasinoCard(data.casinoType, data.data);
             
-            if (typeof item === 'object') {
-                const entries = Object.entries(item).slice(0, 5); // Show first 5 properties
-                return entries.map(([key, value]) => 
-                    `<div class="text-gray-600">${key}: ${String(value).substring(0, 20)}${String(value).length > 20 ? '...' : ''}</div>`
-                ).join('');
+            // Also update the detailed display
+            const display = document.getElementById('oddsDisplay');
+            const currentContent = display.innerHTML;
+            
+            let html = `
+                <div class="success">🔄 LIVE UPDATE - ${data.casinoType}</div>
+                <div class="info">
+                    <strong>Timestamp:</strong> ${new Date(data.data.timestamp || Date.now()).toLocaleString()}<br>
+                    <strong>Source:</strong> ${data.data.source || 'live_update'}
+                </div>
+            `;
+
+            if (data.data.current) {
+                html += `
+                    <div class="odds-data">
+                        <strong>Current Match Data:</strong>
+                        <pre>${JSON.stringify(data.data.current, null, 2)}</pre>
+                    </div>
+                `;
             }
             
-            return `<div class="text-gray-600">${String(item).substring(0, 50)}${String(item).length > 50 ? '...' : ''}</div>`;
+            if (data.data.results && data.data.results.length > 0) {
+                html += `
+                    <div class="odds-results">
+                        <strong>Results (${data.data.results.length}):</strong>
+                        <pre>${JSON.stringify(data.data.results, null, 2)}</pre>
+                    </div>
+                `;
+            }
+
+            display.innerHTML = html + '<hr style="margin: 20px 0; border: 1px solid #e9ecef;">' + currentContent;
         }
 
-        function requestAllData() {
-            socket.emit('requestAllCasinoData');
+        // Update active updates display
+        function updateActiveUpdatesDisplay() {
+            const container = document.getElementById('activeUpdates');
+            const buttonsContainer = document.getElementById('activeCasinoButtons');
+            const gridContainer = document.getElementById('casinoGrid');
+            const activeCount = document.getElementById('activeCount');
+            const totalCount = document.getElementById('totalCount');
+            
+            // Update stats
+            activeCount.textContent = activeCasinoUpdates.size;
+            totalCount.textContent = activeCasinoUpdates.size;
+            
+            if (activeCasinoUpdates.size === 0) {
+                container.innerHTML = '<span class="update-tag">No active updates</span>';
+                buttonsContainer.innerHTML = '';
+                gridContainer.innerHTML = '<div class="empty-state">No active casino monitoring. Start updates to see casino cards.</div>';
+            } else {
+                container.innerHTML = Array.from(activeCasinoUpdates)
+                    .map(casino => `<span class="update-tag">${casino}</span>`)
+                    .join('');
+                
+                // Create individual casino buttons
+                buttonsContainer.innerHTML = Array.from(activeCasinoUpdates)
+                    .map(casino => `
+                        <button class="casino-button" onclick="stopIndividualCasino('${casino}')">
+                            <span class="casino-name">${casino}</span>
+                            <span class="stop-icon" title="Stop updates for ${casino}">✕</span>
+                        </button>
+                    `)
+                    .join('');
+                
+                // Create casino cards for the grid
+                updateCasinoGrid();
+            }
         }
+
+        // Update casino grid with cards
+        function updateCasinoGrid() {
+            const gridContainer = document.getElementById('casinoGrid');
+            
+            gridContainer.innerHTML = Array.from(activeCasinoUpdates)
+                .map(casino => createCasinoCard(casino))
+                .join('');
+        }
+
+        // Create a casino card
+        function createCasinoCard(casinoType) {
+            return `
+                <div class="casino-card" id="casino-card-${casinoType}">
+                    <div class="casino-status active"></div>
+                    <div class="casino-card-header">
+                        <div class="casino-name">
+                            🎲 ${casinoType.toUpperCase()}
+                            <span class="casino-slug">${casinoType}</span>
+                        </div>
+                        <button class="leave-button" onclick="stopIndividualCasino('${casinoType}')">
+                            ✕ Leave
+                        </button>
+                    </div>
+                    <div class="casino-content">
+                        <div class="casino-column">
+                            <div class="column-header odds">🎯 Current Odds</div>
+                            <div class="column-content empty" id="odds-${casinoType}">
+                                Waiting for data...
+                            </div>
+                        </div>
+                        <div class="casino-column">
+                            <div class="column-header results">📊 Results</div>
+                            <div class="column-content empty" id="results-${casinoType}">
+                                Waiting for data...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="casino-timestamp" id="timestamp-${casinoType}">
+                        Last update: Never
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update casino card data
+        function updateCasinoCard(casinoType, data) {
+            const oddsContainer = document.getElementById(`odds-${casinoType}`);
+            const resultsContainer = document.getElementById(`results-${casinoType}`);
+            const timestampContainer = document.getElementById(`timestamp-${casinoType}`);
+            
+            if (!oddsContainer || !resultsContainer || !timestampContainer) {
+                return; // Card doesn't exist yet
+            }
+
+            // Update odds
+            if (data.current) {
+                oddsContainer.innerHTML = `<pre>${JSON.stringify(data.current, null, 2)}</pre>`;
+                oddsContainer.className = 'column-content';
+            }
+
+            // Update results
+            if (data.results && data.results.length > 0) {
+                resultsContainer.innerHTML = `<pre>${JSON.stringify(data.results.slice(0, 3), null, 2)}</pre>`;
+                resultsContainer.className = 'column-content';
+            }
+
+            // Update timestamp
+            const timestamp = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+            timestampContainer.textContent = `Last update: ${timestamp}`;
+        }
+
+                 // Clear display
+         function clearDisplay() {
+             document.getElementById('oddsDisplay').innerHTML = '<div class="loading">Select a casino type to view odds...</div>';
+         }
+
+         // Socket management functions
+         async function startSocketUpdates() {
+             const casinoType = document.getElementById('casinoTypeSelect').value;
+             if (!casinoType) {
+                 displayOddsResult({ error: 'Please select a casino type' });
+                 return;
+             }
+
+             try {
+                 const response = await fetch(`/api/socket/start/${casinoType}`, { method: 'POST' });
+                 const result = await response.json();
+
+                 if (result.success) {
+                     displayOddsResult({
+                         success: true,
+                         title: `Socket Started - ${casinoType}`,
+                         message: result.message,
+                         timestamp: result.timestamp
+                     });
+                     activeCasinoUpdates.add(casinoType);
+                     updateActiveUpdatesDisplay();
+                 } else {
+                     displayOddsResult({ error: result.error || 'Failed to start socket updates' });
+                 }
+             } catch (error) {
+                 displayOddsResult({ error: `Failed to start socket updates: ${error.message}` });
+             }
+         }
+
+         async function stopSocketUpdates() {
+             const casinoType = document.getElementById('casinoTypeSelect').value;
+             if (!casinoType) {
+                 displayOddsResult({ error: 'Please select a casino type' });
+                 return;
+             }
+
+             try {
+                 const response = await fetch(`/api/socket/stop/${casinoType}`, { method: 'POST' });
+                 const result = await response.json();
+
+                 if (result.success) {
+                     displayOddsResult({
+                         success: true,
+                         title: `Socket Stopped - ${casinoType}`,
+                         message: result.message,
+                         timestamp: result.timestamp
+                     });
+                     activeCasinoUpdates.delete(casinoType);
+                     updateActiveUpdatesDisplay();
+                 } else {
+                     displayOddsResult({ error: result.error || 'Failed to stop socket updates' });
+                 }
+             } catch (error) {
+                 displayOddsResult({ error: `Failed to stop socket updates: ${error.message}` });
+             }
+         }
+
+         async function refreshActiveConnections() {
+             try {
+                 const response = await fetch('/api/socket/active');
+                 const result = await response.json();
+
+                 if (result.success) {
+                     activeCasinoUpdates.clear();
+                     result.activeConnections.forEach(casino => {
+                         activeCasinoUpdates.add(casino);
+                     });
+                     updateActiveUpdatesDisplay();
+                     
+                     displayOddsResult({
+                         success: true,
+                         title: 'Active Connections Refreshed',
+                         message: `Found ${result.totalActive} active connections`,
+                         data: result.activeConnections,
+                         timestamp: result.timestamp
+                     });
+                 } else {
+                     displayOddsResult({ error: result.error || 'Failed to refresh connections' });
+                 }
+             } catch (error) {
+                 displayOddsResult({ error: `Failed to refresh connections: ${error.message}` });
+             }
+         }
+
+         async function stopIndividualCasino(casinoType) {
+             try {
+                 const response = await fetch(`/api/socket/stop/${casinoType}`, { method: 'POST' });
+                 const result = await response.json();
+
+                 if (result.success) {
+                     activeCasinoUpdates.delete(casinoType);
+                     updateActiveUpdatesDisplay();
+                     
+                     displayOddsResult({
+                         success: true,
+                         title: `Socket Stopped - ${casinoType}`,
+                         message: result.message,
+                         timestamp: result.timestamp
+                     });
+                 } else {
+                     displayOddsResult({ error: result.error || `Failed to stop ${casinoType}` });
+                 }
+             } catch (error) {
+                 displayOddsResult({ error: `Failed to stop ${casinoType}: ${error.message}` });
+             }
+         }
+
+         async function stopAllConnections() {
+             try {
+                 const casinos = Array.from(activeCasinoUpdates);
+                 
+                 for (const casino of casinos) {
+                     await fetch(`/api/socket/stop/${casino}`, { method: 'POST' });
+                 }
+                 
+                 activeCasinoUpdates.clear();
+                 updateActiveUpdatesDisplay();
+                 
+                 displayOddsResult({
+                     success: true,
+                     title: 'All Connections Stopped',
+                     message: `Stopped ${casinos.length} active connections`,
+                     data: casinos,
+                     timestamp: Date.now()
+                 });
+             } catch (error) {
+                 displayOddsResult({ error: `Failed to stop all connections: ${error.message}` });
+             }
+         }
+
+         // Load casino types on page load
+         document.addEventListener('DOMContentLoaded', function() {
+             loadCasinoTypes();
+             refreshActiveConnections(); // Load initial active connections
+         });
     </script>
 </body>
 </html>
