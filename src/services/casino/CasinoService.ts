@@ -15,42 +15,32 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     const matchRepo = CronDataSource.getRepository(CasinoMatch);
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
 
-    // Determine which API endpoint to use
     let apiUrl: string;
     let params: any;
 
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      // Use alternative API endpoint
       apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
       params = { type: casinoType };
     } else {
-      // Use default API endpoint
       apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
       params = { casinoType };
     }
 
-    // Fetch from API with timeout and retry
     const response = await axios.get(apiUrl, {
       params,
-      timeout: 10000, // 10 second timeout
+      timeout: 10000,
     });
     const apiData = response.data;
 
-    // Handle current match data - check for different structures
     let currentMid: string | null = null;
     let currentData: any = null;
 
-    // Handle different API structures based on casino type
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      // Alternative API structure (like lucky5, joker20, joker1, ab4, lottcard)
-      // Data is direct, not wrapped in data object
       if (apiData?.mid) {
         currentMid = String(apiData.mid);
         currentData = apiData;
       }
     } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-      // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
-      // These have specific data structures
       if (apiData?.data?.mid) {
         currentMid = String(apiData.data.mid);
         currentData = apiData.data;
@@ -59,8 +49,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         currentData = apiData.data;
       }
     } else {
-      // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
-      // Standard wrapped data structure
       if (apiData?.data?.mid) {
         currentMid = String(apiData.data.mid);
         currentData = apiData.data;
@@ -69,6 +57,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         currentData = apiData.data;
       }
     }
+
+    const pipeline = redisClient.pipeline();
 
     if (currentMid && currentData) {
       await matchRepo.upsert(
@@ -78,11 +68,10 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           winner: null,
           data: currentData,
         },
-        ["mid"] // unique column for conflict
+        ["mid"]
       );
 
-      // Store current match separately in Redis
-      await redisClient.set(
+      pipeline.set(
         `casino:${casinoType}:current`,
         JSON.stringify(currentData),
         "EX",
@@ -92,31 +81,20 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       console.log(`[CRON] No live match for ${casinoType}`);
     }
 
-    // Handle results - different structures for different casino types
     let results = [];
 
     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      // Alternative API casinos (lucky5, joker20, joker1, ab4, lottcard)
-      // These don't include results in API response
       results = [];
     } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-      // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
-      // These have specific result structures
       if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-        // Structure: apiData.result.res (for teenmuf, etc.)
         results = apiData.result.res;
       } else if (apiData?.result && Array.isArray(apiData.result)) {
-        // Structure: apiData.result (for aaa, dt20, etc.)
         results = apiData.result;
       }
     } else {
-      // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
-      // Standard result structure
       if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-        // Structure: apiData.result.res
         results = apiData.result.res;
       } else if (apiData?.result && Array.isArray(apiData.result)) {
-        // Structure: apiData.result
         results = apiData.result;
       }
     }
@@ -124,9 +102,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     if (results.length > 0) {
       for (const r of results) {
         const resultMid = String(r.mid || r.matchId);
-        // Handle both 'win' and 'result' fields, prefer 'win' if both exist
-        // For dt202, only 'result' field exists, so use it as winner
-        // For teenmuf, only 'win' field exists in result.res structure
         const winner = r.win || r.result || r.winner;
 
         if (!resultMid) {
@@ -134,17 +109,15 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           continue;
         }
 
-        // Update CasinoMatch with winner
         await matchRepo.upsert(
           {
             mid: resultMid,
             casinoType,
             winner: String(winner),
           },
-          ["mid"] // if mid already exists, update winner
+          ["mid"]
         );
 
-        // Update CasinoBet records for this match
         await updateCasinoBetsWithResult(
           resultMid,
           String(winner),
@@ -152,8 +125,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         );
       }
 
-      // Store results separately in Redis
-      await redisClient.set(
+      pipeline.set(
         `casino:${casinoType}:results`,
         JSON.stringify(results),
         "EX",
@@ -161,9 +133,10 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       );
     }
 
-    // Publish update notification (only send Redis keys, not complete data)
+    await pipeline.exec();
+
     await redisPublisher.publish(
-      `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
+      `casino_odds_updates:${casinoType}`,
       JSON.stringify({
         casinoType,
         hasCurrent: !!currentData,
@@ -178,7 +151,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     return apiData;
   } catch (err: any) {
-    // Handle specific network errors
     if (
       err.code === "ECONNRESET" ||
       err.code === "ECONNABORTED" ||
@@ -197,6 +169,197 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     return null;
   }
 };
+
+
+// export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
+//   try {
+//     const redisPublisher = getRedisPublisher();
+//     const redisClient = getRedisClient();
+//     const matchRepo = CronDataSource.getRepository(CasinoMatch);
+//     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
+
+//     // Determine which API endpoint to use
+//     let apiUrl: string;
+//     let params: any;
+
+//     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//       // Use alternative API endpoint
+//       apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
+//       params = { type: casinoType };
+//     } else {
+//       // Use default API endpoint
+//       apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
+//       params = { casinoType };
+//     }
+
+//     // Fetch from API with timeout and retry
+//     const response = await axios.get(apiUrl, {
+//       params,
+//       timeout: 10000, // 10 second timeout
+//     });
+//     const apiData = response.data;
+
+//     // Handle current match data - check for different structures
+//     let currentMid: string | null = null;
+//     let currentData: any = null;
+
+//     // Handle different API structures based on casino type
+//     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//       // Alternative API structure (like lucky5, joker20, joker1, ab4, lottcard)
+//       // Data is direct, not wrapped in data object
+//       if (apiData?.mid) {
+//         currentMid = String(apiData.mid);
+//         currentData = apiData;
+//       }
+//     } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+//       // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
+//       // These have specific data structures
+//       if (apiData?.data?.mid) {
+//         currentMid = String(apiData.data.mid);
+//         currentData = apiData.data;
+//       } else if (apiData?.data?.t1?.[0]?.mid) {
+//         currentMid = String(apiData.data.t1[0].mid);
+//         currentData = apiData.data;
+//       }
+//     } else {
+//       // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
+//       // Standard wrapped data structure
+//       if (apiData?.data?.mid) {
+//         currentMid = String(apiData.data.mid);
+//         currentData = apiData.data;
+//       } else if (apiData?.data?.t1?.[0]?.mid) {
+//         currentMid = String(apiData.data.t1[0].mid);
+//         currentData = apiData.data;
+//       }
+//     }
+
+//     if (currentMid && currentData) {
+//       await matchRepo.upsert(
+//         {
+//           mid: currentMid,
+//           casinoType,
+//           winner: null,
+//           data: currentData,
+//         },
+//         ["mid"] // unique column for conflict
+//       );
+
+//       // Store current match separately in Redis
+//       await redisClient.set(
+//         `casino:${casinoType}:current`,
+//         JSON.stringify(currentData),
+//         "EX",
+//         600
+//       );
+//     } else {
+//       console.log(`[CRON] No live match for ${casinoType}`);
+//     }
+
+//     // Handle results - different structures for different casino types
+//     let results = [];
+
+//     if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//       // Alternative API casinos (lucky5, joker20, joker1, ab4, lottcard)
+//       // These don't include results in API response
+//       results = [];
+//     } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+//       // Different structure casinos (aaa, abj, dt20, lucky7eu, dt202, teenmuf, teen20c, btable2, goal, baccarat2, d16)
+//       // These have specific result structures
+//       if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+//         // Structure: apiData.result.res (for teenmuf, etc.)
+//         results = apiData.result.res;
+//       } else if (apiData?.result && Array.isArray(apiData.result)) {
+//         // Structure: apiData.result (for aaa, dt20, etc.)
+//         results = apiData.result;
+//       }
+//     } else {
+//       // Default API structure (dt6, teen, poker, teen20, teen9, teen8, poker20, poker6, card32eu, war)
+//       // Standard result structure
+//       if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+//         // Structure: apiData.result.res
+//         results = apiData.result.res;
+//       } else if (apiData?.result && Array.isArray(apiData.result)) {
+//         // Structure: apiData.result
+//         results = apiData.result;
+//       }
+//     }
+
+//     if (results.length > 0) {
+//       for (const r of results) {
+//         const resultMid = String(r.mid || r.matchId);
+//         // Handle both 'win' and 'result' fields, prefer 'win' if both exist
+//         // For dt202, only 'result' field exists, so use it as winner
+//         // For teenmuf, only 'win' field exists in result.res structure
+//         const winner = r.win || r.result || r.winner;
+
+//         if (!resultMid) {
+//           console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+//           continue;
+//         }
+
+//         // Update CasinoMatch with winner
+//         await matchRepo.upsert(
+//           {
+//             mid: resultMid,
+//             casinoType,
+//             winner: String(winner),
+//           },
+//           ["mid"] // if mid already exists, update winner
+//         );
+
+//         // Update CasinoBet records for this match
+//         await updateCasinoBetsWithResult(
+//           resultMid,
+//           String(winner),
+//           casinoBetRepo
+//         );
+//       }
+
+//       // Store results separately in Redis
+//       await redisClient.set(
+//         `casino:${casinoType}:results`,
+//         JSON.stringify(results),
+//         "EX",
+//         600
+//       );
+//     }
+
+//     // Publish update notification (only send Redis keys, not complete data)
+//     await redisPublisher.publish(
+//       `casino_odds_updates:${casinoType}`, // Channel specific to casinoType
+//       JSON.stringify({
+//         casinoType,
+//         hasCurrent: !!currentData,
+//         hasResults: results.length > 0,
+//         timestamp: Date.now(),
+//       })
+//     );
+
+//     console.log(
+//       `[CRON] Updated Redis & published notification for ${casinoType}`
+//     );
+
+//     return apiData;
+//   } catch (err: any) {
+//     // Handle specific network errors
+//     if (
+//       err.code === "ECONNRESET" ||
+//       err.code === "ECONNABORTED" ||
+//       err.message.includes("socket hang up")
+//     ) {
+//       console.log(
+//         `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
+//         err.message
+//       );
+//     } else {
+//       console.error(
+//         `[CRON] Failed to fetch odds for ${casinoType}:`,
+//         err.message
+//       );
+//     }
+//     return null;
+//   }
+// };
 
 const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBetRepo: any) => {
   try {
@@ -284,7 +447,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
             }
           }
         });
-        
+
         // Update user balance after bet is marked as settled
         await transactionalEntityManager.save(user);
 
