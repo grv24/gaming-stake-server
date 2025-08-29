@@ -997,6 +997,7 @@ export const clientLogin = async (req: Request, res: Response) => {
                         totalSettledAmount: client.totalSettledAmount,
                         Exposure: client.exposure,
                         ExposureLimit: client.exposureLimit,
+                        uplineSettlement: client.uplineSettlement
                     },
                     allowedNoOfUsers: null,
                     createdUsersCount: null,

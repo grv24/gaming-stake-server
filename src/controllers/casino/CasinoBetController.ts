@@ -333,8 +333,8 @@ export const getCurrentBet = async (req: Request, res: Response) => {
       .createQueryBuilder("bet")
       .where("bet.userId = :userId", { userId })
       .andWhere("bet.betData ->> 'gameSlug' = :slug", { slug })
-      .orderBy("bet.createdAt", "DESC")
-      .getOne();
+      .orderBy("bet.createdAt", "DESC");
+      // .getOne();
 
 
     if (!latestBet) {

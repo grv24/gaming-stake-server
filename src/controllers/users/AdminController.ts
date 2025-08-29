@@ -1072,6 +1072,7 @@ export const adminLogin = async (req: Request, res: Response) => {
                         totalSettledAmount: user.totalSettledAmount,
                         Exposure: user.exposure,
                         ExposureLimit: user.exposureLimit,
+                        uplineSettlement: user.uplineSettlement,
                     },
                     allowedNoOfUsers: user.allowedNoOfUsers,
                     createdUsersCount: user.createdUsersCount,
