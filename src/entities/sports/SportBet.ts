@@ -19,7 +19,10 @@ export class SportBet {
     userType !: String;
 
     @Column({ type: "varchar", length: 255 })
-    matchId!: string;
+    eventId!: string;
+
+    @Column({ type: "varchar", length: 255 })
+    sId!: string;
 
     @Column({ type: "jsonb", nullable: true })
     commission: any;
