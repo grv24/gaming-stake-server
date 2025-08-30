@@ -24,15 +24,6 @@ export class SportBet {
     @Column({ type: "varchar", length: 255 })
     sId!: string;
 
-    @Column({ type: "jsonb", nullable: true })
-    commission: any;
-
-    @Column({ type: "jsonb", nullable: true })
-    partnership: any;
-
-    @Column({ type: "jsonb", nullable: true })
-    exposure: any;
-
     @Column({ default: "pending" })
     status!: "pending" | "won" | "lost";
 

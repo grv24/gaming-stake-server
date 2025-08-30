@@ -12,10 +12,11 @@ export const createBet = async (req: Request, res: Response) => {
     await queryRunner.startTransaction();
 
     const userId = req.user.userId;
-    const { betData, exposure, commission, partnership } = req.body;
+
+    const betData = {...req.body};
 
     // Validate required fields
-    if (!userId || !betData || !betData?.stake || !betData?.eventId || !betData?.oddType || !betData?.sid) {
+    if (!userId || !betData?.stake || !betData?.eventId || !betData?.oddType || !betData?.sid) {
       await queryRunner.rollbackTransaction();
       return res.status(400).json({
         status: false,
@@ -86,9 +87,6 @@ export const createBet = async (req: Request, res: Response) => {
     const bet = sportsBetRepository.create({
       userId,
       userType: req.__type,
-      exposure: exposure || 0,
-      commission: commission || 0,
-      partnership: partnership || 0,
       betData: {
         ...betData,
         stake: stakeAmount,
