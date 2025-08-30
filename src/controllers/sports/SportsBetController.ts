@@ -129,7 +129,7 @@ export const createBet = async (req: Request, res: Response) => {
 export const getCurrentBet = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { oddType } = req.query;
+    const { eventId } = req.query;
 
 
     if (!userId) {
@@ -139,10 +139,10 @@ export const getCurrentBet = async (req: Request, res: Response) => {
       });
     }
 
-    if (!oddType) {
+    if (!eventId) {
       return res.status(400).json({
         success: false,
-        message: "oddType parameter is required"
+        message: "eventId parameter is required"
       });
     }
 
@@ -151,14 +151,14 @@ export const getCurrentBet = async (req: Request, res: Response) => {
     const latestBet = await currentBetRepo
       .createQueryBuilder("bet")
       .where("bet.userId = :userId", { userId })
-      .andWhere("bet.betData ->> 'oddType' = :oddType", { oddType })
+      .andWhere("bet.betData ->> 'eventId' = :eventId", { eventId })
       .orderBy("bet.createdAt", "DESC");
 
 
     if (!latestBet) {
       return res.status(404).json({
         success: false,
-        message: "No bets found for this user with the specified oddType"
+        message: "No bets found for this user with the specified eventId"
       });
     }
 
