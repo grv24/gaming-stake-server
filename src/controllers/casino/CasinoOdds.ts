@@ -17,6 +17,7 @@ export const getCasinoData = async (req: Request, res: Response) => {
 
     // 1. Check Redis for current match
     const cachedData = await redisClient.get(cacheKey);
+
     if (cachedData) {
       return res.status(200).json({
         status: "success",

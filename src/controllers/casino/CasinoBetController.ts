@@ -310,8 +310,7 @@ export const casinoResult = async (req: Request, res: Response) => {
 export const getCurrentBet = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { slug } = req.query;
-
+    const { slug, page = 1, limit = 10 } = req.query;
 
     if (!userId) {
       return res.status(401).json({
@@ -328,16 +327,28 @@ export const getCurrentBet = async (req: Request, res: Response) => {
     }
 
     const currentBetRepo = AppDataSource.getRepository(CasinoBet);
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
-    const latestBet = await currentBetRepo
+    const [allBets, totalCount] = await currentBetRepo
       .createQueryBuilder("bet")
+      .select([
+        "bet.id",
+        "bet.userId",
+        "bet.status",
+        "bet.betData",
+        "bet.createdAt",
+        "bet.updatedAt"
+      ])
       .where("bet.userId = :userId", { userId })
       .andWhere("bet.betData ->> 'gameSlug' = :slug", { slug })
-      .orderBy("bet.createdAt", "DESC");
-      // .getOne();
+      .orderBy("bet.createdAt", "DESC")
+      .skip(skip)
+      .take(limitNum)
+      .getManyAndCount(); 
 
-
-    if (!latestBet) {
+    if (!allBets || allBets.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No bets found for this user with the specified slug"
@@ -346,11 +357,17 @@ export const getCurrentBet = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      data: latestBet
+      data: allBets,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalItems: totalCount,
+        itemsPerPage: limitNum
+      }
     });
 
   } catch (err: any) {
-    console.error("Error fetching latest bet:", err);
+    console.error("Error fetching bets:", err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -363,7 +380,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
     const { casinoType, mid } = req.body;
     const userId = req.user?.userId;
-    
+
     // Validate input
     if (!casinoType || !mid) {
       return res.status(400).json({
@@ -371,7 +388,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         message: "casinoType and mid are required in the request body"
       });
     }
-    
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -381,11 +398,11 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
     const redisClient = getRedisClient();
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
-    
+
     // Get results from Redis for this casino type
     const resultsKey = `casino:${casinoType}:results`;
     const resultsData = await redisClient.get(resultsKey);
-    
+
     if (!resultsData) {
       return res.status(404).json({
         success: false,
@@ -415,10 +432,10 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         message: `Match ID ${mid} not found in results for casino type: ${casinoType}`
       });
     }
-      
+
     // Extract winner from result (handle different field names)
     const winner = result.win || result.result || result.winner;
-    
+
     if (!winner) {
       return res.status(404).json({
         success: false,
@@ -428,10 +445,10 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
     // Find pending bets for this match ID, casino type, and specific user
     const pendingBets = await casinoBetRepo.find({
-      where: { 
-        matchId: mid, 
+      where: {
+        matchId: mid,
         userId: userId,
-        status: "pending" 
+        status: "pending"
       }
     });
 
@@ -524,7 +541,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
               }
             }
           });
-          
+
           // Update user balance after bet is marked as settled
           await transactionalEntityManager.save(user);
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAllSportsDataController, getCricketData, getFIlteredData, getOddsData, getSoccerData, getTennisData } from "../../controllers/sports/SportControllers";
-import { createBet, getCurrentBet } from "../../controllers/sports/SportsBetController";
+import { createBet, getCurrentBet, settleUserSportBets } from "../../controllers/sports/SportsBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
 // import { getSportsList } from "../../controllers/sports/SportControllers";
 
@@ -11,6 +11,8 @@ const router = Router();
 
 router.post("/placeBet", clientAuth, createBet);
 router.get("/current-bet", clientAuth, getCurrentBet);
+router.patch("/settle-my-sports-bets", clientAuth, settleUserSportBets);
+
 
 router.get('/cricket-latest-matches-diamond', getCricketData);
 router.get('/soccer-latest-matches-diamond', getSoccerData);

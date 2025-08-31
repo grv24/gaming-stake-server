@@ -128,53 +128,66 @@ export const createBet = async (req: Request, res: Response) => {
 export const getCurrentBet = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { eventId } = req.query;
-
+    const { eventId, page = "1", limit = "10" } = req.query;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "User not authenticated"
+        message: "User not authenticated",
       });
     }
 
     if (!eventId) {
       return res.status(400).json({
         success: false,
-        message: "eventId parameter is required"
+        message: "eventId parameter is required",
       });
     }
 
     const currentBetRepo = AppDataSource.getRepository(SportBet);
 
-    const latestBet = await currentBetRepo
+    // Convert pagination values
+    const pageNum = Math.max(parseInt(page as string, 10), 1);
+    const limitNum = Math.max(parseInt(limit as string, 10), 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Query for paginated bets
+    const [bets, total] = await currentBetRepo
       .createQueryBuilder("bet")
       .where("bet.userId = :userId", { userId })
       .andWhere("bet.betData ->> 'eventId' = :eventId", { eventId })
-      .orderBy("bet.createdAt", "DESC");
+      .orderBy("bet.createdAt", "DESC")
+      .skip(skip)
+      .take(limitNum)
+      .getManyAndCount();
 
-
-    if (!latestBet) {
+    if (bets.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No bets found for this user with the specified eventId"
+        message: "No bets found for this user with the specified eventId",
       });
     }
 
     return res.status(200).json({
       success: true,
-      data: latestBet
+      data: bets,
+      pagination: {
+        totalItems: total,
+        currentPage: pageNum,
+        itemsPerPage: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
-
   } catch (err: any) {
-    console.error("Error fetching latest bet:", err);
+    console.error("Error fetching bets:", err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: err.message
+      error: err.message,
     });
   }
-}
+};
+
 
 
 export const settleUserSportBets = async (req: Request, res: Response) => {
@@ -245,7 +258,7 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
 
         // Find the correct result based on the bet type and selection
         const result = findMatchingResult(results, betData, betSelection, betOddType);
-        
+
         if (!result) {
           errors.push({ 
             betId: bet.id, 
@@ -478,7 +491,7 @@ function determineBetWinner(
 
 async function fetchThirdPartyResults(eventId: string): Promise<any[]> {
   try {
-    const thirdPartyApiUrl = `${process.env.THIRD_PARTY_URL}/api/v2/diamondResults?eventId=${eventId}`;
+    const thirdPartyApiUrl = `http://localhost:3000/api/v2/diamondResults?eventId=${eventId}`;
     
     const response = await axios.get(thirdPartyApiUrl, {
       timeout: 10000,
