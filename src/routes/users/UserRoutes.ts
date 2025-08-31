@@ -1,5 +1,5 @@
 import express from 'express';
-import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance, getOwnExposure, getAccountTransactions } from '../../controllers/users/UserControllers';
+import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance, getOwnExposure, getAccountTransactions, withdrawBalance } from '../../controllers/users/UserControllers';
 import { clientAuth } from '../../middlewares/RoleAuth';
 
 const router = express.Router();
@@ -10,7 +10,7 @@ router.get('/own-exposure', clientAuth, getOwnExposure);
 router.get('/my-downline-users', clientAuth, getAllDownlineUsers);
 router.get('/sports-casino-setting', clientAuth, getSportsAndCasinoSetting);
 router.post('/deposit', clientAuth, addBalance);
-router.post('/withdraw', clientAuth, addBalance);
+router.post('/withdraw', clientAuth, withdrawBalance);
 router.patch('/lock', clientAuth, lockUserOrBetAndDownlineMultiTable);
 router.patch('/set-exposure-limit', clientAuth, setExposureLimitForDownline);
 router.patch('/set-credit-ref', clientAuth, setCreditRefForDownline);
