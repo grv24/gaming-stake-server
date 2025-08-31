@@ -6,6 +6,9 @@ import { AccountTrasaction } from "../../entities/Transactions/AccountTransactio
 import { Whitelist } from "../../entities/whitelist/Whitelist";
 import { TechAdmin } from "../../entities/users/TechAdminUser";
 import { format } from "date-fns";
+import { CasinoBet } from "../../entities/casino/CasinoBet";
+import { CasinoMatch } from "../../entities/casino/CasinoMatch";
+import { Between } from "typeorm";
 
 export const addBalance = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -906,84 +909,220 @@ export const getOwnExposure = async (req: Request, res: Response) => {
 //     }
 // };
 
+// export const getAccountTransactions = async (req: Request, res: Response) => {
+//     try {
+//         const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
+
+//         const userId = req.user?.userId; // assuming middleware sets req.user
+//         if (!userId) {
+//             return res.status(401).json({
+//                 status: false,
+//                 message: "Unauthorized",
+//             });
+//         }
+
+//         const {
+//             startDate,
+//             endDate,
+//             type = "all",
+//             page = 1,
+//             limit = 10,
+//         } = req.query as {
+//             startDate?: string;
+//             endDate?: string;
+//             type?: "all" | "deposit" | "withdraw";
+//             page?: string;
+//             limit?: string;
+//         };
+
+//         const qb = accountTxRepo
+//             .createQueryBuilder("tx")
+//             .where("tx.downlineUserId = :userId", { userId });
+
+//         // Filter by date range
+//         if (startDate && endDate) {
+//             qb.andWhere("tx.createdAt BETWEEN :start AND :end", {
+//                 start: new Date(startDate),
+//                 end: new Date(endDate),
+//             });
+//         } else if (startDate) {
+//             qb.andWhere("tx.createdAt >= :start", { start: new Date(startDate) });
+//         } else if (endDate) {
+//             qb.andWhere("tx.createdAt <= :end", { end: new Date(endDate) });
+//         }
+
+//         // Filter by type
+//         if (type !== "all") {
+//             qb.andWhere("tx.type = :type", { type });
+//         }
+
+//         // Pagination
+//         const skip = (Number(page) - 1) * Number(limit);
+//         qb.skip(skip).take(Number(limit));
+//         qb.orderBy("tx.createdAt", "DESC");
+
+//         const [transactions, total] = await qb.getManyAndCount();
+
+//         const transformed = transactions.map((tx, index) => ({
+//             sNo: skip + index + 1,
+//             date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+//             credit: tx.type === "deposit" ? tx.amount : 0,
+//             debit: tx.type === "withdraw" ? tx.amount : 0,
+//             remarks: tx.remarks,
+//         }));
+//         return res.status(200).json({
+//             status: true,
+//             message: "Transactions fetched successfully",
+//             data: transformed,
+//             pagination: {
+//                 page: Number(page),
+//                 limit: Number(limit),
+//                 total,
+//                 totalPages: Math.ceil(total / Number(limit)),
+//             },
+//         });
+//     } catch (error: any) {
+//         console.error("Error fetching transactions:", error);
+//         return res.status(500).json({
+//             status: false,
+//             message: "Internal server error",
+//             error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//         });
+//     }
+// };
+
+const TYPE_1 = ["aaa", "abj", "baccarat2", "card32eu", "dt20", "dt202", "dt6", "lucky7eu", "poker", "poker20", "teen", "teen8", "teen9", "war"];
+const TYPE_2 = ["btable2", "goal", "joker1", "joker20", "lottcard", "lucky5", "teen20c", "teenmuf"];
+const TYPE_3 = ["poker6", "teen20"];
+const TYPE_4 = ["ab4"];
+
 export const getAccountTransactions = async (req: Request, res: Response) => {
-    try {
-        const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
-
-        const userId = req.user?.userId; // assuming middleware sets req.user
-        if (!userId) {
-            return res.status(401).json({
-                status: false,
-                message: "Unauthorized",
-            });
-        }
-
-        const {
-            startDate,
-            endDate,
-            type = "all",
-            page = 1,
-            limit = 10,
-        } = req.query as {
-            startDate?: string;
-            endDate?: string;
-            type?: "all" | "deposit" | "withdraw";
-            page?: string;
-            limit?: string;
-        };
-
-        const qb = accountTxRepo
-            .createQueryBuilder("tx")
-            .where("tx.downlineUserId = :userId", { userId });
-
-        // Filter by date range
-        if (startDate && endDate) {
-            qb.andWhere("tx.createdAt BETWEEN :start AND :end", {
-                start: new Date(startDate),
-                end: new Date(endDate),
-            });
-        } else if (startDate) {
-            qb.andWhere("tx.createdAt >= :start", { start: new Date(startDate) });
-        } else if (endDate) {
-            qb.andWhere("tx.createdAt <= :end", { end: new Date(endDate) });
-        }
-
-        // Filter by type
-        if (type !== "all") {
-            qb.andWhere("tx.type = :type", { type });
-        }
-
-        // Pagination
-        const skip = (Number(page) - 1) * Number(limit);
-        qb.skip(skip).take(Number(limit));
-        qb.orderBy("tx.createdAt", "DESC");
-
-        const [transactions, total] = await qb.getManyAndCount();
-
-        const transformed = transactions.map((tx, index) => ({
-            sNo: skip + index + 1,
-            date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
-            credit: tx.type === "deposit" ? tx.amount : 0,
-            debit: tx.type === "withdraw" ? tx.amount : 0,
-            remarks: tx.remarks,
-        }));
-        return res.status(200).json({
-            status: true,
-            message: "Transactions fetched successfully",
-            data: transformed,
-            pagination: {
-                page: Number(page),
-                limit: Number(limit),
-                total,
-                totalPages: Math.ceil(total / Number(limit)),
-            },
-        });
-    } catch (error: any) {
-        console.error("Error fetching transactions:", error);
-        return res.status(500).json({
-            status: false,
-            message: "Internal server error",
-            error: process.env.NODE_ENV === "development" ? error.message : undefined,
-        });
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized",
+      });
     }
+
+    const { startDate, endDate, type = "all", slug, page = "1", limit = "10" } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      type?: "all" | "deposit/withdraw" | "casino";
+      slug?: string;
+      page?: string;
+      limit?: string;
+    };
+
+    const skip = (Number(page) - 1) * Number(limit);
+    let results: any[] = [];
+    let total = 0;
+
+    // ------------------- CASINO LOGIC -------------------
+    if (type === "casino" || type === "all") {
+      if (!slug) {
+        return res.status(400).json({
+          status: false,
+          message: "casino slug is required for type=casino",
+        });
+      }
+
+      const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
+      const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
+
+      const betQuery: any = { userId };
+      if (startDate && endDate) {
+        betQuery.createdAt = Between(new Date(startDate), new Date(endDate));
+      }
+
+      const placedBets = await CasinoBetRepo.find({
+        where: betQuery,
+        skip,
+        take: Number(limit),
+        order: { createdAt: "DESC" },
+      });
+
+      total = await CasinoBetRepo.count({ where: betQuery });
+
+      const matches = await Promise.all(
+        placedBets.map(async (bet) => {
+          const match = await CasinoMatchRepo.findOne({ where: { mid: bet.matchId } });
+          if (!match) return null;
+
+          let winnerObj: any = null;
+          if (TYPE_1.includes(slug)) winnerObj = match.data?.t2?.find((i: any) => i.sid === match.winner);
+          else if (TYPE_2.includes(slug)) winnerObj = match.data?.sub?.find((i: any) => i.sid === match.winner);
+          else if (TYPE_3.includes(slug)) winnerObj = match.data;
+          else if (TYPE_4.includes(slug)) winnerObj = match.data?.child?.find((i: any) => i.sid === match.winner);
+
+          const createdAtIST = new Date(match.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+          return {
+            roundId: match.mid,
+            winner: match.winner,
+            winnerData: winnerObj || null,
+            dateAndTime: createdAtIST,
+            myBetDetails: bet.betData,
+            type: "casino",
+          };
+        })
+      );
+
+      results = matches.filter((m) => m !== null);
+    }
+
+    // ------------------- DEPOSIT/WITHDRAW LOGIC -------------------
+    if (type === "deposit/withdraw" || type === "all") {
+      const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
+      const qb = accountTxRepo.createQueryBuilder("tx").where("tx.downlineUserId = :userId", { userId });
+
+      if (startDate && endDate) qb.andWhere("tx.createdAt BETWEEN :start AND :end", { start: new Date(startDate), end: new Date(endDate) });
+      else if (startDate) qb.andWhere("tx.createdAt >= :start", { start: new Date(startDate) });
+      else if (endDate) qb.andWhere("tx.createdAt <= :end", { end: new Date(endDate) });
+
+      // Here we fetch both deposit and withdraw together
+      qb.andWhere("tx.type IN (:...types)", { types: ["deposit", "withdraw"] });
+
+      qb.skip(skip).take(Number(limit));
+      qb.orderBy("tx.createdAt", "DESC");
+
+      const [transactions, txTotal] = await qb.getManyAndCount();
+    //   total = type === "all" || type === "deposit/withdraw" ? total + txTotal : txTotal;
+
+      const transformed = transactions.map((tx, index) => ({
+        sNo: skip + index + 1,
+        date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+        deposit: tx.type === "deposit" ? tx.amount : 0,
+        withdraw: tx.type === "withdraw" ? tx.amount : 0,
+        casino: "",
+        remarks: tx.remarks,
+        type: tx.type,
+      }));
+
+      results = results.concat(transformed);
+    }
+
+    // sort all results by date descending
+    results.sort((a, b) => new Date(b.dateAndTime || b.date).getTime() - new Date(a.dateAndTime || a.date).getTime());
+
+    return res.status(200).json({
+      status: true,
+      message: "Transactions fetched successfully",
+      data: results,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        // total,
+        // totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching transactions:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };

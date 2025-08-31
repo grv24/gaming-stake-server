@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCasinoData, getCasinoHistory, getCasinoResults } from "../../controllers/casino/CasinoOdds";
+import { getCasinoData, getCasinoHistory, getCasinoMatchDetails, getCasinoResults } from "../../controllers/casino/CasinoOdds";
 import {
     createCasino,
     getAllCasinos,
@@ -28,5 +28,6 @@ router.delete("/:id", deleteCasino);
 router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
 
 router.get("/history", clientAuth, getCasinoHistory);
+router.get("/match-details", clientAuth, getCasinoMatchDetails);
 
 export default router;

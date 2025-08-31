@@ -109,6 +109,11 @@ export const getCasinoResults = async (req: Request, res: Response) => {
   }
 };
 
+const TYPE_1 = ["aaa", "abj", "baccarat2", "card32eu", "dt20", "dt202", "dt6", "lucky7eu", "poker", "poker20", "teen", "teen8", "teen9", "war"];
+const TYPE_2 = ["btable2", "goal", "joker1", "joker20", "lottcard", "lucky5", "teen20c", "teenmuf"];
+const TYPE_3 = ["poker6", "teen20"];
+const TYPE_4 = ["ab4"];
+
 export const getCasinoHistory = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -154,10 +159,6 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     // Fetch related matches
     let matches = null;
 
-    const TYPE_1 = ["aaa", "abj", "baccarat2", "card32eu", "dt20", "dt202", "dt6", "lucky7eu", "poker", "poker20", "teen", "teen8", "teen9", "war"];
-    const TYPE_2 = ["btable2", "goal", "joker1", "joker20", "lottcard", "lucky5", "teen20c", "teenmuf"];
-    const TYPE_3 = ["poker6", "teen20"];
-
     if (TYPE_1.includes(slug as any)) {
       matches = await Promise.all(
         placedBets.map(async (bet) => {
@@ -179,6 +180,7 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
             winner: match.winner,
             winnerData: winnerObj || null,
             dateAndTime: createdAtIST,
+            myBetDetails: bet.betData
           };
         })
       );
@@ -203,6 +205,8 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
             winner: match.winner,
             winnerData: winnerObj || null,
             dateAndTime: createdAtIST,
+            myBetDetails: bet.betData
+
           };
         })
       );
@@ -223,10 +227,11 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
             winner: match.winner,
             winnerData: match.data,
             dateAndTime: createdAtIST,
+            myBetDetails: bet.betData
           };
         })
       );
-    } else {
+    } else if (TYPE_4.includes(slug as any)) {
       matches = await Promise.all(
         placedBets.map(async (bet) => {
           const match = await CasinoMatchRepo.findOne({
@@ -247,12 +252,13 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
             winner: match.winner,
             winnerData: winnerObj || null,
             dateAndTime: createdAtIST,
+            myBetDetails: bet.betData
           };
         })
       );
     }
 
-    matches = matches.filter((m) => m !== null);
+    matches = matches?.filter((m) => m !== null);
 
     return res.status(200).json({
       status: "success",
@@ -260,7 +266,7 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        count: matches.length,
+        count: (matches || [])?.length || 0,
       },
       results: matches,
     });
@@ -268,6 +274,126 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     console.error("Error in getCasinoHistory:", err);
     return res.status(500).json({
       status: "error",
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getCasinoMatchDetails = async (req: Request, res: Response) => {
+  try {
+
+    const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
+
+    const userId = req.user?.userId;
+    const { matchId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    if (!matchId) {
+      return res.status(400).json({
+        success: false,
+        message: "MatchId is required",
+      });
+    }
+
+    // Fetch the match
+    const match = await CasinoMatchRepo.findOne({
+      where: { mid: matchId },
+    });
+
+    if (!match) {
+      return res.status(404).json({
+        success: false,
+        message: "Match not found",
+      });
+    }
+
+    let result = null;
+
+    if (TYPE_1.includes(match?.casinoType as any)) {
+
+
+      const winnerObj = match?.data?.t2?.find(
+        (item: any) => item?.sid === match?.winner
+      );
+
+      const createdAtIST = new Date(match.createdAt)
+        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      result = {
+        roundId: match?.mid,
+        winner: match?.winner,
+        winnerData: winnerObj || null,
+        dateAndTime: createdAtIST,
+      };
+
+    } else if (TYPE_2.includes(match?.casinoType as any)) {
+
+      const winnerObj = match?.data?.sub?.find(
+        (item: any) => item.sid == match?.winner
+      );
+
+      const createdAtIST = new Date(match?.createdAt)
+        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      result = {
+        roundId: match?.mid,
+        winner: match?.winner,
+        winnerData: winnerObj || null,
+        dateAndTime: createdAtIST,
+      };
+
+    } else if (TYPE_3.includes(match?.casinoType as any)) {
+
+      const createdAtIST = new Date(match?.createdAt)
+        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      result = {
+        roundId: match?.mid,
+        winner: match?.winner,
+        winnerData: match?.data,
+        dateAndTime: createdAtIST,
+      };
+
+    } else if (TYPE_4.includes(match?.casinoType as any)) {
+
+      const winnerObj = match?.data?.child?.find(
+        (item: any) => item?.sid == match?.winner
+      );
+
+      const createdAtIST = new Date(match.createdAt)
+        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      result = {
+        roundId: match?.mid,
+        winner: match?.winner,
+        winnerData: winnerObj || null,
+        dateAndTime: createdAtIST,
+      };
+    }
+
+    // Fetch all bets of this user for this match
+    const userBets = await CasinoBetRepo.find({
+      where: { userId, matchId: match?.mid as any }
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        matchData: result,
+        userBets,
+      },
+    });
+  } catch (err) {
+    console.error("Error in getCasinoMatchDetails:", err);
+    return res.status(500).json({
+      success: false,
       message: "Internal Server Error",
     });
   }
