@@ -333,14 +333,6 @@ export const getCurrentBet = async (req: Request, res: Response) => {
 
     const [allBets, totalCount] = await currentBetRepo
       .createQueryBuilder("bet")
-      .select([
-        "bet.id",
-        "bet.userId",
-        "bet.status",
-        "bet.betData",
-        "bet.createdAt",
-        "bet.updatedAt"
-      ])
       .where("bet.userId = :userId", { userId })
       .andWhere("bet.betData ->> 'gameSlug' = :slug", { slug })
       .orderBy("bet.createdAt", "DESC")
