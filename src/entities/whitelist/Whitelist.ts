@@ -32,11 +32,11 @@ export class Whitelist {
   @Column({ default: '' })
   AdminUrl!: string;
 
-  // @Column({ default: '' })
-  // ClientUrl!: string;
+  @Column({ default: '' })
+  ClientUrl!: string;
 
-  @Column("text", { array: true, default: () => "ARRAY[]::text[]" })
-  ClientUrls!: string[];
+  // @Column("text", { array: true, default: () => "ARRAY[]::text[]" })
+  // ClientUrls!: string[];
 
   @Column({ default: '' })
   CommonName!: string;

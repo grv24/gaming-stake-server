@@ -37,8 +37,8 @@ export const createWhitelist = async (req: Request, res: Response) => {
       where: [
         { TechAdminUrl: req.body.TechAdminUrl },
         { AdminUrl: req.body.AdminUrl || '' },
-        { ClientUrls: Like(`%${req.body.ClientUrl}%`) || '' }
-        // { ClientUrl: req.body.ClientUrl || '' }
+        // { ClientUrls: Like(`%${req.body.ClientUrl}%`) || '' }
+        { ClientUrl: req.body.ClientUrl || '' }
       ]
     });
 
@@ -201,7 +201,7 @@ export const saveWhitelist = async (req: Request, res: Response) => {
       });
     }
 
-    if (!id && (!whitelistData.TechAdminUrl || !whitelistData.AdminUrl || !whitelistData.ClientUrls)) {
+    if (!id && (!whitelistData.TechAdminUrl || !whitelistData.AdminUrl || !whitelistData.ClientUrl)) {
       return res.status(400).json({
         status: "error",
         message: 'TechAdminUrl, AdminUrl, and ClientUrl are required for new whitelists'
@@ -290,7 +290,8 @@ export const getWhitelistByUrl = async (req: Request, res: Response) => {
 
     const whitelist = await whitelistRepo.findOne({
       where: [
-        { ClientUrls: Like(`%${url}%`) },
+        { ClientUrl: url },
+        // { ClientUrls: Like(`%${url}%`) },
         { AdminUrl: url },
         { TechAdminUrl: url },
       ],
