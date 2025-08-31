@@ -722,17 +722,17 @@ export const getAllClient = async (req: Request, res: Response) => {
         const clientRepo = AppDataSource.getRepository(Client);
 
 
-        const cacheKey = `casino:ab4:current`;
+        // const cacheKey = `casino:ab4:current`;
 
-        // 1. Check Redis for current match
-        const redisClient = getRedisClient();
-        const cachedData = await redisClient.get(cacheKey);
+        // // 1. Check Redis for current match
+        // const redisClient = getRedisClient();
+        // const cachedData = await redisClient.get(cacheKey);
 
-        console.log("************************************************************************");
+        // console.log("************************************************************************");
 
-        console.log(cachedData);
+        // console.log(cachedData);
 
-        console.log("****************************************************************");
+        // console.log("****************************************************************");
 
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
