@@ -4,6 +4,7 @@ import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
+import { Like } from 'typeorm';
 
 export const createWhitelist = async (req: Request, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -36,7 +37,8 @@ export const createWhitelist = async (req: Request, res: Response) => {
       where: [
         { TechAdminUrl: req.body.TechAdminUrl },
         { AdminUrl: req.body.AdminUrl || '' },
-        { ClientUrl: req.body.ClientUrl || '' }
+        { ClientUrls: Like(`%${req.body.ClientUrl}%`) || '' }
+        // { ClientUrl: req.body.ClientUrl || '' }
       ]
     });
 
@@ -56,7 +58,8 @@ export const createWhitelist = async (req: Request, res: Response) => {
 
       TechAdminUrl: req.body.TechAdminUrl,
       AdminUrl: req.body.AdminUrl || '',
-      ClientUrl: req.body.ClientUrl || '',
+      ClientUrls: Array.isArray(req.body.ClientUrl) ? req.body.ClientUrl : 
+            (req.body.ClientUrl ? [req.body.ClientUrl] : []),
       CommonName: req.body.CommonName,
       websiteTitle: req.body.websiteTitle || '',
 
@@ -198,7 +201,7 @@ export const saveWhitelist = async (req: Request, res: Response) => {
       });
     }
 
-    if (!id && (!whitelistData.TechAdminUrl || !whitelistData.AdminUrl || !whitelistData.ClientUrl)) {
+    if (!id && (!whitelistData.TechAdminUrl || !whitelistData.AdminUrl || !whitelistData.ClientUrls)) {
       return res.status(400).json({
         status: "error",
         message: 'TechAdminUrl, AdminUrl, and ClientUrl are required for new whitelists'
@@ -287,7 +290,7 @@ export const getWhitelistByUrl = async (req: Request, res: Response) => {
 
     const whitelist = await whitelistRepo.findOne({
       where: [
-        { ClientUrl: url },
+        { ClientUrls: Like(`%${url}%`) },
         { AdminUrl: url },
         { TechAdminUrl: url },
       ],

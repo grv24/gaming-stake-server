@@ -907,7 +907,8 @@ export const clientLogin = async (req: Request, res: Response) => {
 
         const whiteListRepo = AppDataSource.getRepository(Whitelist);
         const whiteList = await whiteListRepo.findOne({
-            where: { ClientUrl: hostUrl }
+            // where: { ClientUrl: hostUrl }
+            where: { ClientUrls: Like(`%${hostUrl}%`) }
         });
 
         if (!whiteList) {

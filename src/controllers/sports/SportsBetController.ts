@@ -3,6 +3,7 @@ import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { SportBet } from "../../entities/sports/SportBet";
 import { CronDataSource } from "../../corn.server";
+import axios from "axios";
 
 export const createBet = async (req: Request, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -176,397 +177,333 @@ export const getCurrentBet = async (req: Request, res: Response) => {
 }
 
 
-// export const settleUserSportBets = async (req: Request, res: Response) => {
-//   try {
-//     const { eventId, marketId } = req.body;
-//     const userId = req.user?.userId;
+export const settleUserSportBets = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.body; 
+    const userId = req.user?.userId;
     
-//     // Validate input
-//     if (!eventId || !marketId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "eventId and marketId are required in the request body"
-//       });
-//     }
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: "eventId (gmId) is required in the request body"
+      });
+    }
     
-//     if (!userId) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "User authentication required"
-//       });
-//     }
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required"
+      });
+    }
 
-//     const sportBetRepo = CronDataSource.getRepository(SportBet);
+    const sportBetRepo = CronDataSource.getRepository(SportBet);
     
-//     // Fetch results from your third-party source (you might want to cache this)
-//     const results = await fetchThirdPartyResults(eventId);
+    const results = await fetchThirdPartyResults(eventId);
     
-//     if (!results || results.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: `No results found for event ID: ${eventId}`
-//       });
-//     }
+    if (!results || results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No results found for event ID (gmId): ${eventId}`
+      });
+    }
 
-//     // Find the specific result for the requested marketId
-//     const result = results.find((r: any) => {
-//       const resultMarketId = String(r.market_id || r.marketId);
-//       return resultMarketId === String(marketId);
-//     });
+    const pendingBets = await sportBetRepo.find({
+      where: { 
+        eventId: eventId,
+        userId: userId,
+        status: "pending" 
+      }
+    });
 
-//     if (!result) {
-//       return res.status(404).json({
-//         success: false,
-//         message: `Market ID ${marketId} not found in results for event: ${eventId}`
-//       });
-//     }
-      
-//     // Extract final result and market type
-//     const finalResult = result.final_result?.trim();
-//     const marketType = result.market_type;
-//     const marketName = result.market_name;
-    
-//     if (!finalResult) {
-//       return res.status(404).json({
-//         success: false,
-//         message: `Result not determined for market ID ${marketId}`
-//       });
-//     }
+    if (pendingBets.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No pending bets found for this user and event",
+        settledCount: 0,
+        eventId: eventId
+      });
+    }
 
-//     // Find pending bets for this event ID and specific user
-//     const pendingBets = await sportBetRepo.find({
-//       where: { 
-//         eventId: eventId,
-//         userId: userId,
-//         status: "pending" 
-//       }
-//     });
+    let settledCount = 0;
+    let errors = [];
 
-//     if (pendingBets.length === 0) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "No pending bets found for this user and event",
-//         settledCount: 0,
-//         eventId: eventId,
-//         marketId: marketId,
-//         finalResult: finalResult,
-//         marketType: marketType,
-//         userId: userId
-//       });
-//     }
+    for (const bet of pendingBets) {
+      try {
+        if (bet.betData?.result?.settled === true || bet.status !== "pending") {
+          continue;
+        }
 
-//     let settledCount = 0;
-//     let errors = [];
+        const betData = bet.betData || {};
+        const betSelection = betData.name || betData.betName;
+        const betOddType = betData.oddType; 
+        const betSid = betData.sid;
 
-//     for (const bet of pendingBets) {
-//       try {
-//         // Check if bet is already settled to prevent double processing
-//         if (bet.betData?.result?.settled === true || bet.status !== "pending") {
-//           console.log(`[PATCH] Bet ${bet.id} already settled (status: ${bet.status}), skipping`);
-//           continue;
-//         }
+        if (!betSelection) {
+          errors.push({ betId: bet.id, error: "Missing selection name" });
+          continue;
+        }
 
-//         const betData = bet.betData || {};
-//         const betSelection = betData.name || betData.betName;
-//         const betMarketType = betData.marketType || marketType;
-//         const betSid = betData.sid;
+        // Find the correct result based on the bet type and selection
+        const result = findMatchingResult(results, betData, betSelection, betOddType);
+        
+        if (!result) {
+          errors.push({ 
+            betId: bet.id, 
+            error: `No matching result found for bet: ${betSelection} (Type: ${betOddType})` 
+          });
+          continue;
+        }
 
-//         if (!betSelection) {
-//           console.log(`[PATCH] Bet ${bet.id} has no selection name, skipping result update`);
-//           errors.push({ betId: bet.id, error: "No selection name found" });
-//           continue;
-//         }
+        // Check if result is declared and not rolled back
+        if (!result.is_declared || result.is_roleback) {
+          errors.push({ 
+            betId: bet.id, 
+            error: `Market ${result.market_id} not declared or rolled back` 
+          });
+          continue;
+        }
 
-//         // Use a transaction for each bet
-//         await CronDataSource.transaction(async (transactionalEntityManager) => {
-//           // First, check if bet is still pending with a lock to prevent race conditions
-//           const currentBet = await transactionalEntityManager.findOne(SportBet, {
-//             where: { id: bet.id, status: "pending", userId: userId },
-//             lock: { mode: "pessimistic_write" }
-//           });
+        const finalResult = result.final_result?.trim();
+        const marketType = result.market_type;
+        const marketName = result.market_name;
+        
+        if (!finalResult) {
+          errors.push({ 
+            betId: bet.id, 
+            error: `No final result for market ${result.market_id}` 
+          });
+          continue;
+        }
 
-//           if (!currentBet) {
-//             console.log(`[PATCH] Bet ${bet.id} no longer pending, skipping`);
-//             return;
-//           }
+        // Use transaction for each bet
+        await CronDataSource.transaction(async (transactionalEntityManager) => {
+          // Lock bet and user to prevent race conditions
+          const currentBet = await transactionalEntityManager.findOne(SportBet, {
+            where: { id: bet.id, status: "pending", userId: userId },
+            lock: { mode: "pessimistic_write" }
+          });
 
-//           // Find user with lock
-//           const user: any = await transactionalEntityManager.findOne(USER_TABLES.sports, {
-//             where: { id: userId },
-//             lock: { mode: "pessimistic_write" }
-//           });
+          if (!currentBet) return;
 
-//           if (!user) {
-//             console.log(`[PATCH] User ${userId} not found for bet ${bet.id}`);
-//             errors.push({ betId: bet.id, error: "User not found" });
-//             return;
-//           }
+          const user: any = await transactionalEntityManager.findOne(USER_TABLES.sports, {
+            where: { id: userId },
+            lock: { mode: "pessimistic_write" }
+          });
 
-//           const stakeAmount = Number(betData.stake) || 0;
-//           let newStatus: "won" | "lost" = "lost";
-//           let profitLoss = 0;
+          if (!user) {
+            errors.push({ betId: bet.id, error: "User not found" });
+            return;
+          }
 
-//           // Determine if bet won based on market type
-//           let isWinner = determineBetWinner(
-//             betSelection,
-//             finalResult,
-//             marketType,
-//             marketName,
-//             betData,
-//             betSid
-//           );
+          const stakeAmount = Number(betData.stake) || 0;
+          let newStatus: "won" | "lost" = "lost";
+          let profitLoss = 0;
 
-//           if (isWinner) {
-//             newStatus = "won";
-//             profitLoss = Number(betData.profit) || 0;
-//             user.balance = Number(user.balance) + profitLoss;
-//           } else {
-//             newStatus = "lost";
-//             profitLoss = Number(betData.loss) || 0;
-//             user.balance = Number(user.balance) - profitLoss;
-//           }
+          // Determine if bet won based on market type and bet selection
+          let isWinner = determineBetWinner(betSelection, finalResult, marketType, marketName, betOddType, betSid);
 
-//           // Update exposure (subtract stake amount)
-//           user.exposure = Number(user.exposure) - stakeAmount;
+          if (isWinner) {
+            newStatus = "won";
+            profitLoss = Number(betData.profit) || 0;
+            user.balance = Number(user.balance) + profitLoss;
+          } else {
+            newStatus = "lost";
+            profitLoss = Number(betData.loss) || 0;
+            user.balance = Number(user.balance) - profitLoss;
+          }
 
-//           // Update bet status and result data
-//           await transactionalEntityManager.update(SportBet, { id: bet.id }, {
-//             status: newStatus,
-//             betData: {
-//               ...betData,
-//               result: {
-//                 marketId: marketId,
-//                 marketName: marketName,
-//                 marketType: marketType,
-//                 finalResult: finalResult,
-//                 settledAt: new Date(),
-//                 profitLoss: profitLoss,
-//                 stake: stakeAmount,
-//                 betRate: betData.betRate || betData.matchOdd || 1,
-//                 status: newStatus,
-//                 settled: true,
-//                 isWinner: isWinner
-//               }
-//             }
-//           });
+          user.exposure = Number(user.exposure) - stakeAmount;
+
+          // Update bet status
+          await transactionalEntityManager.update(SportBet, { id: bet.id }, {
+            status: newStatus,
+            betData: {
+              ...betData,
+              result: {
+                marketId: result.market_id,
+                marketName: marketName,
+                marketType: marketType,
+                finalResult: finalResult,
+                settledAt: new Date(),
+                profitLoss: profitLoss,
+                stake: stakeAmount,
+                betRate: betData.betRate || betData.matchOdd || 1,
+                status: newStatus,
+                settled: true,
+                isWinner: isWinner
+              }
+            }
+          });
           
-//           // Update user balance after bet is marked as settled
-//           await transactionalEntityManager.save(user);
+          // Update user balance
+          await transactionalEntityManager.save(user);
 
-//           console.log(`[PATCH] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
-//           settledCount++;
-//         });
-//       } catch (error: any) {
-//         console.error(`[PATCH] Error processing bet ${bet.id}:`, error);
-//         errors.push({ betId: bet.id, error: error.message });
-//       }
-//     }
+          settledCount++;
+        });
+      } catch (error: any) {
+        errors.push({ betId: bet.id, error: error.message });
+      }
+    }
 
-//     return res.status(200).json({
-//       success: true,
-//       message: `Settlement completed for user ${userId} on event ${eventId}, market ${marketId}`,
-//       settledCount,
-//       errorCount: errors.length,
-//       eventId: eventId,
-//       marketId: marketId,
-//       finalResult: finalResult,
-//       marketType: marketType,
-//       userId: userId,
-//       errors: errors.length > 0 ? errors : undefined
-//     });
+    return res.status(200).json({
+      success: true,
+      message: `Settlement completed for event ${eventId}`,
+      settledCount,
+      errorCount: errors.length,
+      eventId: eventId,
+      totalBets: pendingBets.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
 
-//   } catch (error: any) {
-//     console.error(`[PATCH] Error in settleUserSportBets:`, error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error during settlement",
-//       error: error.message
-//     });
-//   }
-// };
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during settlement",
+      error: error.message
+    });
+  }
+};
 
-// // Comprehensive function to determine winner for all market types
-// function determineBetWinner(
-//   betSelection: string,
-//   finalResult: string,
-//   marketType: string,
-//   marketName: string,
-//   betData: any,
-//   betSid: string
-// ): boolean {
-//   const betSelectionLower = betSelection.toLowerCase();
-//   const finalResultLower = finalResult.toLowerCase();
-//   const marketNameLower = marketName.toLowerCase();
+// Helper function to find the matching result for a bet
+function findMatchingResult(results: any[], betData: any, betSelection: string, betOddType: string) {
+  const betSelectionLower = betSelection.toLowerCase();
+  
+  // For MATCH_ODDS and Bookmaker markets (team selection)
+  if (betOddType === "MATCH_ODDS" || betOddType === "Bookmaker") {
+    return results.find(r => 
+      r.market_type === betOddType &&
+      r.final_result && 
+      r.final_result.trim() !== "" &&
+      betSelectionLower.includes(r.final_result.toLowerCase())
+    );
+  }
+  
+  // For odd/even markets
+  if (betSelectionLower.includes("odd") || betSelectionLower.includes("even")) {
+    return results.find(r => 
+      r.market_type === "oddeven" && 
+      r.final_result && 
+      r.final_result.trim() !== ""
+    );
+  }
+  
+  // For player performance markets (runs, boundaries)
+  if (betSelectionLower.includes("run") || betSelectionLower.includes("boundary")) {
+    // Try to find a result with matching player name
+    return results.find(r => 
+      r.market_name && 
+      r.market_name.toLowerCase().includes(betSelectionLower) &&
+      r.final_result && 
+      r.final_result.trim() !== ""
+    );
+  }
+  
+  // For over/innings runs markets
+  if (betSelectionLower.includes("over") || betSelectionLower.includes("inn")) {
+    // Try to find matching market based on the bet selection context
+    return results.find(r => 
+      r.market_name && 
+      r.market_name.toLowerCase().includes(betSelectionLower) &&
+      r.final_result && 
+      r.final_result.trim() !== ""
+    );
+  }
+  
+  // Default: return the first valid result that matches the context
+  return results.find(r => r.final_result && r.final_result.trim() !== "");
+}
 
-//   // Handle odd/even markets
-//   if (marketType === "oddeven") {
-//     const betIsOdd = betSelectionLower.includes("odd");
-//     const resultIsOdd = finalResultLower.includes("odd");
-//     return betIsOdd === resultIsOdd;
-//   }
-
-//   // Handle numeric result markets
-//   const numericResult = parseInt(finalResult);
-//   if (!isNaN(numericResult)) {
+// Helper function to determine if a bet wins
+function determineBetWinner(
+  betSelection: string, 
+  finalResult: string, 
+  marketType: string, 
+  marketName: string,
+  betOddType: string,
+  betSid: string
+): boolean {
+  const betSelectionLower = betSelection.toLowerCase();
+  const finalResultLower = finalResult.toLowerCase();
+  const marketNameLower = marketName.toLowerCase();
+  
+  // Handle odd/even markets
+  if (marketType === "oddeven") {
+    const betIsOdd = betSelectionLower.includes("odd");
+    const resultIsOdd = finalResultLower.includes("odd");
+    return betIsOdd === resultIsOdd;
+  }
+  
+  // Handle MATCH_ODDS and Bookmaker markets (team winner)
+  if (marketType === "MATCH_ODDS" || marketType === "Bookmaker") {
+    return betSelectionLower.includes(finalResultLower);
+  }
+  
+  // Handle numeric result markets
+  const numericResult = parseInt(finalResult);
+  if (!isNaN(numericResult)) {
     
-//     // Handle "Number" markets (0-9 number selection)
-//     if (marketType.includes("INN") && marketNameLower.includes("number")) {
-//       const selectedNumber = parseInt(betSelection.match(/\d+/)?.[0] || "-1");
-//       const resultLastDigit = numericResult % 10;
-//       return selectedNumber === resultLastDigit;
-//     }
-
-//     // Handle over runs markets (like "6 over runs LF")
-//     if (marketNameLower.includes("over run") || marketNameLower.includes("over runs")) {
-//       return determineOverRunWinner(betSelectionLower, numericResult, marketNameLower);
-//     }
-
-//     // Handle player performance markets
-//     if (marketNameLower.includes("run") && 
-//         (marketNameLower.includes("player") || marketNameLower.includes("batsman"))) {
-//       return determinePlayerRunWinner(betSelectionLower, numericResult, betData);
-//     }
-
-//     // Handle boundaries markets
-//     if (marketNameLower.includes("boundaries") || marketNameLower.includes("boundary")) {
-//       return determineBoundariesWinner(betSelectionLower, numericResult, betData);
-//     }
-
-//     // Handle partnership/wicket markets
-//     if (marketNameLower.includes("wkt") || marketNameLower.includes("partnership") || 
-//         marketNameLower.includes("pship")) {
-//       return determinePartnershipWinner(betSelectionLower, numericResult, betData);
-//     }
-
-//     // Handle fall of wicket markets
-//     if (marketNameLower.includes("fall of") && marketNameLower.includes("wkt")) {
-//       return determineFallOfWicketWinner(betSelectionLower, numericResult, betData);
-//     }
-
-//     // Default numeric comparison (exact match)
-//     const betValue = parseInt(betSelection.match(/\d+/)?.[0] || "0");
-//     return numericResult === betValue;
-//   }
-
-//   // Handle non-numeric results or other market types
-//   return betSelectionLower === finalResultLower;
-// }
-
-// // Helper functions for specific market types
-// function determineOverRunWinner(betSelection: string, numericResult: number, marketName: string): boolean {
-//   // Extract over number from market name (e.g., "6 over runs LF" -> 6)
-//   const overMatch = marketName.match(/(\d+)\s*over/);
-//   if (overMatch) {
-//     const overNumber = parseInt(overMatch[1]);
-//     // For over/under markets, you might have different logic
-//     // This assumes exact match for now
-//     return numericResult === parseInt(betSelection.match(/\d+/)?.[0] || "0");
-//   }
-//   return false;
-// }
-
-// function determinePlayerRunWinner(betSelection: string, numericResult: number, betData: any): boolean {
-//   // For player run markets, typically it's about reaching a certain threshold
-//   // You might have over/under logic based on bet data
-//   const targetRun = parseInt(betData.targetRun) || 0;
-//   return numericResult >= targetRun;
-// }
-
-// function determineBoundariesWinner(betSelection: string, numericResult: number, betData: any): boolean {
-//   // For boundaries markets
-//   const boundariesTarget = parseInt(betData.targetBoundaries) || 0;
-//   return numericResult >= boundariesTarget;
-// }
-
-// function determinePartnershipWinner(betSelection: string, numericResult: number, betData: any): boolean {
-//   // For partnership runs markets
-//   const partnershipTarget = parseInt(betData.targetPartnership) || 0;
-//   return numericResult >= partnershipTarget;
-// }
-
-// function determineFallOfWicketWinner(betSelection: string, numericResult: number, betData: any): boolean {
-//   // For fall of wicket markets (runs at which wicket fell)
-//   const wicketFallTarget = parseInt(betData.targetWicketFall) || 0;
-//   return numericResult >= wicketFallTarget;
-// }
-
-// // Function to fetch third-party results (implement based on your data source)
-// async function fetchThirdPartyResults(eventId: string): Promise<any[]> {
-//   // Implement your logic to fetch results from your third-party source
-//   // This could be from an API, database, or Redis cache
-//   // For now, return an empty array as placeholder
-//   return [];
-// }
-
-// // Additional function to settle all markets for an event
-// export const settleAllEventMarkets = async (req: Request, res: Response) => {
-//   try {
-//     const { eventId } = req.body;
-//     const userId = req.user?.userId;
+    // For number selection markets (like "3 Number")
+    if (marketNameLower.includes("number")) {
+      const selectedNumber = parseInt(betSelection.match(/\d+/)?.[0] || "-1");
+      const resultLastDigit = numericResult % 10;
+      return selectedNumber === resultLastDigit;
+    }
     
-//     if (!eventId || !userId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "eventId and userId are required"
-//       });
-//     }
+    // For player run markets
+    if (marketNameLower.includes("run") && !marketNameLower.includes("over")) {
+      // This assumes the bet was placed on "Over X runs" or similar
+      // You might need to adjust based on your actual bet placement logic
+      const targetRun = parseInt(betSelection.match(/\d+/)?.[0] || "0");
+      return numericResult >= targetRun;
+    }
+    
+    // For over run markets
+    if (marketNameLower.includes("over run")) {
+      const targetRun = parseInt(betSelection.match(/\d+/)?.[0] || "0");
+      return numericResult === targetRun;
+    }
+  }
+  
+  // For Yes/No markets (like TIED_MATCH)
+  if (marketType === "TIED_MATCH") {
+    if (betSelectionLower === "yes") {
+      return finalResultLower !== "0";
+    } else if (betSelectionLower === "no") {
+      return finalResultLower === "0";
+    }
+  }
+  
+  return betSelectionLower === finalResultLower;
+}
 
-//     const results = await fetchThirdPartyResults(eventId);
-//     if (!results || results.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: `No results found for event ID: ${eventId}`
-//       });
-//     }
+async function fetchThirdPartyResults(eventId: string): Promise<any[]> {
+  try {
+    const thirdPartyApiUrl = `${process.env.THIRD_PARTY_URL}/api/v2/diamondResults?eventId=${eventId}`;
+    
+    const response = await axios.get(thirdPartyApiUrl, {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
 
-//     let totalSettled = 0;
-//     const settlementResults = [];
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    if (response.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+    
+    if (response.data && Array.isArray(response.data.results)) {
+      return response.data.results;
+    }
 
-//     for (const result of results) {
-//       if (result.is_declared && !result.is_roleback) {
-//         try {
-//           // Mock request object for internal call
-//           const mockReq = {
-//             body: { eventId, marketId: result.market_id },
-//             user: { userId }
-//           } as any;
-          
-//           const mockRes = {
-//             status: (code: number) => ({
-//               json: (data: any) => {
-//                 settlementResults.push({
-//                   marketId: result.market_id,
-//                   status: code,
-//                   data
-//                 });
-//                 if (data.settledCount) totalSettled += data.settledCount;
-//               }
-//             })
-//           } as any;
+    console.error('Unexpected API response format:', response.data);
+    return [];
 
-//           await settleUserSportBets(mockReq, mockRes);
-//         } catch (error: any) {
-//           settlementResults.push({
-//             marketId: result.market_id,
-//             error: error.message
-//           });
-//         }
-//       }
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Bulk settlement completed for event ${eventId}`,
-//       totalSettled,
-//       totalMarkets: results.length,
-//       results: settlementResults
-//     });
-//   } catch (error: any) {
-//     console.error(`[PATCH] Error in settleAllEventMarkets:`, error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error during bulk settlement",
-//       error: error.message
-//     });
-//   }
-// };
+  } catch (error: any) {
+    console.error('Error fetching results from third-party API:', error.message);
+    return [];
+  }
+}
