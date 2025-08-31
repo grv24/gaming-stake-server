@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCasinoData, getCasinoResults } from "../../controllers/casino/CasinoOdds";
+import { getCasinoData, getCasinoHistory, getCasinoResults } from "../../controllers/casino/CasinoOdds";
 import {
     createCasino,
     getAllCasinos,
@@ -11,6 +11,7 @@ import { casinoResult, createBet, getCurrentBet, settleUserCasinoBets } from "..
 import { clientAuth } from "../../middlewares/RoleAuth";
 
 const router = Router();
+
 
 router.get("/results", clientAuth, casinoResult);
 router.get("/current-bet", clientAuth, getCurrentBet);
@@ -25,5 +26,7 @@ router.put("/:id", updateCasino);
 router.delete("/:id", deleteCasino);
 
 router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
+
+router.get("/history", clientAuth, getCasinoHistory);
 
 export default router;
