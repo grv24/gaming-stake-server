@@ -28,4 +28,7 @@ export class CasinoMatch {
 
     @UpdateDateColumn({ type: "timestamp" })
     updatedAt!: Date;
+
+    @Column({ type: "jsonb", nullable: true , default: null})
+    result: any;
 }

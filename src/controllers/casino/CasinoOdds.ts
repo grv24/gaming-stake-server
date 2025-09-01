@@ -109,11 +109,6 @@ export const getCasinoResults = async (req: Request, res: Response) => {
   }
 };
 
-const TYPE_1 = ["aaa", "abj", "baccarat2", "card32eu", "dt20", "dt202", "dt6", "lucky7eu", "poker", "poker20", "teen", "teen8", "teen9", "war"];
-const TYPE_2 = ["btable2", "goal", "joker1", "joker20", "lottcard", "lucky5", "teen20c", "teenmuf"];
-const TYPE_3 = ["poker6", "teen20"];
-const TYPE_4 = ["ab4"];
-
 export const getCasinoHistory = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -129,134 +124,51 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
     const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
 
-    // Build bet filter
     const betFilter: any = {
       userId,
       betData: { gameSlug: slug as string },
     };
 
-    // Pagination setup
     const take = Number(limit);
     const skip = (Number(page) - 1) * take;
 
-    // Fetch bets with pagination
     const placedBets = await CasinoBetRepo.find({
       where: betFilter,
       skip,
       take,
     });
 
-    // If single date filter is applied
     let matchDateFilter: any = {};
     if (date) {
-      const targetDate = date as string; // e.g. "2025-08-30"
+      const targetDate = date as string; 
       const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
       const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
 
       matchDateFilter.createdAt = Between(startOfDay, endOfDay);
     }
 
-    // Fetch related matches
     let matches = null;
 
-    if (TYPE_1.includes(slug as any)) {
-      matches = await Promise.all(
-        placedBets.map(async (bet) => {
-          const match = await CasinoMatchRepo.findOne({
-            where: { mid: bet.matchId, ...matchDateFilter },
-          });
+    matches = await Promise.all(
+      placedBets.map(async (bet) => {
+        const match = await CasinoMatchRepo.findOne({
+          where: { mid: bet.matchId, ...matchDateFilter },
+        });
 
-          if (!match) return null;
+        if (!match) return null;
 
-          const winnerObj = match?.data?.t2?.find(
-            (item: any) => item?.sid === match?.winner
-          );
+        const createdAtIST = new Date(match.createdAt)
+          .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-          const createdAtIST = new Date(match.createdAt)
-            .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-          return {
-            roundId: match.mid,
-            winner: match.winner,
-            winnerData: winnerObj || null,
-            dateAndTime: createdAtIST,
-            myBetDetails: bet.betData
-          };
-        })
-      );
-    } else if (TYPE_2.includes(slug as any)) {
-      matches = await Promise.all(
-        placedBets.map(async (bet) => {
-          const match = await CasinoMatchRepo.findOne({
-            where: { mid: bet.matchId, ...matchDateFilter },
-          });
-
-          if (!match) return null;
-
-          const winnerObj = match?.data?.sub?.find(
-            (item: any) => item.sid == match.winner
-          );
-
-          const createdAtIST = new Date(match.createdAt)
-            .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-          return {
-            roundId: match.mid,
-            winner: match.winner,
-            winnerData: winnerObj || null,
-            dateAndTime: createdAtIST,
-            myBetDetails: bet.betData
-
-          };
-        })
-      );
-    } else if (TYPE_3.includes(slug as any)) {
-      matches = await Promise.all(
-        placedBets.map(async (bet) => {
-          const match = await CasinoMatchRepo.findOne({
-            where: { mid: bet.matchId, ...matchDateFilter },
-          });
-
-          if (!match) return null;
-
-          const createdAtIST = new Date(match.createdAt)
-            .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-          return {
-            roundId: match.mid,
-            winner: match.winner,
-            winnerData: match.data,
-            dateAndTime: createdAtIST,
-            myBetDetails: bet.betData
-          };
-        })
-      );
-    } else if (TYPE_4.includes(slug as any)) {
-      matches = await Promise.all(
-        placedBets.map(async (bet) => {
-          const match = await CasinoMatchRepo.findOne({
-            where: { mid: bet.matchId, ...matchDateFilter },
-          });
-
-          if (!match) return null;
-
-          const winnerObj = match?.data?.child?.find(
-            (item: any) => item.sid == match.winner
-          );
-
-          const createdAtIST = new Date(match.createdAt)
-            .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-          return {
-            roundId: match.mid,
-            winner: match.winner,
-            winnerData: winnerObj || null,
-            dateAndTime: createdAtIST,
-            myBetDetails: bet.betData
-          };
-        })
-      );
-    }
+        return {
+          roundId: match.mid,
+          winner: match.winner,
+          winnerData: match.data,
+          dateAndTime: createdAtIST,
+          myBetDetails: bet.betData
+        };
+      })
+    );
 
     matches = matches?.filter((m) => m !== null);
 
@@ -302,7 +214,6 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch the match
     const match = await CasinoMatchRepo.findOne({
       where: { mid: matchId },
     });
@@ -316,69 +227,16 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
 
     let result = null;
 
-    if (TYPE_1.includes(match?.casinoType as any)) {
+
+    const createdAtIST = new Date(match?.createdAt)
+      .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+    result = {
+      result: match.result,
+      dateAndTime: createdAtIST,
+    };
 
 
-      const winnerObj = match?.data?.t2?.find(
-        (item: any) => item?.sid === match?.winner
-      );
-
-      const createdAtIST = new Date(match.createdAt)
-        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-      result = {
-        roundId: match?.mid,
-        winner: match?.winner,
-        winnerData: winnerObj || null,
-        dateAndTime: createdAtIST,
-      };
-
-    } else if (TYPE_2.includes(match?.casinoType as any)) {
-
-      const winnerObj = match?.data?.sub?.find(
-        (item: any) => item.sid == match?.winner
-      );
-
-      const createdAtIST = new Date(match?.createdAt)
-        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-      result = {
-        roundId: match?.mid,
-        winner: match?.winner,
-        winnerData: winnerObj || null,
-        dateAndTime: createdAtIST,
-      };
-
-    } else if (TYPE_3.includes(match?.casinoType as any)) {
-
-      const createdAtIST = new Date(match?.createdAt)
-        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-      result = {
-        roundId: match?.mid,
-        winner: match?.winner,
-        winnerData: match?.data,
-        dateAndTime: createdAtIST,
-      };
-
-    } else if (TYPE_4.includes(match?.casinoType as any)) {
-
-      const winnerObj = match?.data?.child?.find(
-        (item: any) => item?.sid == match?.winner
-      );
-
-      const createdAtIST = new Date(match.createdAt)
-        .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-      result = {
-        roundId: match?.mid,
-        winner: match?.winner,
-        winnerData: winnerObj || null,
-        dateAndTime: createdAtIST,
-      };
-    }
-
-    // Fetch all bets of this user for this match
     const userBets = await CasinoBetRepo.find({
       where: { userId, matchId: match?.mid as any }
     });
