@@ -429,26 +429,43 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
             winner = t1Data.win;
           }
 
-          // Create or update casinoMatch record using upsert
+          // Create or update casinoMatch record
           if (resultData && winner) {
-            // Use upsert to handle both insert and update scenarios
-            await casinoMatchRepo.upsert(
-              {
-                mid,
-                casinoType,
-                winner,
-                result: resultData
-              },
-              {
-                conflictPaths: ['mid', 'casinoType'], // Handle unique constraint on mid and casinoType combination
-                skipUpdateIfNoValuesChanged: false // Update even if values are the same to ensure we have the latest data
+            try {
+              if (casinoMatch) {
+                // Update existing record
+                casinoMatch.result = resultData;
+                casinoMatch.winner = winner;
+                await casinoMatchRepo.save(casinoMatch);
+              } else {
+                // Create new record with duplicate handling
+                casinoMatch = casinoMatchRepo.create({
+                  mid,
+                  casinoType,
+                  winner,
+                  result: resultData
+                });
+                await casinoMatchRepo.save(casinoMatch);
               }
-            );
-            
-            // Refresh the casinoMatch variable after upsert
-            casinoMatch = await casinoMatchRepo.findOne({
-              where: { mid, casinoType }
-            });
+            } catch (saveError: any) {
+              // Handle duplicate key error (race condition)
+              if (saveError.code === '23505' || saveError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                console.log(`Duplicate key detected for mid ${mid}, fetching existing record`);
+                // Record already exists, fetch it
+                casinoMatch = await casinoMatchRepo.findOne({
+                  where: { mid, casinoType }
+                });
+                
+                // If the existing record has no result, update it
+                if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
+                  casinoMatch.result = resultData;
+                  casinoMatch.winner = winner;
+                  await casinoMatchRepo.save(casinoMatch);
+                }
+              } else {
+                throw saveError;
+              }
+            }
           }
         }
       } catch (apiError: any) {
