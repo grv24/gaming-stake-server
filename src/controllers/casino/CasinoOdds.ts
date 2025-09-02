@@ -114,6 +114,8 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { slug, page = 1, limit = 10, date } = req.query;
 
+    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+
     if (!slug) {
       return res.status(400).json({
         status: "error",

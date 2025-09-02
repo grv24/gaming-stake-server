@@ -429,8 +429,6 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
             winner = t1Data.win;
           }
 
-                  console.log("*******************");
-          console.log(resultData);
           // Create or update casinoMatch record
           if (resultData && winner) {
             try {

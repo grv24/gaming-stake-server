@@ -18,6 +18,10 @@ router.get("/current-bet", clientAuth, getCurrentBet);
 router.get("/odds", getCasinoData);
 router.get("/getCasinoTopTenResult", getCasinoResults);
 router.post("/place-bet", clientAuth, createBet);
+router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
+
+router.get("/history", clientAuth, getCasinoHistory);
+router.get("/match-details", clientAuth, getCasinoMatchDetails);
 
 router.post("/", createCasino);
 router.get("/", getAllCasinos);
@@ -25,9 +29,5 @@ router.get("/:id", getCasinoById);
 router.put("/:id", updateCasino);
 router.delete("/:id", deleteCasino);
 
-router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
-
-router.get("/history", clientAuth, getCasinoHistory);
-router.get("/match-details", clientAuth, getCasinoMatchDetails);
 
 export default router;
