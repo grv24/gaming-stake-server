@@ -10,6 +10,7 @@ import {
 } from "../../services/sports/SportService";
 // import { addEventToMonitor, isEventMonitored, getMonitoredEvents, removeEventFromMonitor } from "../../cron/SportsCronJob";
 import { getOddsFromRedis, processOddsData } from "../../services/sports/OddsService";
+import axios from "axios";
 
 // Controller to get cricket data
 export const getCricketData = async (req: Request, res: Response) => {
@@ -205,6 +206,28 @@ export const getFIlteredData = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch odds data'
+    });
+  }
+};
+
+export const getCricketScore = async (req: Request, res: Response) => {
+  try {
+
+    const { eventId } = req.body;
+
+    const freshData = await axios(`${process.env.THIRD_PARTY_URL}/api/new/cricketnew?eventid=${eventId}`);
+
+    return res.json({
+      success: true,
+      data: freshData.data,
+      message: "Fetched cricket score succesfully"
+    });
+
+  } catch (error) {
+    console.error('Error getting cricket score:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch cricket score'
     });
   }
 };
