@@ -407,9 +407,6 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         // Fetch result from 3rd party API
         const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`);
         
-        console.log("*******************");
-        console.log(response);
-
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
           
@@ -432,6 +429,8 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
             winner = t1Data.win;
           }
 
+                  console.log("*******************");
+          console.log(resultData);
           // Create or update casinoMatch record
           if (resultData && winner) {
             try {
@@ -554,7 +553,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           }
 
           // Find user with lock
-          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.betData.gameSlug], {
+          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.userType as any], {
             where: { id: userId },
             lock: { mode: "pessimistic_write" }
           });
