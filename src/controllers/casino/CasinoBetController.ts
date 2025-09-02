@@ -407,6 +407,9 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         // Fetch result from 3rd party API
         const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`);
         
+        console.log("*******************");
+        console.log(response);
+
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
           
