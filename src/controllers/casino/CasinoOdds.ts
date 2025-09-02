@@ -5,7 +5,7 @@ import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { ALTERNATIVE_API_CASINO_TYPES, DIFF_STRUCT_CASINO_TYPES } from "../../Helpers/Request/Validation";
-import { Between } from "typeorm";
+import { Between, JsonContains } from "typeorm";
 
 export const getCasinoData = async (req: Request, res: Response) => {
   try {
@@ -127,13 +127,11 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     const take = Number(limit);
     const skip = (Number(page) - 1) * take;
 
-    // Use QueryBuilder to properly query JSON fields
-    const queryBuilder = CasinoBetRepo.createQueryBuilder("bet")
-      .where("bet.userId = :userId", { userId })
-      .andWhere("bet.betData->>'gameSlug' = :slug", { slug })
-      .orderBy("bet.createdAt", "DESC")
-      .skip(skip)
-      .take(take);
+    // First, try the JsonContains approach
+    const whereConditions: any = {
+      userId,
+      betData: JsonContains({ gameSlug: slug as string })
+    };
 
     // Add date filter if provided
     if (date) {
@@ -141,13 +139,15 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
       const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
       
-      queryBuilder.andWhere("bet.createdAt BETWEEN :start AND :end", {
-        start: startOfDay,
-        end: endOfDay
-      });
+      whereConditions.createdAt = Between(startOfDay, endOfDay);
     }
 
-    const placedBets = await queryBuilder.getMany();
+    const [placedBets, totalCount] = await CasinoBetRepo.findAndCount({
+      where: whereConditions,
+      skip,
+      take,
+      order: { createdAt: "DESC" }
+    });
 
     // Get match details for each bet
     const matches = await Promise.all(
@@ -173,37 +173,30 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
 
     const filteredMatches = matches.filter((m) => m !== null);
 
-    // Get total count for pagination
-    const countQuery = CasinoBetRepo.createQueryBuilder("bet")
-      .where("bet.userId = :userId", { userId })
-      .andWhere("bet.betData->>'gameSlug' = :slug", { slug });
-
-    if (date) {
-      const targetDate = date as string;
-      const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
-      const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
-      
-      countQuery.andWhere("bet.createdAt BETWEEN :start AND :end", {
-        start: startOfDay,
-        end: endOfDay
-      });
-    }
-
-    const totalCount = await countQuery.getCount();
-
     return res.status(200).json({
       status: "success",
       message: "Casino history fetched successfully",
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        count: totalCount,
+        count: placedBets.length,
+        totalCount: totalCount,
         totalPages: Math.ceil(totalCount / take)
       },
       results: filteredMatches,
     });
   } catch (err: any) {
     console.error("Error in getCasinoHistory:", err);
+    
+    // If JsonContains fails, fall back to string matching
+    if (err.message.includes("JSON") || err.message.includes("json")) {
+      // Implement fallback solution here
+      return res.status(500).json({
+        status: "error",
+        message: "JSON query issue. Please check database configuration.",
+      });
+    }
+    
     return res.status(500).json({
       status: "error",
       message: "Internal Server Error",
