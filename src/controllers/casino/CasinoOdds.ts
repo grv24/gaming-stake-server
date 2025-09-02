@@ -114,8 +114,6 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { slug, page = 1, limit = 10, date } = req.query;
 
-    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-
     if (!slug) {
       return res.status(400).json({
         status: "error",
@@ -126,35 +124,36 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
     const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
 
-    const betFilter: any = {
-      userId,
-      betData: { gameSlug: slug as string },
-    };
-
     const take = Number(limit);
     const skip = (Number(page) - 1) * take;
 
-    const placedBets = await CasinoBetRepo.find({
-      where: betFilter,
-      skip,
-      take,
-    });
+    // Use QueryBuilder to properly query JSON fields
+    const queryBuilder = CasinoBetRepo.createQueryBuilder("bet")
+      .where("bet.userId = :userId", { userId })
+      .andWhere("bet.betData->>'gameSlug' = :slug", { slug })
+      .orderBy("bet.createdAt", "DESC")
+      .skip(skip)
+      .take(take);
 
-    let matchDateFilter: any = {};
+    // Add date filter if provided
     if (date) {
-      const targetDate = date as string; 
+      const targetDate = date as string;
       const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
       const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
-
-      matchDateFilter.createdAt = Between(startOfDay, endOfDay);
+      
+      queryBuilder.andWhere("bet.createdAt BETWEEN :start AND :end", {
+        start: startOfDay,
+        end: endOfDay
+      });
     }
 
-    let matches = null;
+    const placedBets = await queryBuilder.getMany();
 
-    matches = await Promise.all(
+    // Get match details for each bet
+    const matches = await Promise.all(
       placedBets.map(async (bet) => {
         const match = await CasinoMatchRepo.findOne({
-          where: { mid: bet.matchId, ...matchDateFilter },
+          where: { mid: bet.matchId }
         });
 
         if (!match) return null;
@@ -172,7 +171,25 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       })
     );
 
-    matches = matches?.filter((m) => m !== null);
+    const filteredMatches = matches.filter((m) => m !== null);
+
+    // Get total count for pagination
+    const countQuery = CasinoBetRepo.createQueryBuilder("bet")
+      .where("bet.userId = :userId", { userId })
+      .andWhere("bet.betData->>'gameSlug' = :slug", { slug });
+
+    if (date) {
+      const targetDate = date as string;
+      const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
+      const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
+      
+      countQuery.andWhere("bet.createdAt BETWEEN :start AND :end", {
+        start: startOfDay,
+        end: endOfDay
+      });
+    }
+
+    const totalCount = await countQuery.getCount();
 
     return res.status(200).json({
       status: "success",
@@ -180,9 +197,10 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        count: (matches || [])?.length || 0,
+        count: totalCount,
+        totalPages: Math.ceil(totalCount / take)
       },
-      results: matches,
+      results: filteredMatches,
     });
   } catch (err: any) {
     console.error("Error in getCasinoHistory:", err);
