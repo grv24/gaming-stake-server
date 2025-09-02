@@ -99,39 +99,39 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       }
     }
 
-    // if (results.length > 0) {
-    //   for (const r of results) {
-    //     const resultMid = String(r.mid || r.matchId);
-    //     const winner = r.win || r.result || r.winner;
+    if (results.length > 0) {
+      for (const r of results) {
+        const resultMid = String(r.mid || r.matchId);
+        const winner = r.win || r.result || r.winner;
 
-    //     if (!resultMid) {
-    //       // console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
-    //       continue;
-    //     }
+        if (!resultMid) {
+          // console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+          continue;
+        }
 
-    //     await matchRepo.upsert(
-    //       {
-    //         mid: resultMid,
-    //         casinoType,
-    //         winner: String(winner),
-    //       },
-    //       ["mid"]
-    //     );
+        // await matchRepo.upsert(
+        //   {
+        //     mid: resultMid,
+        //     casinoType,
+        //     winner: String(winner),
+        //   },
+        //   ["mid"]
+        // );
 
-    //     await updateCasinoBetsWithResult(
-    //       resultMid,
-    //       String(winner),
-    //       casinoBetRepo
-    //     );
-    //   }
+        // await updateCasinoBetsWithResult(
+        //   resultMid,
+        //   String(winner),
+        //   casinoBetRepo
+        // );
+      }
 
-    //   pipeline.set(
-    //     `casino:${casinoType}:results`,
-    //     JSON.stringify(results),
-    //     "EX",
-    //     600
-    //   );
-    // }
+      pipeline.set(
+        `casino:${casinoType}:results`,
+        JSON.stringify(results),
+        "EX",
+        600
+      );
+    }
 
     await pipeline.exec();
 
