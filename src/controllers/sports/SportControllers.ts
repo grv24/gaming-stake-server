@@ -213,7 +213,14 @@ export const getFIlteredData = async (req: Request, res: Response) => {
 export const getCricketScore = async (req: Request, res: Response) => {
   try {
 
-    const { eventId } = req.body;
+    const { eventId } = req.query;
+
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'EventId is required'
+      });
+    }
 
     const freshData = await axios(`${process.env.THIRD_PARTY_URL}/api/new/cricketnew?eventid=${eventId}`);
 
