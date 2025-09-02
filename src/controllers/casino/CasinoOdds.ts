@@ -164,7 +164,7 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
         return {
           roundId: match.mid,
           winner: match.winner,
-          winnerData: match.data,
+          result: match.result,
           dateAndTime: createdAtIST,
           myBetDetails: bet.betData
         };
@@ -211,7 +211,7 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
     const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
 
     const userId = req.user?.userId;
-    const { matchId } = req.params;
+    const { matchId } = req.query;
 
     if (!userId) {
       return res.status(401).json({
@@ -228,7 +228,7 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
     }
 
     const match = await CasinoMatchRepo.findOne({
-      where: { mid: matchId },
+      where: { mid: matchId as any }
     });
 
     if (!match) {
