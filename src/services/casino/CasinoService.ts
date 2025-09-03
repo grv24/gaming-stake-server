@@ -99,6 +99,26 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       }
     }
 
+    if (results.length <= 0) {
+      try {
+        console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
+        const resultsResponse = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/casinoResults`, {
+          params: { type: casinoType },
+          timeout: 5000,
+        });
+        
+        if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
+          results = resultsResponse.data;
+          console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
+        } else if (resultsResponse.data?.result && Array.isArray(resultsResponse.data.result)) {
+          results = resultsResponse.data.result;
+          console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
+        }
+      } catch (altErr: any) {
+        console.log(`[CRON] Failed to fetch results from alternative endpoint for ${casinoType}:`, altErr.message);
+      }
+    }
+
     if (results.length > 0) {
       for (const r of results) {
         const resultMid = String(r.mid || r.matchId);
