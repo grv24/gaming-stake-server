@@ -12,6 +12,10 @@ import { settlePokerResult } from "./Poker";
 import { settleDragonTiger } from "./DragonTiger6";
 import { settleAbjResult } from "./AndarBahar2";
 import { settleBaccaratResult } from "./Baccarat2";
+import { settleDT202Result } from "./DragonTiger202";
+import { settleTeen9Result } from "./Teen9";
+import { settlePoker20Result } from "./Poker20";
+import { settleAAAResult } from "./Aaa";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -47,10 +51,10 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
     if (!casinoMatch || casinoMatch.result === null) {
       try {
         const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`);
-        
+
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
-          
+
           if (Array.isArray(apiData.data)) {
             resultData = apiData.data.find((item: any) => String(item.mid) === String(mid));
           } else if (apiData.data?.t1) {
@@ -75,7 +79,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
                 casinoMatch = await casinoMatchRepo.findOne({
                   where: { mid, casinoType }
                 });
-                
+
                 if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
                   casinoMatch.result = resultData;
                   await casinoMatchRepo.save(casinoMatch);
@@ -130,7 +134,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
     // CASINO-SPECIFIC WINNER DETERMINATION
     const winners = determineWinners(casinoType, resultData);
-    
+
     if (winners.length === 0) {
       return res.status(404).json({
         success: false,
@@ -244,7 +248,7 @@ function determineWinners(casinoType: string, resultData: any): string[] {
     case 'card32e':
     case 'card32eu':
       return settleCard32Result(resultData);
-    
+
     case 'poker':
       return settlePokerResult(resultData);
 
@@ -255,8 +259,24 @@ function determineWinners(casinoType: string, resultData: any): string[] {
       return settleAbjResult(resultData);
 
     case 'baccarat2':
-    return settleBaccaratResult(resultData);
-    
+      return settleBaccaratResult(resultData);
+
+    case 'teen20':
+      return settleBaccaratResult(resultData);
+
+    case 'dt202':
+      return settleDT202Result(resultData);
+
+    case 'teen9':
+      return settleTeen9Result(resultData);
+
+    case 'poker20':
+      return settlePoker20Result(resultData);
+
+    case 'aaa':
+      return settleAAAResult(resultData);
+
+
     default:
       console.warn(`Unknown casino type: ${casinoType}`);
       return [];
