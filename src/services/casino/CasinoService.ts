@@ -54,6 +54,11 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
         console.log(apiData);
       }
+
+      if(casinoType === "poker20"){
+        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
+        console.log(apiData);
+      }
       if (apiData?.data?.mid) {
         currentMid = String(apiData.data.mid);
         currentData = apiData?.data || apiData;

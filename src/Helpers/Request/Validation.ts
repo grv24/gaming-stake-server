@@ -60,8 +60,7 @@ export const CASINO_TYPES = [
   "joker1",
   "ab4",
   "lottcard",
-  //  "joker20",
-   "poison20",
+  "poison20"
 ];
 
 export const DIFF_STRUCT_CASINO_TYPES = [
