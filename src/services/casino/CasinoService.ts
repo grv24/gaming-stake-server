@@ -102,7 +102,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     if (results.length <= 0) {
       try {
         console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
-        const resultsResponse = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/casinoResults`, {
+        const resultsResponse = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
           params: { type: casinoType },
           timeout: 5000,
         });
@@ -110,8 +110,8 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;
           console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
-        } else if (resultsResponse.data?.result && Array.isArray(resultsResponse.data.result)) {
-          results = resultsResponse.data.result;
+        } else if (resultsResponse.data?.res && Array.isArray(resultsResponse.data.res)) {
+          results = resultsResponse.data.res;
           console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
         }
       } catch (altErr: any) {
