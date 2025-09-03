@@ -51,7 +51,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     } else {
       if (apiData?.data?.mid) {
         currentMid = String(apiData.data.mid);
-        currentData = apiData.data;
+        currentData = apiData?.data || apiData;
       } else if (apiData?.data?.t1?.[0]?.mid) {
         currentMid = String(apiData.data.t1[0].mid);
         currentData = apiData.data;
@@ -106,11 +106,6 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           params: { type: casinoType },
           timeout: 5000,
         });
-
-        if(casinoType === 'poison20') {
-          console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
-          console.log(resultsResponse);
-        }
         
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;
