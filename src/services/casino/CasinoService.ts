@@ -78,7 +78,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         600
       );
     } else {
-      // console.log(`[CRON] No live match for ${casinoType}`);
+      console.log(`[CRON] No live match for ${casinoType}`);
     }
 
     let results = [];
@@ -105,7 +105,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         const winner = r.win || r.result || r.winner;
 
         if (!resultMid) {
-          // console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+          console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
           continue;
         }
 
@@ -145,9 +145,9 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       })
     );
 
-    // console.log(
-    //   `[CRON] Updated Redis & published notification for ${casinoType}`
-    // );
+    console.log(
+      `[CRON] Updated Redis & published notification for ${casinoType}`
+    );
 
     return apiData;
   } catch (err: any) {
@@ -157,12 +157,12 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       err.message.includes("socket hang up")
     ) {
       console.log(
-        // `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
+        `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
         err.message
       );
     } else {
       console.error(
-        // `[CRON] Failed to fetch odds for ${casinoType}:`,
+        `[CRON] Failed to fetch odds for ${casinoType}:`,
         err.message
       );
     }
@@ -384,7 +384,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       const betSid: String = betData.sid;
 
       if (!betSid) {
-        // console.log(`[CRON] Bet ${bet.id} has no SID, skipping result update`);
+        console.log(`[CRON] Bet ${bet.id} has no SID, skipping result update`);
         continue;
       }
 
@@ -400,7 +400,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         });
 
         if (!currentBet) {
-          // console.log(`[CRON] Bet ${bet.id} no longer pending, skipping`);
+          console.log(`[CRON] Bet ${bet.id} no longer pending, skipping`);
           return;
         }
 
@@ -411,7 +411,7 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         });
 
         if (!user) {
-          // console.log(`[CRON] User ${bet.userId} not found for bet ${bet.id}`);
+          console.log(`[CRON] User ${bet.userId} not found for bet ${bet.id}`);
           return;
         }
 
@@ -451,11 +451,11 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
         // Update user balance after bet is marked as settled
         await transactionalEntityManager.save(user);
 
-        // console.log(`[CRON] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
+        console.log(`[CRON] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
       });
     }
 
   } catch (error) {
-    // console.error(`[CRON] Error updating bets for match ${mid}:`, error);
+    console.error(`[CRON] Error updating bets for match ${mid}:`, error);
   }
 };

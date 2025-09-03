@@ -8,7 +8,7 @@ let eventsToMonitor: { sportId: string; eventId: string }[] = [];
 export const startLiveMatchesCron = () => {
   cron.schedule("*/3 * * * *", async () => {
     try {
-      // console.log("[CRON] Fetching live matches...");
+      console.log("[CRON] Fetching live matches...");
 
       const newEvents: { sportId: string; eventId: string }[] = [];
 
@@ -38,10 +38,10 @@ export const startLiveMatchesCron = () => {
 
       eventsToMonitor = newEvents;
 
-      // console.log(`[CRON] Stored ${eventsToMonitor.length} live events`);
+      console.log(`[CRON] Stored ${eventsToMonitor.length} live events`);
 
     } catch (err: any) {
-      // console.error("[CRON] Failed to fetch live matches:", err.message);
+      console.error("[CRON] Failed to fetch live matches:", err.message);
     }
   });
 };
@@ -50,17 +50,17 @@ export const startOddsCron = () => {
   cron.schedule("*/10 * * * * *", async () => {
     try {
       if (eventsToMonitor.length === 0) {
-        // console.log("[ODDS-CRON] Live matches array empty.");
+        console.log("[ODDS-CRON] Live matches array empty.");
         return;
       }
 
-      // console.log(`[ODDS-CRON] Fetching odds for ${eventsToMonitor.length} events`);
+      console.log(`[ODDS-CRON] Fetching odds for ${eventsToMonitor.length} events`);
 
       await Promise.allSettled(
         eventsToMonitor.map((m) => processOddsData(m.sportId, m.eventId))
       );
     } catch (err: any) {
-      // console.error("[ODDS-CRON] Error:", err.message);
+      console.error("[ODDS-CRON] Error:", err.message);
     }
   });
 };
