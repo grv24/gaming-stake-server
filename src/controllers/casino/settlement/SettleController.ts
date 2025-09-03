@@ -16,6 +16,7 @@ import { settleDT202Result } from "./DragonTiger202";
 import { settleTeen9Result } from "./Teen9";
 import { settlePoker20Result } from "./Poker20";
 import { settleAAAResult } from "./Aaa";
+import { settleTeen8Result } from "./Teen8";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -263,6 +264,9 @@ function determineWinners(casinoType: string, resultData: any): string[] {
 
     case 'teen20':
       return settleBaccaratResult(resultData);
+    
+    case 'teen8':
+      return settleTeen8Result(resultData);
 
     case 'dt202':
       return settleDT202Result(resultData);
@@ -275,6 +279,9 @@ function determineWinners(casinoType: string, resultData: any): string[] {
 
     case 'aaa':
       return settleAAAResult(resultData);
+
+    case 'lucky7eu':
+      return settleTeen8Result(resultData);
 
 
     default:
