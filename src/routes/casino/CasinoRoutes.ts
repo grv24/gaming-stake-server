@@ -7,8 +7,9 @@ import {
     updateCasino,
     deleteCasino
 } from "../../controllers/casino/DefaultCasino";
-import { casinoResult, createBet, getCurrentBet, settleUserCasinoBets } from "../../controllers/casino/CasinoBetController";
+import { casinoResult, createBet, getCurrentBet } from "../../controllers/casino/CasinoBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
+import { settleUserCasinoBets } from "../../controllers/casino/settlement/SettleController";
 
 const router = Router();
 

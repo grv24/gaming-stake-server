@@ -1,0 +1,288 @@
+import { Request, Response } from "express";
+import { AppDataSource } from "../../../server";
+import { CasinoBet } from "../../../entities/casino/CasinoBet";
+import { CASINO_TYPES } from "../../../Helpers/Request/Validation";
+import { USER_TABLES } from "../../../Helpers/users/Roles";
+import { CronDataSource } from "../../../corn.server";
+import { getRedisClient } from "../../../config/redisConfig";
+import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
+import axios from "axios";
+import { determineCard32Winners } from "./Card32";
+
+export const settleUserCasinoBets = async (req: Request, res: Response) => {
+  try {
+    const { casinoType, mid } = req.body;
+    const userId = req.user?.userId;
+
+    // Validate input
+    if (!casinoType || !mid) {
+      return res.status(400).json({
+        success: false,
+        message: "casinoType and mid are required in the request body"
+      });
+    }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required"
+      });
+    }
+
+    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
+    const casinoMatchRepo = CronDataSource.getRepository(CasinoMatch);
+
+    // First check casinoMatch table for existing result
+    let casinoMatch = await casinoMatchRepo.findOne({
+      where: { mid, casinoType }
+    });
+
+    let resultData = null;
+
+    // If no casinoMatch record exists or result is null, fetch from API
+    if (!casinoMatch || casinoMatch.result === null) {
+      try {
+        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`);
+        
+        if (response.data.error === false && response.data.data?.success) {
+          const apiData = response.data.data;
+          
+          if (Array.isArray(apiData.data)) {
+            resultData = apiData.data.find((item: any) => String(item.mid) === String(mid));
+          } else if (apiData.data?.t1) {
+            resultData = apiData.data.t1;
+          }
+
+          if (resultData) {
+            try {
+              if (casinoMatch) {
+                casinoMatch.result = resultData;
+                await casinoMatchRepo.save(casinoMatch);
+              } else {
+                casinoMatch = casinoMatchRepo.create({
+                  mid,
+                  casinoType,
+                  result: resultData
+                });
+                await casinoMatchRepo.save(casinoMatch);
+              }
+            } catch (saveError: any) {
+              if (saveError.code === '23505' || saveError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                casinoMatch = await casinoMatchRepo.findOne({
+                  where: { mid, casinoType }
+                });
+                
+                if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
+                  casinoMatch.result = resultData;
+                  await casinoMatchRepo.save(casinoMatch);
+                }
+              } else {
+                throw saveError;
+              }
+            }
+          }
+        }
+      } catch (apiError: any) {
+        console.error(`[API] Error fetching result for mid ${mid}:`, apiError);
+        if (!casinoMatch) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to fetch result from external API and no existing record found",
+            error: apiError.message
+          });
+        }
+        resultData = casinoMatch.result;
+      }
+    } else {
+      resultData = casinoMatch.result;
+    }
+
+    if (!resultData) {
+      return res.status(404).json({
+        success: false,
+        message: `No result data found for match ID ${mid}`
+      });
+    }
+
+    // Find pending bets for this user
+    const pendingBets = await casinoBetRepo.find({
+      where: {
+        matchId: mid,
+        userId: userId,
+        status: "pending"
+      }
+    });
+
+    if (pendingBets.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No pending bets found for this user and match",
+        settledCount: 0,
+        matchId: mid,
+        casinoType: casinoType,
+        userId: userId
+      });
+    }
+
+    // CASINO-SPECIFIC WINNER DETERMINATION
+    const winners = determineWinners(casinoType, resultData);
+    
+    if (winners.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No winners could be determined for this casino type",
+        resultData: resultData,
+        casinoType: casinoType
+      });
+    }
+
+    let settledCount = 0;
+    let errors = [];
+
+    for (const bet of pendingBets) {
+      try {
+        if (bet.betData?.result?.settled === true || bet.status !== "pending") {
+          continue;
+        }
+
+        const betData = bet.betData || {};
+        const betSid: string = betData.sid;
+
+        if (!betSid) {
+          errors.push({ betId: bet.id, error: "No SID found" });
+          continue;
+        }
+
+        await CronDataSource.transaction(async (transactionalEntityManager) => {
+          const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
+            where: { id: bet.id, status: "pending", userId: userId },
+            lock: { mode: "pessimistic_write" }
+          });
+
+          if (!currentBet) return;
+
+          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.userType as any], {
+            where: { id: userId },
+            lock: { mode: "pessimistic_write" }
+          });
+
+          if (!user) {
+            errors.push({ betId: bet.id, error: "User not found" });
+            return;
+          }
+
+          const stakeAmount = Number(betData.stake) || 0;
+          const isWinner = winners.includes(betSid);
+          const newStatus: "won" | "lost" = isWinner ? "won" : "lost";
+          let profitLoss = 0;
+
+          if (isWinner) {
+            profitLoss = Number(betData.profit) || 0;
+            user.balance = Number(user.balance) + profitLoss;
+          } else {
+            profitLoss = Number(betData.loss) || 0;
+            user.balance = Number(user.balance) - profitLoss;
+          }
+
+          user.exposure = Number(user.exposure) - stakeAmount;
+
+          await transactionalEntityManager.update(CasinoBet, { id: bet.id }, {
+            status: newStatus,
+            betData: {
+              ...betData,
+              result: {
+                winner: isWinner ? betSid : null,
+                winnerNation: betData.name || '',
+                settledAt: new Date(),
+                profitLoss: profitLoss,
+                stake: stakeAmount,
+                betRate: betData.betRate || betData.matchOdd || 1,
+                status: newStatus,
+                settled: true
+              }
+            }
+          });
+
+          await transactionalEntityManager.save(user);
+          settledCount++;
+        });
+      } catch (error: any) {
+        errors.push({ betId: bet.id, error: error.message });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Settlement completed for user ${userId} on match ${mid} (${casinoType})`,
+      settledCount,
+      errorCount: errors.length,
+      matchId: mid,
+      casinoType: casinoType,
+      winners: winners,
+      userId: userId,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during settlement",
+      error: error.message
+    });
+  }
+};
+
+// CASINO-SPECIFIC WINNER DETERMINATION FUNCTIONS
+function determineWinners(casinoType: string, resultData: any): string[] {
+  const winners = new Set<string>();
+
+  switch (casinoType.toLowerCase()) {
+    case 'card32e':
+    case 'card32eu':
+      return determineCard32Winners(resultData);
+    
+    case 'teenpatti':
+      return determineTeenPattiWinners(resultData);
+    
+    case 'andarbahar':
+      return determineAndarBaharWinners(resultData);
+    
+    case 'roulette':
+      return determineRouletteWinners(resultData);
+    
+    case 'dragontiger':
+      return determineDragonTigerWinners(resultData);
+    
+    default:
+      console.warn(`Unknown casino type: ${casinoType}`);
+      return [];
+  }
+}
+
+function determineTeenPattiWinners(resultData: any): string[] {
+  const winners = new Set<string>();
+  // Implement Teen Patti specific logic
+  if (resultData.win) winners.add(resultData.win);
+  return Array.from(winners);
+}
+
+function determineAndarBaharWinners(resultData: any): string[] {
+  const winners = new Set<string>();
+  // Implement Andar Bahar specific logic
+  if (resultData.win) winners.add(resultData.win);
+  return Array.from(winners);
+}
+
+function determineRouletteWinners(resultData: any): string[] {
+  const winners = new Set<string>();
+  // Implement Roulette specific logic
+  if (resultData.win) winners.add(resultData.win);
+  return Array.from(winners);
+}
+
+function determineDragonTigerWinners(resultData: any): string[] {
+  const winners = new Set<string>();
+  // Implement Dragon Tiger specific logic
+  if (resultData.win) winners.add(resultData.win);
+  return Array.from(winners);
+}
