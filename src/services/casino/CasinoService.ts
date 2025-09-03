@@ -106,6 +106,11 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           params: { type: casinoType },
           timeout: 5000,
         });
+
+        if(casinoType === 'poison20') {
+          console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
+          console.log(resultsResponse);
+        }
         
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;

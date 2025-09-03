@@ -222,7 +222,7 @@ export const getCricketScore = async (req: Request, res: Response) => {
       });
     }
 
-    const freshData = await axios(`${process.env.THIRD_PARTY_URL}/api/new/cricketnew?eventid=${eventId}`);
+    const freshData = await axios(`${process.env.THIRD_PARTY_URL}/api/new/GetCricketScoreDiamoand?eventid=${eventId}`);
 
     return res.json({
       success: true,
