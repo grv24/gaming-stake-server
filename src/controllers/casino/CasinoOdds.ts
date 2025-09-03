@@ -130,7 +130,6 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
 
     // First, try the JsonContains approach
     const whereConditions: any = {
-      userId,
       betData: JsonContains({ gameSlug: slug as string })
     };
 

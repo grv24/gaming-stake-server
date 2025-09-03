@@ -7,7 +7,11 @@ import { CronDataSource } from "../../../corn.server";
 import { getRedisClient } from "../../../config/redisConfig";
 import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
 import axios from "axios";
-import { determineCard32Winners } from "./Card32";
+import { settleCard32Result } from "./Card32";
+import { settlePokerResult } from "./Poker";
+import { settleDragonTiger } from "./DragonTiger6";
+import { settleAbjResult } from "./AndarBahar2";
+import { settleBaccaratResult } from "./Baccarat2";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -239,50 +243,22 @@ function determineWinners(casinoType: string, resultData: any): string[] {
   switch (casinoType.toLowerCase()) {
     case 'card32e':
     case 'card32eu':
-      return determineCard32Winners(resultData);
+      return settleCard32Result(resultData);
     
-    case 'teenpatti':
-      return determineTeenPattiWinners(resultData);
-    
-    case 'andarbahar':
-      return determineAndarBaharWinners(resultData);
-    
-    case 'roulette':
-      return determineRouletteWinners(resultData);
-    
-    case 'dragontiger':
-      return determineDragonTigerWinners(resultData);
+    case 'poker':
+      return settlePokerResult(resultData);
+
+    case 'dt6':
+      return settleDragonTiger(resultData);
+
+    case 'abj':
+      return settleAbjResult(resultData);
+
+    case 'baccarat2':
+    return settleBaccaratResult(resultData);
     
     default:
       console.warn(`Unknown casino type: ${casinoType}`);
       return [];
   }
-}
-
-function determineTeenPattiWinners(resultData: any): string[] {
-  const winners = new Set<string>();
-  // Implement Teen Patti specific logic
-  if (resultData.win) winners.add(resultData.win);
-  return Array.from(winners);
-}
-
-function determineAndarBaharWinners(resultData: any): string[] {
-  const winners = new Set<string>();
-  // Implement Andar Bahar specific logic
-  if (resultData.win) winners.add(resultData.win);
-  return Array.from(winners);
-}
-
-function determineRouletteWinners(resultData: any): string[] {
-  const winners = new Set<string>();
-  // Implement Roulette specific logic
-  if (resultData.win) winners.add(resultData.win);
-  return Array.from(winners);
-}
-
-function determineDragonTigerWinners(resultData: any): string[] {
-  const winners = new Set<string>();
-  // Implement Dragon Tiger specific logic
-  if (resultData.win) winners.add(resultData.win);
-  return Array.from(winners);
 }

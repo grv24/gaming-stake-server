@@ -1,4 +1,4 @@
-export function determineCard32Winners(resultData: any): string[] {
+export function settleCard32Result(resultData: any): string[] {
   const winners = new Set<string>();
 
   // Main winner from win field
