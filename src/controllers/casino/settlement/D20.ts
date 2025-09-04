@@ -1,67 +1,38 @@
-// function settleResultDT20(result, odds = []) {
-//   if (!result?.data?.success || !Array.isArray(result.data.data)) {
-//     return [];
-//   }
+export function settleResultDT20NoOdds(result: any) {
+  if (!result?.data?.success || !Array.isArray(result.data.data)) {
+    return [];
+  }
 
-//   return result.data.data.map(matchResult => {
-//     const winningSids = [];
+  return result.data.data.map((matchResult: { win: string; newdesc: string; }) => {
+    const winningIds: string[] = [];
 
-//     // ✅ 1. Add main winner from `win` field
-//     if (matchResult.win) {
-//       winningSids.push(...matchResult.win.split(",").map(s => s.trim()));
-//     }
+    // --- 1. Add main winner(s) from `win` field ---
+    if (matchResult.win) {
+      winningIds.push(...matchResult.win.split(",").map(s => s.trim()));
+    }
 
-//     // ✅ 2. Parse newdesc for side bets
-//     const desc = matchResult.newdesc || "";
+    // --- 2. Parse `newdesc` for side bets ---
+    const desc = matchResult.newdesc || "";
+    const segments = desc.split("#"); // split into meaningful segments
 
-//     // --- Dragon side bets ---
-//     if (/D\s*:\s*Even/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "dragon even")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/D\s*:\s*Odd/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "dragon odd")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/D\s*:\s*Red/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "dragon red")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/D\s*:\s*Black/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "dragon black")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     const dragonCardMatch = desc.match(/D\s*:\s*(\d+)/);
-//     if (dragonCardMatch) {
-//       const num = dragonCardMatch[1];
-//       const sid = odds.find(o => o.nation.toLowerCase() === `dragon card ${num}`.toLowerCase())?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
+    segments.forEach(segment => {
+      // Dragon side bets
+      const dragonMatch = segment.match(/D\s*:\s*(Even|Odd|Red|Black|\d+)/gi);
+      if (dragonMatch) {
+        dragonMatch.forEach(match => winningIds.push(`D-${match.split(":")[1].trim()}`));
+      }
 
-//     // --- Tiger side bets ---
-//     if (/T\s*:\s*Even/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "tiger even")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/T\s*:\s*Odd/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "tiger odd")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/T\s*:\s*Red/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "tiger red")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     if (/T\s*:\s*Black/.test(desc)) {
-//       const sid = odds.find(o => o.nation.toLowerCase() === "tiger black")?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
-//     const tigerCardMatch = desc.match(/T\s*:\s*(\d+)/);
-//     if (tigerCardMatch) {
-//       const num = tigerCardMatch[1];
-//       const sid = odds.find(o => o.nation.toLowerCase() === `tiger card ${num}`.toLowerCase())?.sid;
-//       if (sid) winningSids.push(sid);
-//     }
+      // Tiger side bets
+      const tigerMatch = segment.match(/T\s*:\s*(Even|Odd|Red|Black|\d+)/gi);
+      if (tigerMatch) {
+        tigerMatch.forEach(match => winningIds.push(`T-${match.split(":")[1].trim()}`));
+      }
 
-//     return winningSids: [...new Set(winningSids)];
-//   });
-// }
+      // Optional: Add more custom parsing for other side bets if needed
+      // e.g., Teen / Poker, fancy bets, group totals, etc.
+    });
+
+    // Remove duplicates
+    return [...new Set(winningIds)];
+  });
+}

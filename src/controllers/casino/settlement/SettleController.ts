@@ -19,6 +19,7 @@ import { settleAAAResult } from "./Aaa";
 import { settleTeen8Result } from "./Teen8";
 import { settleTeenMuflisResult } from "./Teenmuf";
 import { settleCasinoWarResult } from "./War";
+import { settleResultDT20NoOdds } from "./D20";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -280,6 +281,9 @@ function determineWinners(casinoType: string, resultData: any): string[] {
 
     case 'dt202':
       return settleDT202Result(resultData);
+
+    case 'dt20':
+      return settleResultDT20NoOdds(resultData);
 
       // panga
     case 'teen9':
