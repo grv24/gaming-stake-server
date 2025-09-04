@@ -18,13 +18,13 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     let apiUrl: string;
     let params: any;
 
-    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
-      params = { type: casinoType };
-    } else {
-      apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
-      params = { casinoType };
-    }
+    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+    apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
+    params = { type: casinoType };
+    // } else {
+    //   apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
+    //   params = { casinoType };
+    // }
 
     const response = await axios.get(apiUrl, {
       params,
@@ -35,28 +35,28 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     let currentMid: string | null = null;
     let currentData: any = null;
 
-    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      if (apiData?.mid) {
-        currentMid = String(apiData.mid);
-        currentData = apiData;
-      }
-    } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-      if (apiData?.data?.mid) {
-        currentMid = String(apiData.data.mid);
-        currentData = apiData.data;
-      } else if (apiData?.data?.t1?.[0]?.mid) {
-        currentMid = String(apiData.data.t1[0].mid);
-        currentData = apiData.data;
-      }
-    } else {
-      if (apiData?.data?.mid) {
-        currentMid = String(apiData.data.mid);
-        currentData = apiData?.data || apiData;
-      } else if (apiData?.data?.t1?.[0]?.mid) {
-        currentMid = String(apiData.data.t1[0].mid);
-        currentData = apiData.data;
-      }
+    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+    if (apiData?.mid) {
+      currentMid = String(apiData.mid);
+      currentData = apiData;
     }
+    // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+    //   if (apiData?.data?.mid) {
+    //     currentMid = String(apiData.data.mid);
+    //     currentData = apiData.data;
+    //   } else if (apiData?.data?.t1?.[0]?.mid) {
+    //     currentMid = String(apiData.data.t1[0].mid);
+    //     currentData = apiData.data;
+    //   }
+    // } else {
+    //   if (apiData?.data?.mid) {
+    //     currentMid = String(apiData.data.mid);
+    //     currentData = apiData?.data || apiData;
+    //   } else if (apiData?.data?.t1?.[0]?.mid) {
+    //     currentMid = String(apiData.data.t1[0].mid);
+    //     currentData = apiData.data;
+    //   }
+    // }
 
     const pipeline = redisClient.pipeline();
 
@@ -83,21 +83,21 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     let results = [];
 
-    if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-      results = [];
-    } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-      if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-        results = apiData.result.res;
-      } else if (apiData?.result && Array.isArray(apiData.result)) {
-        results = apiData.result;
-      }
-    } else {
-      if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-        results = apiData.result.res;
-      } else if (apiData?.result && Array.isArray(apiData.result)) {
-        results = apiData.result;
-      }
-    }
+    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+    //   results = [];
+    // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+    //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+    //     results = apiData.result.res;
+    //   } else if (apiData?.result && Array.isArray(apiData.result)) {
+    //     results = apiData.result;
+    //   }
+    // } else {
+    //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+    //     results = apiData.result.res;
+    //   } else if (apiData?.result && Array.isArray(apiData.result)) {
+    //     results = apiData.result;
+    //   }
+    // }
 
     if (results.length <= 0) {
       try {
@@ -106,7 +106,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           params: { type: casinoType },
           timeout: 5000,
         });
-        
+
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;
           console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
