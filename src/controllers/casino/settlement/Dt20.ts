@@ -1,4 +1,4 @@
-export function settleResultDT20NoOdds(result: any) {
+export function settleResultDT20(result: any) {
   if (!result?.data?.success || !Array.isArray(result.data.data)) {
     return [];
   }
