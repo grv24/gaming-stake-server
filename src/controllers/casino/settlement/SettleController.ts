@@ -184,7 +184,15 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
           const stakeAmount = Number(betData.stake) || 0;
           const isWinner = winners.includes(betSid);
-          const newStatus: "won" | "lost" = isWinner ? "won" : "lost";
+
+          // --- Lay / Back logic ---
+          let finalStatus: "won" | "lost" = "lost";
+          if (betData.oddCategory === "Back") {
+            finalStatus = isWinner && betSid === mid ? "won" : "lost";
+          } else if (betData.oddCategory === "Lay") {
+            finalStatus = !isWinner || betSid !== mid ? "won" : "lost";
+          }
+          
           let profitLoss = 0;
 
           if (isWinner) {
@@ -198,7 +206,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           user.exposure = Number(user.exposure) - stakeAmount;
 
           await transactionalEntityManager.update(CasinoBet, { id: bet.id }, {
-            status: newStatus,
+            status: finalStatus,
             betData: {
               ...betData,
               result: {
@@ -208,7 +216,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
                 profitLoss: profitLoss,
                 stake: stakeAmount,
                 betRate: betData.betRate || betData.matchOdd || 1,
-                status: newStatus,
+                status: finalStatus,
                 settled: true
               }
             }
@@ -266,7 +274,7 @@ function determineWinners(casinoType: string, resultData: any): string[] {
 
     case 'teen20':
       return settleBaccaratResult(resultData);
-    
+
     case 'teen8':
       return settleTeen8Result(resultData);
 

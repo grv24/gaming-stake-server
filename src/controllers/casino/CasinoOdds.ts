@@ -5,7 +5,7 @@ import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { ALTERNATIVE_API_CASINO_TYPES, DIFF_STRUCT_CASINO_TYPES } from "../../Helpers/Request/Validation";
-import { Between, JsonContains } from "typeorm";
+import { Between, In, JsonContains } from "typeorm";
 import axios from "axios";
 
 export const getCasinoData = async (req: Request, res: Response) => {
@@ -130,7 +130,8 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
 
     // First, try the JsonContains approach
     const whereConditions: any = {
-      betData: JsonContains({ gameSlug: slug as string })
+      betData: JsonContains({ gameSlug: slug as string }),
+      status: In(["won", "lost"]),
     };
 
     // Add date filter if provided
@@ -331,7 +332,7 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
 
 
     const userBets = await CasinoBetRepo.find({
-      where: { userId, matchId: casinoMatch?.mid as any }
+      where: { userId, matchId: casinoMatch?.mid as any , status: In(["won", "lost"])}
     });
 
     return res.json({
