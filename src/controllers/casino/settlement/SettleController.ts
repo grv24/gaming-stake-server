@@ -7,19 +7,19 @@ import { CronDataSource } from "../../../corn.server";
 import { getRedisClient } from "../../../config/redisConfig";
 import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
 import axios from "axios";
-import { settleCard32Result } from "./Card32";
-import { settlePokerResult } from "./Poker";
-import { settleDragonTiger } from "./DragonTiger6";
-import { settleAbjResult } from "./AndarBahar2";
-import { settleBaccaratResult } from "./Baccarat2";
-import { settleDT202Result } from "./DragonTiger202";
-import { settleTeen9Result } from "./Teen9";
-import { settlePoker20Result } from "./Poker20";
-import { settleAAAResult } from "./Aaa";
-import { settleTeen8Result } from "./Teen8";
-import { settleTeenMuflisResult } from "./Teenmuf";
-import { settleCasinoWarResult } from "./War";
-// import { settleResultDT20 } from "./Dt20";
+import { settleCard32Result } from "./game/Card32";
+import { settlePokerResult } from "./game/Poker";
+import { settleDragonTiger } from "./game/DragonTiger6";
+import { settleAbjResult } from "./game/AndarBahar2";
+import { settleBaccaratResult } from "./game/Baccarat2";
+import { settleDT202Result } from "./game/DragonTiger202";
+import { settleTeen9Result } from "./game/Teen9";
+import { settlePoker20Result } from "./game/Poker20";
+import { settleAAAResult } from "./game/Aaa";
+import { settleTeen8Result } from "./game/Teen8";
+import { settleTeenMuflisResult } from "./game/Teenmuf";
+import { settleCasinoWarResult } from "./game/War";
+import { settleResultDT20 } from "./game/Dt20";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -30,14 +30,14 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
     if (!casinoType || !mid) {
       return res.status(400).json({
         success: false,
-        message: "casinoType and mid are required in the request body"
+        message: "casinoType and mid are required in the request body",
       });
     }
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "User authentication required"
+        message: "User authentication required",
       });
     }
 
@@ -46,7 +46,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
     // First check casinoMatch table for existing result
     let casinoMatch = await casinoMatchRepo.findOne({
-      where: { mid, casinoType }
+      where: { mid, casinoType },
     });
 
     let resultData = null;
@@ -54,13 +54,17 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
     // If no casinoMatch record exists or result is null, fetch from API
     if (!casinoMatch || casinoMatch.result === null) {
       try {
-        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`);
-
+        const response = await axios.get(
+          `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`
+        );
+        console.log(response.data, "response.data");
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
 
           if (Array.isArray(apiData.data)) {
-            resultData = apiData.data.find((item: any) => String(item.mid) === String(mid));
+            resultData = apiData.data.find(
+              (item: any) => String(item.mid) === String(mid)
+            );
           } else if (apiData.data?.t1) {
             resultData = apiData.data.t1;
           }
@@ -74,17 +78,23 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
                 casinoMatch = casinoMatchRepo.create({
                   mid,
                   casinoType,
-                  result: resultData
+                  result: resultData,
                 });
                 await casinoMatchRepo.save(casinoMatch);
               }
             } catch (saveError: any) {
-              if (saveError.code === '23505' || saveError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+              if (
+                saveError.code === "23505" ||
+                saveError.code === "SQLITE_CONSTRAINT_UNIQUE"
+              ) {
                 casinoMatch = await casinoMatchRepo.findOne({
-                  where: { mid, casinoType }
+                  where: { mid, casinoType },
                 });
 
-                if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
+                if (
+                  casinoMatch &&
+                  (!casinoMatch.result || casinoMatch.result === null)
+                ) {
                   casinoMatch.result = resultData;
                   await casinoMatchRepo.save(casinoMatch);
                 }
@@ -99,8 +109,9 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         if (!casinoMatch) {
           return res.status(500).json({
             success: false,
-            message: "Failed to fetch result from external API and no existing record found",
-            error: apiError.message
+            message:
+              "Failed to fetch result from external API and no existing record found",
+            error: apiError.message,
           });
         }
         resultData = casinoMatch.result;
@@ -112,7 +123,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
     if (!resultData) {
       return res.status(404).json({
         success: false,
-        message: `No result data found for match ID ${mid}`
+        message: `No result data found for match ID ${mid}`,
       });
     }
 
@@ -121,8 +132,8 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
       where: {
         matchId: mid,
         userId: userId,
-        status: "pending"
-      }
+        status: "pending",
+      },
     });
 
     if (pendingBets.length === 0) {
@@ -132,7 +143,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         settledCount: 0,
         matchId: mid,
         casinoType: casinoType,
-        userId: userId
+        userId: userId,
       });
     }
 
@@ -144,7 +155,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         success: false,
         message: "No winners could be determined for this casino type",
         resultData: resultData,
-        casinoType: casinoType
+        casinoType: casinoType,
       });
     }
 
@@ -166,17 +177,23 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         }
 
         await CronDataSource.transaction(async (transactionalEntityManager) => {
-          const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
-            where: { id: bet.id, status: "pending", userId: userId },
-            lock: { mode: "pessimistic_write" }
-          });
+          const currentBet = await transactionalEntityManager.findOne(
+            CasinoBet,
+            {
+              where: { id: bet.id, status: "pending", userId: userId },
+              lock: { mode: "pessimistic_write" },
+            }
+          );
 
           if (!currentBet) return;
 
-          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.userType as any], {
-            where: { id: userId },
-            lock: { mode: "pessimistic_write" }
-          });
+          const user: any = await transactionalEntityManager.findOne(
+            USER_TABLES[bet.userType as any],
+            {
+              where: { id: userId },
+              lock: { mode: "pessimistic_write" },
+            }
+          );
 
           if (!user) {
             errors.push({ betId: bet.id, error: "User not found" });
@@ -189,11 +206,11 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           // --- Lay / Back logic ---
           let finalStatus: "won" | "lost" = "lost";
           if (betData.oddCategory === "Back") {
-            finalStatus = isWinner  ? "won" : "lost";
+            finalStatus = isWinner ? "won" : "lost";
           } else if (betData.oddCategory === "Lay") {
             finalStatus = !isWinner ? "won" : "lost";
           }
-          
+
           let profitLoss = 0;
 
           if (isWinner) {
@@ -206,22 +223,26 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
           user.exposure = Number(user.exposure) - stakeAmount;
 
-          await transactionalEntityManager.update(CasinoBet, { id: bet.id }, {
-            status: finalStatus,
-            betData: {
-              ...betData,
-              result: {
-                winner: isWinner ? betSid : null,
-                winnerNation: betData.name || '',
-                settledAt: new Date(),
-                profitLoss: profitLoss,
-                stake: stakeAmount,
-                betRate: betData.betRate || betData.matchOdd || 1,
-                status: finalStatus,
-                settled: true
-              }
+          await transactionalEntityManager.update(
+            CasinoBet,
+            { id: bet.id },
+            {
+              status: finalStatus,
+              betData: {
+                ...betData,
+                result: {
+                  winner: isWinner ? betSid : null,
+                  winnerNation: betData.name || "",
+                  settledAt: new Date(),
+                  profitLoss: profitLoss,
+                  stake: stakeAmount,
+                  betRate: betData.betRate || betData.matchOdd || 1,
+                  status: finalStatus,
+                  settled: true,
+                },
+              },
             }
-          });
+          );
 
           await transactionalEntityManager.save(user);
           settledCount++;
@@ -240,14 +261,13 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
       casinoType: casinoType,
       winners: winners,
       userId: userId,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
     });
-
   } catch (error: any) {
     return res.status(500).json({
       success: false,
       message: "Internal server error during settlement",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -257,53 +277,52 @@ function determineWinners(casinoType: string, resultData: any): string[] {
   const winners = new Set<string>();
 
   switch (casinoType.toLowerCase()) {
-    case 'card32e':
-    case 'card32eu':
+    case "card32e":
+    case "card32eu":
       return settleCard32Result(resultData);
 
-    case 'poker':
+    case "poker":
       return settlePokerResult(resultData);
 
-    case 'dt6':
+    case "dt6":
       return settleDragonTiger(resultData);
 
-    case 'abj':
+    case "abj":
       return settleAbjResult(resultData);
 
-    case 'baccarat2':
+    case "baccarat2":
       return settleBaccaratResult(resultData);
 
-    case 'teen20':
+    case "teen20":
       return settleBaccaratResult(resultData);
 
-    case 'teen8':
+    case "teen8":
       return settleTeen8Result(resultData);
 
-    case 'dt202':
+    case "dt202":
       return settleDT202Result(resultData);
 
-    // case 'dt20':
-    //   return settleResultDT20(resultData);
+    case 'dt20':
+      return settleResultDT20(resultData);
 
-      // panga
-    case 'teen9':
+    // panga
+    case "teen9":
       return settleTeen9Result(resultData);
 
-    case 'poker20':
+    case "poker20":
       return settlePoker20Result(resultData);
 
-    case 'aaa':
+    case "aaa":
       return settleAAAResult(resultData);
 
-    case 'lucky7eu':
+    case "lucky7eu":
       return settleTeen8Result(resultData);
 
-    case 'teenmuf':
+    case "teenmuf":
       return settleTeenMuflisResult(resultData);
 
-    case 'war':
+    case "war":
       return settleCasinoWarResult(resultData);
-
 
     default:
       console.warn(`Unknown casino type: ${casinoType}`);
