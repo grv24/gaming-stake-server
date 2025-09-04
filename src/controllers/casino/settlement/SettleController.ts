@@ -188,9 +188,9 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           // --- Lay / Back logic ---
           let finalStatus: "won" | "lost" = "lost";
           if (betData.oddCategory === "Back") {
-            finalStatus = isWinner && betSid === mid ? "won" : "lost";
+            finalStatus = isWinner  ? "won" : "lost";
           } else if (betData.oddCategory === "Lay") {
-            finalStatus = !isWinner || betSid !== mid ? "won" : "lost";
+            finalStatus = !isWinner ? "won" : "lost";
           }
           
           let profitLoss = 0;
@@ -281,6 +281,7 @@ function determineWinners(casinoType: string, resultData: any): string[] {
     case 'dt202':
       return settleDT202Result(resultData);
 
+      // panga
     case 'teen9':
       return settleTeen9Result(resultData);
 
