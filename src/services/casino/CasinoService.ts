@@ -32,7 +32,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     });
     let apiData;
     if(casinoType=="teen"){
-      apiData = response;
+      apiData = response.data;
     }else{
       apiData = response.data;
     }
