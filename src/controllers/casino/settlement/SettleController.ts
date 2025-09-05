@@ -69,6 +69,9 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
               timeout: 5000,
             }
           );
+
+          console.log("************************************************************************************************");
+          console.log(response.data);
         } else {
           response = await axios.get(
             `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
