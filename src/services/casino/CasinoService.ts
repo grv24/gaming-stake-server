@@ -30,7 +30,13 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
       params,
       timeout: 10000,
     });
-    const apiData = response.data;
+    let apiData;
+    if(casinoType=="teen"){
+      apiData = response;
+    }else{
+      apiData = response.data;
+    }
+    // const apiData = response.data;
 
     let currentMid: string | null = null;
     let currentData: any = null;
