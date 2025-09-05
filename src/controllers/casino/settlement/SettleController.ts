@@ -27,6 +27,7 @@ import { settleJoker1Result } from "./game/Joker1";
 import { settleGoalResult } from "./game/goal";
 import { settleLucky5Result } from "./game/lucky5";
 import { settleAB4Result } from "./game/ab4";
+import { settleTeenResult } from "./game/Teen";
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -385,6 +386,9 @@ function determineWinners(casinoType: string, resultData: any): string[] {
 
     case "ab4":
       return settleAB4Result(resultData);
+    
+    case "teen":
+      return settleTeenResult(resultData);
 
     default:
       console.warn(`Unknown casino type: ${casinoType}`);
