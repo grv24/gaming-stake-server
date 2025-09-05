@@ -60,27 +60,41 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
     // If no casinoMatch record exists or result is null, fetch from API
     if (!casinoMatch || casinoMatch.result === null) {
-      try {      
+
+      try {
+
         let response;
-        if (casinoType === "ab4" ||casinoType ==="joker20" ||casinoType ==="joker1") {
+        try {
+          // First attempt with roundresult_new
           response = await axios.get(
             `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${mid}&gtype=${casinoType}`,
-            {
-              timeout: 5000,
-            }
+            { timeout: 5000 }
           );
 
-          console.log("************************************************************************************************");
+          console.log("******** roundresult_new ********");
           console.log(response.data);
-        } else {
-          response = await axios.get(
-            `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
-            {
-              timeout: 5000,
-            }
-          );
+
+          // If response is empty/null → fall back
+          if (!response.data || Object.keys(response.data).length === 0) {
+            console.log("Fallback to roundresult...");
+            response = await axios.get(
+              `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
+              { timeout: 5000 }
+            );
+          }
+        } catch (err) {
+          // If first API fails → directly fall back
+          try {
+            response = await axios.get(
+              `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
+              { timeout: 5000 }
+            );
+          } catch (err2: any) {
+            console.error("Both APIs failed:", err2.message);
+            throw err2; 
+          }
         }
-      
+
         console.log(response.data, "response.data");
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
