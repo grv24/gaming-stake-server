@@ -47,7 +47,7 @@ export const startLiveMatchesCron = () => {
 };
 
 export const startOddsCron = () => {
-  cron.schedule("*/10 * * * * *", async () => {
+  cron.schedule("*/15 * * * * *", async () => {
     try {
       if (eventsToMonitor.length === 0) {
         console.log("[ODDS-CRON] Live matches array empty.");
