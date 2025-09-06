@@ -8,8 +8,197 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 import { AppDataSource } from "../../server";
 import { DIFF_STRUCT_CASINO_TYPES, ALTERNATIVE_API_CASINO_TYPES } from "../../Helpers/Request/Validation";
 
+// Circuit breaker state tracking
+interface CircuitBreakerState {
+  failures: number;
+  lastFailureTime: number;
+  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+}
+
+const circuitBreakers = new Map<string, CircuitBreakerState>();
+const MAX_FAILURES = 3; // Reduced failures for faster circuit opening
+const TIMEOUT_DURATION = 30000; // 30 seconds - faster recovery
+const HALF_OPEN_TIMEOUT = 15000; // 15 seconds - faster half-open testing
+
+// Retry configuration - optimized for 10-second intervals
+const MAX_RETRIES = 2; // Reduced retries for faster processing
+const RETRY_DELAYS = [500, 1000]; // Faster retry delays: 500ms, 1s
+
+// Rate limiting - optimized for 10-second intervals
+const requestQueue = new Map<string, Promise<any>>();
+const RATE_LIMIT_DELAY = 50; // Reduced to 50ms for faster processing
+const CONCURRENT_REQUESTS_LIMIT = 3; // Max concurrent requests per casino type
+
+// Circuit breaker functions
+const getCircuitBreakerState = (casinoType: string): CircuitBreakerState => {
+  if (!circuitBreakers.has(casinoType)) {
+    circuitBreakers.set(casinoType, {
+      failures: 0,
+      lastFailureTime: 0,
+      state: 'CLOSED'
+    });
+  }
+  return circuitBreakers.get(casinoType)!;
+};
+
+const recordSuccess = (casinoType: string) => {
+  const state = getCircuitBreakerState(casinoType);
+  state.failures = 0;
+  state.state = 'CLOSED';
+};
+
+const recordFailure = (casinoType: string) => {
+  const state = getCircuitBreakerState(casinoType);
+  state.failures++;
+  state.lastFailureTime = Date.now();
+  
+  if (state.failures >= MAX_FAILURES) {
+    state.state = 'OPEN';
+    console.log(`[CIRCUIT] Circuit breaker OPEN for ${casinoType} after ${state.failures} failures`);
+  }
+};
+
+const isCircuitOpen = (casinoType: string): boolean => {
+  const state = getCircuitBreakerState(casinoType);
+  
+  if (state.state === 'CLOSED') return false;
+  
+  if (state.state === 'OPEN') {
+    if (Date.now() - state.lastFailureTime > TIMEOUT_DURATION) {
+      state.state = 'HALF_OPEN';
+      console.log(`[CIRCUIT] Circuit breaker HALF_OPEN for ${casinoType}`);
+      return false;
+    }
+    return true;
+  }
+  
+  // HALF_OPEN state
+  if (Date.now() - state.lastFailureTime > HALF_OPEN_TIMEOUT) {
+    state.state = 'OPEN';
+    return true;
+  }
+  
+  return false;
+};
+
+// Retry function with exponential backoff
+const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  casinoType: string,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> => {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      recordSuccess(casinoType);
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Don't retry on circuit breaker open
+      if (isCircuitOpen(casinoType)) {
+        throw new Error(`Circuit breaker OPEN for ${casinoType}`);
+      }
+      
+      // Don't retry on last attempt
+      if (attempt === maxRetries) {
+        recordFailure(casinoType);
+        break;
+      }
+      
+      // Wait before retry
+      const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+      console.log(`[RETRY] Attempt ${attempt + 1} failed for ${casinoType}, retrying in ${delay}ms:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  recordFailure(casinoType);
+  throw lastError;
+};
+
+// Rate limiting function
+const rateLimitedRequest = async <T>(
+  casinoType: string,
+  requestFn: () => Promise<T>
+): Promise<T> => {
+  // Check if there's already a request in progress for this casino type
+  if (requestQueue.has(casinoType)) {
+    console.log(`[RATE_LIMIT] Request already in progress for ${casinoType}, waiting...`);
+    return requestQueue.get(casinoType)!;
+  }
+  
+  const requestPromise = (async () => {
+    try {
+      // Add small delay to prevent overwhelming the API
+      await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
+      return await requestFn();
+    } finally {
+      // Clean up the queue
+      requestQueue.delete(casinoType);
+    }
+  })();
+  
+  requestQueue.set(casinoType, requestPromise);
+  return requestPromise;
+};
+
+// Health check function to monitor circuit breaker states
+export const getCircuitBreakerHealth = () => {
+  const health = {
+    totalCasinos: circuitBreakers.size,
+    openCircuits: 0,
+    halfOpenCircuits: 0,
+    closedCircuits: 0,
+    details: {} as Record<string, any>
+  };
+
+  for (const [casinoType, state] of circuitBreakers.entries()) {
+    health.details[casinoType] = {
+      state: state.state,
+      failures: state.failures,
+      lastFailureTime: state.lastFailureTime,
+      timeSinceLastFailure: Date.now() - state.lastFailureTime
+    };
+
+    switch (state.state) {
+      case 'OPEN':
+        health.openCircuits++;
+        break;
+      case 'HALF_OPEN':
+        health.halfOpenCircuits++;
+        break;
+      case 'CLOSED':
+        health.closedCircuits++;
+        break;
+    }
+  }
+
+  return health;
+};
+
+// Reset circuit breaker for a specific casino type (useful for manual recovery)
+export const resetCircuitBreaker = (casinoType: string) => {
+  if (circuitBreakers.has(casinoType)) {
+    circuitBreakers.set(casinoType, {
+      failures: 0,
+      lastFailureTime: 0,
+      state: 'CLOSED'
+    });
+    console.log(`[CIRCUIT] Reset circuit breaker for ${casinoType}`);
+  }
+};
+
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
   try {
+    // Check circuit breaker first
+    if (isCircuitOpen(casinoType)) {
+      console.log(`[CIRCUIT] Skipping ${casinoType} - circuit breaker OPEN`);
+      return null;
+    }
+
     const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
     const matchRepo = CronDataSource.getRepository(CasinoMatch);
@@ -26,16 +215,29 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     //   params = { casinoType };
     // }
 
-    const response = await axios.get(apiUrl, {
-      params,
-      timeout: 10000,
-    });
-    let apiData;
-    if(casinoType=="teen"){
-      apiData = response.data;
-    }else{
-      apiData = response.data;
-    }
+    // Use rate limiting and retry logic
+    const response = await rateLimitedRequest(casinoType, () =>
+      retryWithBackoff(async () => {
+        return await axios.get(apiUrl, {
+          params,
+          timeout: 15000, // Reduced to 15 seconds for faster failure detection
+          headers: {
+            'User-Agent': 'GameStake-Server/1.0',
+            'Accept': 'application/json',
+            'Connection': 'keep-alive'
+          }
+        });
+      }, casinoType)
+    );
+
+    console.log("response.data", response.data,"casinoType",casinoType);
+
+    let apiData = response.data;
+    // if(casinoType=="teen"){
+    //   apiData = response.data;
+    // }else{
+    //   apiData = response.data;
+    // }
     // const apiData = response.data;
 
     let currentMid: string | null = null;
@@ -108,10 +310,17 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     if (results.length <= 0) {
       try {
         console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
-        const resultsResponse = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
-          params: { type: casinoType },
-          timeout: 5000,
-        });
+        const resultsResponse = await retryWithBackoff(async () => {
+          return await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
+            params: { type: casinoType },
+            timeout: 10000, // Reduced timeout for faster processing
+            headers: {
+              'User-Agent': 'GameStake-Server/1.0',
+              'Accept': 'application/json',
+              'Connection': 'keep-alive'
+            }
+          });
+        }, casinoType, 1); // Single retry for alternative endpoint
 
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;
@@ -177,10 +386,18 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     return apiData;
   } catch (err: any) {
+    // Enhanced error handling with circuit breaker integration
+    if (err.message.includes("Circuit breaker OPEN")) {
+      console.log(`[CIRCUIT] ${casinoType} circuit breaker is OPEN, skipping request`);
+      return null;
+    }
+    
     if (
       err.code === "ECONNRESET" ||
       err.code === "ECONNABORTED" ||
-      err.message.includes("socket hang up")
+      err.code === "ETIMEDOUT" ||
+      err.message.includes("socket hang up") ||
+      err.message.includes("timeout")
     ) {
       console.log(
         `[CRON] Network error for ${casinoType}, will retry on next cycle:`,

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getRedisClient } from "../../config/redisConfig";
-import { fetchAndUpdateCasinoOdds } from "../../services/casino/CasinoService";
+import { fetchAndUpdateCasinoOdds, getCircuitBreakerHealth, resetCircuitBreaker } from "../../services/casino/CasinoService";
 import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
@@ -232,20 +232,20 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       where: { mid: matchId as any }
     });
 
-    if (!casinoMatch) {
-      return res.status(404).json({
-        success: false,
-        message: "Match not found",
-      });
-    }
+    // if (!casinoMatch) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "Match not found",
+    //   });
+    // }
 
     let resultData = null;
     // If no casinoMatch record exists or result is null, fetch from API
     if (!casinoMatch || casinoMatch.result === null) {
       try {
         // Fetch result from 3rd party API
-        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${matchId}`);
-
+        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${matchId}&gtype=${casinoType}`);
+console.log("response.data", response.data,"casinoType",casinoType);
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
 
@@ -346,6 +346,56 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
     console.error("Error in getCasinoMatchDetails:", err);
     return res.status(500).json({
       success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Health check endpoint for monitoring circuit breaker states
+export const getCasinoHealth = async (req: Request, res: Response) => {
+  try {
+    const health = getCircuitBreakerHealth();
+    
+    return res.status(200).json({
+      status: "success",
+      message: "Casino service health check",
+      data: {
+        ...health,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      }
+    });
+  } catch (err: any) {
+    console.error("Error in getCasinoHealth:", err.message);
+    return res.status(500).json({
+      status: "error",
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Reset circuit breaker endpoint (for manual recovery)
+export const resetCasinoCircuitBreaker = async (req: Request, res: Response) => {
+  try {
+    const { casinoType } = req.body;
+    
+    if (!casinoType) {
+      return res.status(400).json({
+        status: "error",
+        message: "casinoType is required",
+      });
+    }
+    
+    resetCircuitBreaker(casinoType);
+    
+    return res.status(200).json({
+      status: "success",
+      message: `Circuit breaker reset for ${casinoType}`,
+    });
+  } catch (err: any) {
+    console.error("Error in resetCasinoCircuitBreaker:", err.message);
+    return res.status(500).json({
+      status: "error",
       message: "Internal Server Error",
     });
   }
