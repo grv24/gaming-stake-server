@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getRedisClient } from "../../config/redisConfig";
-import { fetchAndUpdateCasinoOdds, getCircuitBreakerHealth, resetCircuitBreaker } from "../../services/casino/CasinoService";
+import { fetchAndUpdateCasinoOdds, getCircuitBreakerHealth, resetCircuitBreaker, markCasinoAsActive, requestImmediateUpdate } from "../../services/casino/CasinoService";
 import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
@@ -18,8 +18,16 @@ export const getCasinoData = async (req: Request, res: Response) => {
       });
     }
 
+    const casinoTypeStr = String(casinoType);
+    
+    // Mark casino as active for priority processing
+    markCasinoAsActive(casinoTypeStr);
+    
+    // Request immediate update if needed
+    const needsUpdate = requestImmediateUpdate(casinoTypeStr);
+
     const redisClient = getRedisClient();
-    const cacheKey = `casino:${casinoType}:current`;
+    const cacheKey = `casino:${casinoTypeStr}:current`;
 
     // 1. Check Redis for current match
     const cachedData = await redisClient.get(cacheKey);
@@ -29,11 +37,12 @@ export const getCasinoData = async (req: Request, res: Response) => {
         status: "success",
         message: "Current match data from cache",
         data: JSON.parse(cachedData),
+        needsUpdate: needsUpdate
       });
     }
 
-    // 2. If cache miss → fetch + update
-    const freshData = await fetchAndUpdateCasinoOdds(String(casinoType));
+    // 2. If cache miss → fetch + update immediately
+    const freshData = await fetchAndUpdateCasinoOdds(casinoTypeStr);
     if (!freshData?.data) {
       return res.status(500).json({
         status: "error",
@@ -45,6 +54,7 @@ export const getCasinoData = async (req: Request, res: Response) => {
       status: "success",
       message: "Current match data fetched fresh",
       data: freshData.data,
+      needsUpdate: false
     });
   } catch (err: any) {
     console.error("Error in getCasinoData:", err.message);
@@ -65,8 +75,16 @@ export const getCasinoResults = async (req: Request, res: Response) => {
       });
     }
 
+    const casinoTypeStr = String(casinoType);
+    
+    // Mark casino as active for priority processing
+    markCasinoAsActive(casinoTypeStr);
+    
+    // Request immediate update if needed
+    const needsUpdate = requestImmediateUpdate(casinoTypeStr);
+
     const redisClient = getRedisClient();
-    const cacheKey = `casino:${casinoType}:results`;
+    const cacheKey = `casino:${casinoTypeStr}:results`;
 
     // 1. Check Redis for results
     const cachedResults = await redisClient.get(cacheKey);
@@ -75,11 +93,12 @@ export const getCasinoResults = async (req: Request, res: Response) => {
         status: "success",
         message: "Results data from cache",
         results: JSON.parse(cachedResults),
+        needsUpdate: needsUpdate
       });
     }
 
-    // 2. If cache miss → fetch + update
-    const freshData = await fetchAndUpdateCasinoOdds(String(casinoType));
+    // 2. If cache miss → fetch + update immediately
+    const freshData = await fetchAndUpdateCasinoOdds(casinoTypeStr);
 
     // Handle both result structures
     let results = [];
@@ -100,6 +119,7 @@ export const getCasinoResults = async (req: Request, res: Response) => {
       status: "success",
       message: "Results data fetched fresh",
       results: results,
+      needsUpdate: false
     });
   } catch (err: any) {
     console.error("Error in getCasinoResults:", err.message);
@@ -394,6 +414,40 @@ export const resetCasinoCircuitBreaker = async (req: Request, res: Response) => 
     });
   } catch (err: any) {
     console.error("Error in resetCasinoCircuitBreaker:", err.message);
+    return res.status(500).json({
+      status: "error",
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Request immediate update for specific casino type
+export const requestCasinoUpdate = async (req: Request, res: Response) => {
+  try {
+    const { casinoType } = req.body;
+    
+    if (!casinoType) {
+      return res.status(400).json({
+        status: "error",
+        message: "casinoType is required",
+      });
+    }
+    
+    const casinoTypeStr = String(casinoType);
+    
+    // Mark as active and request immediate update
+    markCasinoAsActive(casinoTypeStr);
+    const updateRequested = requestImmediateUpdate(casinoTypeStr);
+    
+    return res.status(200).json({
+      status: "success",
+      message: updateRequested 
+        ? `Immediate update requested for ${casinoTypeStr}` 
+        : `${casinoTypeStr} was updated recently, will be processed in next cycle`,
+      updateRequested: updateRequested
+    });
+  } catch (err: any) {
+    console.error("Error in requestCasinoUpdate:", err.message);
     return res.status(500).json({
       status: "error",
       message: "Internal Server Error",

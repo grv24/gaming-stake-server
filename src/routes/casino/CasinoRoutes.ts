@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCasinoData, getCasinoHistory, getCasinoMatchDetails, getCasinoResults, getCasinoHealth, resetCasinoCircuitBreaker } from "../../controllers/casino/CasinoOdds";
+import { getCasinoData, getCasinoHistory, getCasinoMatchDetails, getCasinoResults, getCasinoHealth, resetCasinoCircuitBreaker, requestCasinoUpdate } from "../../controllers/casino/CasinoOdds";
 import {
     createCasino,
     getAllCasinos,
@@ -27,6 +27,7 @@ router.get("/match-details", clientAuth, getCasinoMatchDetails);
 // Health check and circuit breaker management endpoints
 router.get("/health", getCasinoHealth);
 router.post("/reset-circuit-breaker", resetCasinoCircuitBreaker);
+router.post("/request-update", requestCasinoUpdate);
 
 router.post("/", createCasino);
 router.get("/", getAllCasinos);

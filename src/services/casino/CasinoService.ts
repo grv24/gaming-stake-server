@@ -29,6 +29,12 @@ const requestQueue = new Map<string, Promise<any>>();
 const RATE_LIMIT_DELAY = 50; // Reduced to 50ms for faster processing
 const CONCURRENT_REQUESTS_LIMIT = 3; // Max concurrent requests per casino type
 
+// Priority system for user-requested casino types
+const activeCasinoTypes = new Set<string>();
+const priorityQueue = new Set<string>();
+const lastUpdateTime = new Map<string, number>();
+const MIN_UPDATE_INTERVAL = 5000; // Minimum 5 seconds between updates for same casino type
+
 // Circuit breaker functions
 const getCircuitBreakerState = (casinoType: string): CircuitBreakerState => {
   if (!circuitBreakers.has(casinoType)) {
@@ -189,6 +195,51 @@ export const resetCircuitBreaker = (casinoType: string) => {
     });
     console.log(`[CIRCUIT] Reset circuit breaker for ${casinoType}`);
   }
+};
+
+// Priority system functions
+export const markCasinoAsActive = (casinoType: string) => {
+  activeCasinoTypes.add(casinoType);
+  console.log(`[PRIORITY] Marked ${casinoType} as active`);
+};
+
+export const markCasinoAsInactive = (casinoType: string) => {
+  activeCasinoTypes.delete(casinoType);
+  console.log(`[PRIORITY] Marked ${casinoType} as inactive`);
+};
+
+export const requestImmediateUpdate = (casinoType: string) => {
+  const now = Date.now();
+  const lastUpdate = lastUpdateTime.get(casinoType) || 0;
+  
+  // Only add to priority queue if enough time has passed since last update
+  if (now - lastUpdate >= MIN_UPDATE_INTERVAL) {
+    priorityQueue.add(casinoType);
+    console.log(`[PRIORITY] Added ${casinoType} to priority queue for immediate update`);
+    return true;
+  } else {
+    console.log(`[PRIORITY] ${casinoType} updated recently, skipping immediate update`);
+    return false;
+  }
+};
+
+export const getPriorityCasinoTypes = (): string[] => {
+  return Array.from(priorityQueue);
+};
+
+export const clearPriorityQueue = () => {
+  priorityQueue.clear();
+};
+
+// Check if casino type should be updated immediately
+const shouldUpdateImmediately = (casinoType: string): boolean => {
+  const now = Date.now();
+  const lastUpdate = lastUpdateTime.get(casinoType) || 0;
+  
+  return (
+    activeCasinoTypes.has(casinoType) || 
+    priorityQueue.has(casinoType)
+  ) && (now - lastUpdate >= MIN_UPDATE_INTERVAL);
 };
 
 export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
@@ -383,6 +434,10 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     console.log(
       `[CRON] Updated Redis & published notification for ${casinoType}`
     );
+
+    // Track update time and remove from priority queue
+    lastUpdateTime.set(casinoType, Date.now());
+    priorityQueue.delete(casinoType);
 
     return apiData;
   } catch (err: any) {
