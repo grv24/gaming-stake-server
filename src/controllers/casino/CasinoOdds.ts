@@ -19,10 +19,10 @@ export const getCasinoData = async (req: Request, res: Response) => {
     }
 
     const casinoTypeStr = String(casinoType);
-    
+
     // Mark casino as active for priority processing
     markCasinoAsActive(casinoTypeStr);
-    
+
     // Request immediate update if needed
     const needsUpdate = requestImmediateUpdate(casinoTypeStr);
 
@@ -76,10 +76,10 @@ export const getCasinoResults = async (req: Request, res: Response) => {
     }
 
     const casinoTypeStr = String(casinoType);
-    
+
     // Mark casino as active for priority processing
     markCasinoAsActive(casinoTypeStr);
-    
+
     // Request immediate update if needed
     const needsUpdate = requestImmediateUpdate(casinoTypeStr);
 
@@ -264,8 +264,8 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
     if (!casinoMatch || casinoMatch.result === null) {
       try {
         // Fetch result from 3rd party API
-        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${matchId}&gtype=${casinoType}`);
-console.log("response.data", response.data,"casinoType",casinoType);
+        const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${matchId}&gtype=${casinoType}`);
+        console.log("response.data", response.data, "casinoType", casinoType);
         if (response.data.error === false && response.data.data?.success) {
           const apiData = response.data.data;
 
@@ -352,7 +352,7 @@ console.log("response.data", response.data,"casinoType",casinoType);
 
 
     const userBets = await CasinoBetRepo.find({
-      where: { userId, matchId: casinoMatch?.mid as any , status: In(["won", "lost"])}
+      where: { userId, matchId: casinoMatch?.mid as any, status: In(["won", "lost"]) }
     });
 
     return res.json({
@@ -375,7 +375,7 @@ console.log("response.data", response.data,"casinoType",casinoType);
 export const getCasinoHealth = async (req: Request, res: Response) => {
   try {
     const health = getCircuitBreakerHealth();
-    
+
     return res.status(200).json({
       status: "success",
       message: "Casino service health check",
@@ -398,16 +398,16 @@ export const getCasinoHealth = async (req: Request, res: Response) => {
 export const resetCasinoCircuitBreaker = async (req: Request, res: Response) => {
   try {
     const { casinoType } = req.body;
-    
+
     if (!casinoType) {
       return res.status(400).json({
         status: "error",
         message: "casinoType is required",
       });
     }
-    
+
     resetCircuitBreaker(casinoType);
-    
+
     return res.status(200).json({
       status: "success",
       message: `Circuit breaker reset for ${casinoType}`,
@@ -425,24 +425,24 @@ export const resetCasinoCircuitBreaker = async (req: Request, res: Response) => 
 export const requestCasinoUpdate = async (req: Request, res: Response) => {
   try {
     const { casinoType } = req.body;
-    
+
     if (!casinoType) {
       return res.status(400).json({
         status: "error",
         message: "casinoType is required",
       });
     }
-    
+
     const casinoTypeStr = String(casinoType);
-    
+
     // Mark as active and request immediate update
     markCasinoAsActive(casinoTypeStr);
     const updateRequested = requestImmediateUpdate(casinoTypeStr);
-    
+
     return res.status(200).json({
       status: "success",
-      message: updateRequested 
-        ? `Immediate update requested for ${casinoTypeStr}` 
+      message: updateRequested
+        ? `Immediate update requested for ${casinoTypeStr}`
         : `${casinoTypeStr} was updated recently, will be processed in next cycle`,
       updateRequested: updateRequested
     });
