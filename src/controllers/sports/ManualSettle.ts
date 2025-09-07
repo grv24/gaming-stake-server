@@ -105,3 +105,96 @@ export const updateBet = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const reopenBet = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const betRepo = AppDataSource.getRepository(SportBet);
+    const clientRepo = AppDataSource.getRepository(Client);
+
+    const bet = await betRepo.findOne({ where: { id } });
+    if (!bet) {
+      return res.status(404).json({ success: false, message: "Bet not found" });
+    }
+
+    const client = await clientRepo.findOne({ where: { id: bet.userId as any } });
+    if (!client) {
+      return res.status(404).json({ success: false, message: "Client not found" });
+    }
+
+    const oldStatus = bet.status;
+    const { stake = 0, profit = 0, loss = 0 } = bet.betData || {};
+
+    if (oldStatus === "won") {
+      client.balance -= Number(profit);
+      client.exposure += Number(stake);
+    } else if (oldStatus === "lost") {
+      client.balance += Number(loss);
+      client.exposure += Number(stake);
+    }
+
+    bet.status = "pending";
+
+    await betRepo.save(bet);
+    await clientRepo.save(client);
+
+    return res.json({
+      success: true,
+      message: "Bet reopened successfully",
+      data: { bet, client },
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// --------------------------- ISKO IGNORE KAROOO -------------------------------------------------------
+
+// export const deleteBet = async (req: Request, res: Response) => {
+//   try {
+//     const { id } = req.params;
+
+//     const betRepo = AppDataSource.getRepository(SportBet);
+//     const clientRepo = AppDataSource.getRepository(Client);
+
+//     const bet = await betRepo.findOne({ where: { id } });
+//     if (!bet) {
+//       return res.status(404).json({ success: false, message: "Bet not found" });
+//     }
+
+//     const client = await clientRepo.findOne({ where: { id: bet.userId as any } });
+//     if (!client) {
+//       return res.status(404).json({ success: false, message: "Client not found" });
+//     }
+
+//     const oldStatus = bet.status;
+//     const { stake = 0, profit = 0, loss = 0 } = bet.betData || {};
+
+//     // Rollback logic same as reopen
+//     if (oldStatus === "won") {
+//       client.balance -= Number(profit);
+//       client.exposure += Number(stake);
+//     } else if (oldStatus === "lost") {
+//       client.balance += Number(loss);
+//       client.exposure += Number(stake);
+//     }
+
+//     bet.status = "pending";
+//     bet.isActive = false; 
+
+//     await betRepo.save(bet);
+//     await clientRepo.save(client);
+
+//     return res.json({
+//       success: true,
+//       message: "Bet deleted successfully",
+//       data: { bet, client },
+//     });
+//   } catch (error: any) {
+//     console.error(error);
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// };
