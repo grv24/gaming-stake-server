@@ -130,6 +130,7 @@ export const getCasinoResults = async (req: Request, res: Response) => {
   }
 };
 
+
 export const getCasinoHistory = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -142,16 +143,15 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       });
     }
 
-    const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
     const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
+    const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
 
     const take = Number(limit);
     const skip = (Number(page) - 1) * take;
 
-    // First, try the JsonContains approach
+    // Build where conditions for CasinoMatch
     const whereConditions: any = {
-      betData: JsonContains({ gameSlug: slug as string }),
-      status: In(["won", "lost"]),
+      gameSlug: slug as string, // assuming CasinoMatch has gameSlug field
     };
 
     // Add date filter if provided
@@ -163,21 +163,24 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
       whereConditions.createdAt = Between(startOfDay, endOfDay);
     }
 
-    const [placedBets, totalCount] = await CasinoBetRepo.findAndCount({
+    // Fetch matches directly
+    const [matches, totalCount] = await CasinoMatchRepo.findAndCount({
       where: whereConditions,
       skip,
       take,
       order: { createdAt: "DESC" }
     });
 
-    // Get match details for each bet
-    const matches = await Promise.all(
-      placedBets.map(async (bet) => {
-        const match = await CasinoMatchRepo.findOne({
-          where: { mid: bet.matchId }
+    // For each match, fetch my bet (if any)
+    const results = await Promise.all(
+      matches.map(async (match) => {
+        const bet = await CasinoBetRepo.findOne({
+          where: {
+            userId,
+            matchId: match.mid as any,
+            status: In(["won", "lost"]),
+          },
         });
-
-        if (!match) return null;
 
         const createdAtIST = new Date(match.createdAt)
           .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
@@ -187,36 +190,25 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
           winner: match.winner,
           result: match.result,
           dateAndTime: createdAtIST,
-          myBetDetails: bet.betData
+          myBetDetails: bet ? bet.betData : null,
         };
       })
     );
 
-    const filteredMatches = matches.filter((m) => m !== null);
-
     return res.status(200).json({
       status: "success",
-      message: "Casino history fetched successfully",
+      message: "Casino matches fetched successfully",
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        count: placedBets.length,
-        totalCount: totalCount,
-        totalPages: Math.ceil(totalCount / take)
+        count: matches.length,
+        totalCount,
+        totalPages: Math.ceil(totalCount / take),
       },
-      results: filteredMatches,
+      results,
     });
   } catch (err: any) {
     console.error("Error in getCasinoHistory:", err);
-
-    // If JsonContains fails, fall back to string matching
-    if (err.message.includes("JSON") || err.message.includes("json")) {
-      // Implement fallback solution here
-      return res.status(500).json({
-        status: "error",
-        message: "JSON query issue. Please check database configuration.",
-      });
-    }
 
     return res.status(500).json({
       status: "error",
@@ -224,6 +216,102 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+// export const getCasinoHistory = async (req: Request, res: Response) => {
+//   try {
+//     const userId = req.user?.userId;
+//     const { slug, page = 1, limit = 10, date } = req.query;
+
+//     if (!slug) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "casinoType (slug) is required",
+//       });
+//     }
+
+//     const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
+//     const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
+
+//     const take = Number(limit);
+//     const skip = (Number(page) - 1) * take;
+
+//     // First, try the JsonContains approach
+//     const whereConditions: any = {
+//       betData: JsonContains({ gameSlug: slug as string }),
+//       status: In(["won", "lost"]),
+//     };
+
+//     // Add date filter if provided
+//     if (date) {
+//       const targetDate = date as string;
+//       const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
+//       const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
+
+//       whereConditions.createdAt = Between(startOfDay, endOfDay);
+//     }
+
+//     const [placedBets, totalCount] = await CasinoBetRepo.findAndCount({
+//       where: whereConditions,
+//       skip,
+//       take,
+//       order: { createdAt: "DESC" }
+//     });
+
+//     // Get match details for each bet
+//     const matches = await Promise.all(
+//       placedBets.map(async (bet) => {
+//         const match = await CasinoMatchRepo.findOne({
+//           where: { mid: bet.matchId }
+//         });
+
+//         if (!match) return null;
+
+//         const createdAtIST = new Date(match.createdAt)
+//           .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+//         return {
+//           roundId: match.mid,
+//           winner: match.winner,
+//           result: match.result,
+//           dateAndTime: createdAtIST,
+//           myBetDetails: bet.betData
+//         };
+//       })
+//     );
+
+//     const filteredMatches = matches.filter((m) => m !== null);
+
+//     return res.status(200).json({
+//       status: "success",
+//       message: "Casino history fetched successfully",
+//       pagination: {
+//         page: Number(page),
+//         limit: Number(limit),
+//         count: placedBets.length,
+//         totalCount: totalCount,
+//         totalPages: Math.ceil(totalCount / take)
+//       },
+//       results: filteredMatches,
+//     });
+//   } catch (err: any) {
+//     console.error("Error in getCasinoHistory:", err);
+
+//     // If JsonContains fails, fall back to string matching
+//     if (err.message.includes("JSON") || err.message.includes("json")) {
+//       // Implement fallback solution here
+//       return res.status(500).json({
+//         status: "error",
+//         message: "JSON query issue. Please check database configuration.",
+//       });
+//     }
+
+//     return res.status(500).json({
+//       status: "error",
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
 export const getCasinoMatchDetails = async (req: Request, res: Response) => {
   try {
