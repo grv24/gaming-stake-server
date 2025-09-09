@@ -117,3 +117,17 @@ export const getOddsFromRedis = async (sportId: string, eventId: string) => {
     return null;
   }
 };
+
+// Function to get provider data from Redis using d247_{eventId} pattern
+export const getProviderDataFromRedis = async (eventId: string) => {
+  try {
+    const redisClient = getRedisClient();
+    const providerKey = `d247_${eventId}`;
+    
+    const data = await redisClient.get(providerKey);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error(`[ODDS] Error getting provider data from Redis:`, error);
+    return null;
+  }
+};

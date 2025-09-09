@@ -9,7 +9,8 @@ import {
   getFilteredIPlayMatches
 } from "../../services/sports/SportService";
 // import { addEventToMonitor, isEventMonitored, getMonitoredEvents, removeEventFromMonitor } from "../../cron/SportsCronJob";
-import { getOddsFromRedis, processOddsData } from "../../services/sports/OddsService";
+import { getOddsFromRedis, processOddsData, getProviderDataFromRedis } from "../../services/sports/OddsService";
+import { getRedisClient } from "../../config/redisConfig";
 import axios from "axios";
 
 // Controller to get cricket data
@@ -149,15 +150,30 @@ export const getOddsData = async (req: Request, res: Response) => {
     //   addEventToMonitor(sportId, eventId);
     // }
 
-    // Try to get from Redis first
-    let data = await getOddsFromRedis(sportId, eventId);
+    let data = null;
+    let source = 'api';
 
+    // Step 1: Check for d247_{eventId} pattern in Redis first (provider data)
+    data = await getProviderDataFromRedis(eventId);
+    if (data) {
+      console.log(`[ODDS] Found provider data for event ${eventId} in Redis key: d247_${eventId}`);
+      source = 'provider_redis';
+    } else {
+      // Step 2: Try to get from existing odds Redis cache
+      data = await getOddsFromRedis(sportId, eventId);
+      if (data) {
+        source = 'odds_redis';
+      }
+    }
+
+    // Step 3: If not found in Redis, fetch from third-party API
     if (!data) {
-      // If not in Redis, fetch from API
+      console.log(`[ODDS] No data found in Redis for event ${eventId}, fetching from API`);
       const result = await processOddsData(sportId, eventId);
 
       if (result.success) {
         data = result.data;
+        source = 'api';
       } else {
         return res.status(500).json({
           success: false,
@@ -172,8 +188,9 @@ export const getOddsData = async (req: Request, res: Response) => {
       sport_id: sportId,
       event_id: eventId,
       data: data,
-      source: 'redis',
-      monitored: true
+      source: source,
+      monitored: true,
+      redis_key: source === 'provider_redis' ? `d247_${eventId}` : undefined
     });
   } catch (error) {
     console.error('Error getting odds data:', error);
