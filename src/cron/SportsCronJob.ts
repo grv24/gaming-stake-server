@@ -12,33 +12,63 @@ export const startLiveMatchesCron = () => {
 
       const newEvents: { sportId: string; eventId: string }[] = [];
 
-      // Cricket
-      const cricketMatches = await fetchAndStoreSportsData("cricket");
-      cricketMatches?.forEach((m: any) => {
-        if (m.iplay) {
-          newEvents.push({ sportId: "4", eventId: m.gmid });
+      // Cricket - Direct array access
+      try {
+        const cricketMatches = await fetchAndStoreSportsData("cricket");
+        if (cricketMatches && Array.isArray(cricketMatches)) {
+          cricketMatches.forEach((m: any) => {
+            if (m.iplay && m.gmid) {
+              newEvents.push({ sportId: "4", eventId: m.gmid });
+            }
+          });
+          console.log(`[CRON] Cricket: Found ${cricketMatches.filter((m: any) => m.iplay).length} live matches`);
+        } else {
+          console.log("[CRON] Cricket: No data or invalid format");
         }
-      });
+      } catch (err: any) {
+        console.error("[CRON] Cricket fetch error:", err.message);
+      }
 
-      // Soccer
-      const soccerMatches = await fetchAndStoreSportsData("soccer");
-      soccerMatches?.data?.t1?.forEach((m: any) => {
-        if (m.iplay) {
-          newEvents.push({ sportId: "1", eventId: m.gmid });
+      // Soccer - Nested data access
+      try {
+        const soccerMatches = await fetchAndStoreSportsData("soccer");
+        if (soccerMatches?.success && soccerMatches?.data?.t1 && Array.isArray(soccerMatches.data.t1)) {
+          soccerMatches.data.t1.forEach((m: any) => {
+            if (m.iplay && m.gmid) {
+              newEvents.push({ sportId: "1", eventId: m.gmid });
+            }
+          });
+          console.log(`[CRON] Soccer: Found ${soccerMatches.data.t1.filter((m: any) => m.iplay).length} live matches`);
+        } else {
+          console.log("[CRON] Soccer: No data or invalid format");
         }
-      });
+      } catch (err: any) {
+        console.error("[CRON] Soccer fetch error:", err.message);
+      }
 
-      // Tennis
-      const tennisMatches = await fetchAndStoreSportsData("tennis");
-      tennisMatches?.data?.t1?.forEach((m: any) => {
-        if (m.iplay) {
-          newEvents.push({ sportId: "2", eventId: m.gmid });
+      // Tennis - Nested data access
+      try {
+        const tennisMatches = await fetchAndStoreSportsData("tennis");
+        if (tennisMatches?.success && tennisMatches?.data?.t1 && Array.isArray(tennisMatches.data.t1)) {
+          tennisMatches.data.t1.forEach((m: any) => {
+            if (m.iplay && m.gmid) {
+              newEvents.push({ sportId: "2", eventId: m.gmid });
+            }
+          });
+          console.log(`[CRON] Tennis: Found ${tennisMatches.data.t1.filter((m: any) => m.iplay).length} live matches`);
+        } else {
+          console.log("[CRON] Tennis: No data or invalid format");
         }
-      });
+      } catch (err: any) {
+        console.error("[CRON] Tennis fetch error:", err.message);
+      }
 
       eventsToMonitor = newEvents;
 
-      console.log(`[CRON] Stored ${eventsToMonitor.length} live events`);
+      console.log(`[CRON] Total live events stored: ${eventsToMonitor.length}`);
+      if (eventsToMonitor.length > 0) {
+        console.log(`[CRON] Events to monitor:`, eventsToMonitor.map(e => `${e.sportId}:${e.eventId}`).join(', '));
+      }
 
     } catch (err: any) {
       console.error("[CRON] Failed to fetch live matches:", err.message);

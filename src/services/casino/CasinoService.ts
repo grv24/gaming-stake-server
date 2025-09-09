@@ -320,15 +320,25 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     const pipeline = redisClient.pipeline();
 
     if (currentMid && currentData) {
-      await matchRepo.upsert(
-        {
-          mid: currentMid,
-          casinoType,
-          winner: null,
-          data: currentData,
-        },
-        ["mid"]
-      );
+      // Only upsert columns that exist in the database (excluding result column)
+      try {
+        await matchRepo.upsert(
+          {
+            mid: currentMid,
+            casinoType,
+            winner: null,
+            data: currentData,
+          },
+          ["mid"]
+        );
+      } catch (dbError: any) {
+        // Handle database schema mismatch gracefully
+        if (dbError.message.includes("column") && dbError.message.includes("does not exist")) {
+          console.log(`[CRON] Database schema mismatch for ${casinoType}, skipping database update but continuing with Redis`);
+        } else {
+          throw dbError; // Re-throw if it's not a schema issue
+        }
+      }
 
       pipeline.set(
         `casino:${casinoType}:current`,
