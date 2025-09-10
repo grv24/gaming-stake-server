@@ -345,124 +345,148 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate casinoType if provided
+    if (casinoType && typeof casinoType !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid casinoType format",
+      });
+    }
+
+    // Fetch existing match record
     let casinoMatch = await casinoMatchRepo.findOne({
       where: { mid: matchId as any },
     });
 
     let resultData = null;
     let source = null;
-    if (casinoMatch && casinoMatch.result === null) {
-      try {
-        const response = await axios.get(
-          `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${matchId}&gtype=${casinoType}`
-        );
-        source = "api";
-        resultData = response?.data?.data?.data[0]
 
-        // update it in database
-        await casinoMatchRepo.update(
-          { mid: matchId as any },
-          { result: resultData }
-        );
-      } catch (error) {
-        console.error("error", error);
-        return res.status(500).json({
-          success: false,
-          message: "Internal Server Error",
+    // Check if we need to fetch from API
+    const needsApiFetch = !casinoMatch || casinoMatch.result === null;
+    
+    if (needsApiFetch) {
+      try {
+        // Validate required environment variable
+        if (!process.env.THIRD_PARTY_URL) {
+          console.error("THIRD_PARTY_URL environment variable is not set");
+          return res.status(500).json({
+            success: false,
+            message: "Service configuration error",
+          });
+        }
+
+        // Build API URL with proper parameter validation
+        const apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new`;
+        const params = new URLSearchParams({
+          roundId: String(matchId),
+          ...(casinoType && { gtype: String(casinoType) })
         });
+
+        console.log(`Fetching casino result from API for matchId: ${matchId}, casinoType: ${casinoType || 'not provided'}`);
+        
+        const response = await axios.get(`${apiUrl}?${params}`, {
+          timeout: 10000, // 10 second timeout
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        // Validate API response structure
+        if (!response?.data?.data?.data || !Array.isArray(response.data.data.data)) {
+          console.error("Invalid API response structure:", response?.data);
+          return res.status(500).json({
+            success: false,
+            message: "Invalid response format from external API",
+          });
+        }
+
+        source = "api";
+        resultData = response.data.data.data[0];
+
+        // Validate result data
+        if (!resultData) {
+          console.warn(`No result data found for matchId: ${matchId}`);
+          return res.status(404).json({
+            success: false,
+            message: "No result data available for this match",
+          });
+        }
+
+        // Update database with proper error handling
+        try {
+          if (casinoMatch) {
+            // Update existing record
+            await casinoMatchRepo.update(
+              { mid: matchId as any },
+              { result: resultData }
+            );
+            console.log(`Updated existing casino match record for matchId: ${matchId}`);
+          } else {
+            // Create new record if it doesn't exist
+            const newMatch = casinoMatchRepo.create({
+              mid: matchId as any,
+              casinoType: casinoType || 'unknown',
+              result: resultData,
+            });
+            await casinoMatchRepo.save(newMatch);
+            casinoMatch = newMatch;
+            console.log(`Created new casino match record for matchId: ${matchId}`);
+          }
+        } catch (dbError: any) {
+          console.error(`Database error while saving casino match for matchId ${matchId}:`, dbError);
+          // Don't fail the request if DB update fails, we still have the API data
+          console.warn("Continuing with API data despite database update failure");
+        }
+
+      } catch (error: any) {
+        console.error(`API error fetching casino result for matchId ${matchId}:`, {
+          message: error.message,
+          code: error.code,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+
+        // Handle specific error types
+        if (error.code === 'ECONNABORTED') {
+          return res.status(504).json({
+            success: false,
+            message: "External API timeout - please try again",
+          });
+        }
+
+        if (error.response?.status === 404) {
+          return res.status(404).json({
+            success: false,
+            message: "Match not found in external system",
+          });
+        }
+
+        if (error.response?.status >= 500) {
+          return res.status(502).json({
+            success: false,
+            message: "External service temporarily unavailable",
+          });
+        }
+
+        // If we have existing data, use it instead of failing
+        if (casinoMatch?.result) {
+          console.log(`Using existing database data due to API error for matchId: ${matchId}`);
+          source = "database";
+          resultData = casinoMatch.result;
+        } else {
+          return res.status(500).json({
+            success: false,
+            message: "Unable to fetch match data from external source",
+          });
+        }
       }
     } else {
       source = "database";
       resultData = casinoMatch?.result;
+      console.log(`Using cached database result for matchId: ${matchId}`);
     }
-    // // If no casinoMatch record exists or result is null, fetch from API
-    // if (!casinoMatch || casinoMatch.result === null) {
-    //   try {
-    //     // Fetch result from 3rd party API
-    //     const response = await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${matchId}&gtype=${casinoType}`);
-    //     if (response.data.error === false && response.data.data?.success) {
-    //       const apiData = response.data.data;
 
-    //       // Handle different response formats
-    //       if (Array.isArray(apiData.data)) {
-    //         // Format 1: Array response
-    //         const matchResult = apiData.data.find((item: any) => String(item.mid) === String(matchId));
-    //         if (matchResult) {
-    //           resultData = {
-    //             ...matchResult
-    //           };
-    //         }
-    //       } else if (apiData.data?.t1) {
-    //         // Format 2: Object with t1 property
-    //         const t1Data = apiData.data.t1;
-    //         resultData = {
-    //           ...t1Data
-    //         };
-    //       }
-
-    //       // Create or update casinoMatch record
-    //       if (resultData) {
-    //         try {
-    //           if (casinoMatch) {
-    //             // Update existing record
-    //             casinoMatch.result = resultData;
-    //             await casinoMatchRepo.save(casinoMatch);
-    //           } else {
-    //             // Create new record with duplicate handling
-    //             casinoMatch = casinoMatchRepo.create({
-    //               mid: matchId,
-    //               casinoType,
-    //               result: resultData
-    //             } as Partial<CasinoMatch>);
-    //             await casinoMatchRepo.save(casinoMatch);
-    //           }
-    //         } catch (saveError: any) {
-    //           // Handle duplicate key error (race condition)
-    //           if (saveError.code === '23505' || saveError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-    //             console.log(`Duplicate key detected for mid ${matchId}, fetching existing record`);
-    //             // Record already exists, fetch it
-    //             casinoMatch = await casinoMatchRepo.findOne({
-    //               where: { mid: matchId as any }
-    //             });
-
-    //             // If the existing record has no result, update it
-    //             if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
-    //               casinoMatch.result = resultData;
-    //               await casinoMatchRepo.save(casinoMatch);
-    //             }
-    //           } else {
-    //             throw saveError;
-    //           }
-    //         }
-    //       }
-    //     }
-    //   } catch (apiError: any) {
-    //     console.error(`[API] Error fetching result for mid ${matchId}:`, apiError);
-    //     // Don't return error here, continue with existing data if available
-    //     if (!casinoMatch) {
-    //       return res.status(500).json({
-    //         success: false,
-    //         message: "Failed to fetch result from external API and no existing record found",
-    //         error: apiError.message
-    //       });
-    //     }
-    //     // If we have existing casinoMatch data, use it instead
-    //     console.log(`Using existing casinoMatch data due to API error`);
-    //     resultData = casinoMatch.result;
-    //   }
-    // } else {
-    //   // Use existing result from casinoMatch table
-    //   resultData = casinoMatch.result;
-    // }
-
-    // const createdAtIST = new Date(casinoMatch?.createdAt as any)
-    //   .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-
-    // resultData = {
-    //   result: casinoMatch?.result,
-    //   dateAndTime: createdAtIST,
-    // };
-
+    // Fetch user bets for this match
     const userBets = await CasinoBetRepo.find({
       where: {
         userId,
