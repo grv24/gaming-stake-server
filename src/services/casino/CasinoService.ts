@@ -2,11 +2,12 @@ import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
 import { getRedisPublisher } from "../../config/redisPubSub";
 import { CronDataSource } from "../../corn.server";
-import { CasinoMatch } from "../../entities/casino/CasinoMatch";
+// import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { AppDataSource } from "../../server";
 import { DIFF_STRUCT_CASINO_TYPES, ALTERNATIVE_API_CASINO_TYPES } from "../../Helpers/Request/Validation";
+import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 
 // Circuit breaker state tracking
 interface CircuitBreakerState {
@@ -252,7 +253,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     const redisPublisher = getRedisPublisher();
     const redisClient = getRedisClient();
-    const matchRepo = CronDataSource.getRepository(CasinoMatch);
+    const matchRepo = CronDataSource.getRepository(CasinoMatchNew);
     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
 
     let apiUrl: string;
@@ -318,16 +319,16 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
     // }
 
     const pipeline = redisClient.pipeline();
-
     if (currentMid && currentData) {
       // Only upsert columns that exist in the database (excluding result column)
       try {
         await matchRepo.upsert(
           {
-            mid: currentMid,
-            casinoType,
+            mid: String(currentMid),
+            casinoType: casinoType,
             winner: null,
             data: currentData,
+            result: null as any,
           },
           ["mid"]
         );
@@ -347,7 +348,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
         600
       );
     } else {
-      console.log(`[CRON] No live match for ${casinoType}`);
+      console.log(`[CRON] already updated that match on the database for ${casinoType}`);
     }
 
     let results = [];
@@ -370,7 +371,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
     if (results.length <= 0) {
       try {
-        console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
+        // console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
         const resultsResponse = await retryWithBackoff(async () => {
           return await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
             params: { type: casinoType },
@@ -385,7 +386,7 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
 
         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
           results = resultsResponse.data;
-          console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
+          console.log(`[CRON] Found ${results.length} results from third party api for ${casinoType}`);
         } else if (resultsResponse.data?.res && Array.isArray(resultsResponse.data.res)) {
           results = resultsResponse.data.res;
           console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
@@ -404,21 +405,15 @@ export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
           console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
           continue;
         }
-
-        // await matchRepo.upsert(
-        //   {
-        //     mid: resultMid,
-        //     casinoType,
-        //     winner: String(winner),
-        //   },
-        //   ["mid"]
-        // );
-
-        // await updateCasinoBetsWithResult(
-        //   resultMid,
-        //   String(winner),
-        //   casinoBetRepo
-        // );
+       
+          await matchRepo.update(
+            { mid: resultMid },
+            {
+              casinoType: casinoType,
+              winner: String(winner),
+              result: null as any,
+            }
+          );
       }
 
       pipeline.set(

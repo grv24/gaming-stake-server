@@ -24,10 +24,11 @@ import { Client } from "./entities/users/ClientUser";
 import { initRedisPubSub } from "./config/redisPubSub";
 import { AccountTrasaction } from "./entities/Transactions/AccountTransactions";
 import { DefaultCasino } from "./entities/casino/DefaultCasino";
-import { CasinoMatch } from "./entities/casino/CasinoMatch";
+// import { CasinoMatch } from "./entities/casino/CasinoMatch";
 import { CasinoBet } from "./entities/casino/CasinoBet";
 import { Buttons } from "./entities/games/Buttons";
 import { SportBet } from "./entities/sports/SportBet";
+import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 
 dotenv.config();
 
@@ -56,9 +57,10 @@ export const AppDataSource = new DataSource({
     CasinoSettings,
     InternationalCasinoSettings,
     MatkaSettings,
+    CasinoMatchNew,
     AccountTrasaction,
     DefaultCasino,
-    CasinoMatch,
+    // CasinoMatch,
     CasinoBet,
     SportBet,
     Buttons

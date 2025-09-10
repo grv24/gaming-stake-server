@@ -42,7 +42,7 @@ import { Client } from "./entities/users/ClientUser";
 import { Whitelist } from "./entities/whitelist/Whitelist";
 import { AccountTrasaction } from "./entities/Transactions/AccountTransactions";
 import { DefaultCasino } from "./entities/casino/DefaultCasino";
-import { CasinoMatch } from "./entities/casino/CasinoMatch";
+// import { CasinoMatch } from "./entities/casino/CasinoMatch";
 import { CasinoBet } from "./entities/casino/CasinoBet";
 import { SoccerSettings } from "./entities/users/utils/SoccerSetting";
 import { TennisSettings } from "./entities/users/utils/TennisSetting";
@@ -50,6 +50,7 @@ import { CricketSettings } from "./entities/users/utils/CricketSetting";
 import { CasinoSettings } from "./entities/users/utils/CasinoSetting";
 import { InternationalCasinoSettings } from "./entities/users/utils/InternationalCasino";
 import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
+import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -103,7 +104,7 @@ export const CronDataSource = new DataSource({
     AccountTrasaction,
     // Casino entities - for game data and betting operations
     DefaultCasino,
-    CasinoMatch,
+    // CasinoMatch,
     CasinoBet,
     // Settings entities - for configuration management
     SoccerSettings,
@@ -112,8 +113,9 @@ export const CronDataSource = new DataSource({
     CasinoSettings,
     InternationalCasinoSettings,
     MatkaSettings,
+    CasinoMatchNew,
   ],
-  synchronize: false, // Disable auto-sync for safety in production
+  synchronize: true, // Disable auto-sync for safety in production
   logging: false, // Disable TypeORM logging to reduce noise
   name: "cron-service", // Unique connection name to avoid conflicts
 });
@@ -157,7 +159,7 @@ const startCronService = async () => {
     // - Casino data processing (every 2 minutes)
     // NOTE: No HTTP server is started - this is a silent background service
 
-    startLiveMatchesCron();
+    // startLiveMatchesCron();
     startCasinoCronJobs();
     // startOddsCron();
 
