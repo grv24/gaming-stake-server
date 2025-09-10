@@ -115,7 +115,7 @@ export const CronDataSource = new DataSource({
     MatkaSettings,
     CasinoMatchNew,
   ],
-  synchronize: true, // Disable auto-sync for safety in production
+  synchronize: false, // Disable auto-sync for safety in production
   logging: false, // Disable TypeORM logging to reduce noise
   name: "cron-service", // Unique connection name to avoid conflicts
 });
