@@ -372,6 +372,7 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       }
     } else {
       source = "database";
+      // console.log("casinoMatch?.result", casinoMatch);
       resultData = casinoMatch?.result;
     }
     // // If no casinoMatch record exists or result is null, fetch from API
