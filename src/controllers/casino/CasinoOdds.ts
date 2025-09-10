@@ -14,7 +14,7 @@ import { CasinoBet } from "../../entities/casino/CasinoBet";
 //   ALTERNATIVE_API_CASINO_TYPES,
 //   DIFF_STRUCT_CASINO_TYPES,
 // } from "../../Helpers/Request/Validation";
-import { Between, In, JsonContains } from "typeorm";
+import { Between, In, JsonContains, Not, IsNull } from "typeorm";
 import axios from "axios";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 
@@ -161,6 +161,7 @@ export const getCasinoHistory = async (req: Request, res: Response) => {
     // Build where conditions for CasinoMatch
     const whereConditions: any = {
       casinoType: slug as string, // assuming CasinoMatch has gameSlug field
+      winner: Not(IsNull()),
     };
 
     // Add date filter if provided
@@ -356,7 +357,7 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
           `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${matchId}&gtype=${casinoType}`
         );
         source = "api";
-        resultData = response?.data?.data?.data;
+        resultData = response?.data?.data?.data[0]
 
         // update it in database
         await casinoMatchRepo.update(
@@ -372,7 +373,6 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       }
     } else {
       source = "database";
-      // console.log("casinoMatch?.result", casinoMatch);
       resultData = casinoMatch?.result;
     }
     // // If no casinoMatch record exists or result is null, fetch from API

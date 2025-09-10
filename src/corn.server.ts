@@ -161,7 +161,7 @@ const startCronService = async () => {
 
     // startLiveMatchesCron();
     startCasinoCronJobs();
-    startOddsCron();
+    // startOddsCron();
 
     logger.info("Cron jobs started successfully");
 
@@ -198,4 +198,4 @@ const startCronService = async () => {
 
 // Start the cron service when this file is executed
 // This is the entry point for the cron service process
-startCronService();
+// startCronService();
