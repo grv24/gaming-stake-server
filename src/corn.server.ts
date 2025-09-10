@@ -159,7 +159,7 @@ const startCronService = async () => {
     // - Casino data processing (every 2 minutes)
     // NOTE: No HTTP server is started - this is a silent background service
 
-    // startLiveMatchesCron();
+    startLiveMatchesCron();
     startCasinoCronJobs();
     // startOddsCron();
 
@@ -198,4 +198,4 @@ const startCronService = async () => {
 
 // Start the cron service when this file is executed
 // This is the entry point for the cron service process
-// startCronService();
+startCronService();
