@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../../../server";
 import { CasinoBet } from "../../../entities/casino/CasinoBet";
+import { CasinoMatchNew } from "../../../entities/casino/CasinoMatchNew";
 import { CASINO_TYPES } from "../../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../../Helpers/users/Roles";
-import { CronDataSource } from "../../../corn.server";
 import { getRedisClient } from "../../../config/redisConfig";
-import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
+// import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
 import axios from "axios";
 import { settleCard32Result } from "./game/Card32";
 import { settlePokerResult } from "./game/Poker";
@@ -50,8 +50,8 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
       });
     }
 
-    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
-    const casinoMatchRepo = CronDataSource.getRepository(CasinoMatch);
+    const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const casinoMatchRepo = AppDataSource.getRepository(CasinoMatchNew);
 
     // First check casinoMatch table for existing result
     let casinoMatch = await casinoMatchRepo.findOne({
@@ -216,7 +216,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           continue;
         }
 
-        await CronDataSource.transaction(async (transactionalEntityManager) => {
+        await AppDataSource.transaction(async (transactionalEntityManager) => {
           const currentBet = await transactionalEntityManager.findOne(
             CasinoBet,
             {
