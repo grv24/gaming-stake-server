@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCasinoData, getCasinoHistory, getCasinoMatchDetails, getCasinoResults, getCasinoHealth, resetCasinoCircuitBreaker, requestCasinoUpdate } from "../../controllers/casino/CasinoOdds";
+import { getCasinoData, getCasinoHistory, getCasinoMatchDetails, getCasinoResults, getCasinoHealth, resetCasinoCircuitBreaker, requestCasinoUpdate, getCasinoDataForWhitelistPanel } from "../../controllers/casino/CasinoOdds";
 import {
     createCasino,
     getAllCasinos,
@@ -10,6 +10,7 @@ import {
 import { casinoResult, createBet, getCurrentBet } from "../../controllers/casino/CasinoBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
 import { settleUserCasinoBets } from "../../controllers/casino/settlement/SettleController";
+import { getActiveCasinosForWhitelist } from "../../controllers/whitelist/WhitelistCasinoController";
 
 const router = Router();
 
@@ -23,6 +24,10 @@ router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
 
 router.get("/history", clientAuth, getCasinoHistory);
 router.get("/match-details", clientAuth, getCasinoMatchDetails);
+
+// Panel-specific casino endpoints
+router.get("/panel/:whitelistId", getActiveCasinosForWhitelist);
+router.get("/panel/:whitelistId/data", getCasinoDataForWhitelistPanel);
 
 // Health check and circuit breaker management endpoints
 router.get("/health", getCasinoHealth);

@@ -51,6 +51,7 @@ import { CasinoSettings } from "./entities/users/utils/CasinoSetting";
 import { InternationalCasinoSettings } from "./entities/users/utils/InternationalCasino";
 import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
 import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
+import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -114,6 +115,7 @@ export const CronDataSource = new DataSource({
     InternationalCasinoSettings,
     MatkaSettings,
     CasinoMatchNew,
+    WhitelistCasinoMapping,
   ],
   synchronize: false, // Disable auto-sync for safety in production
   logging: false, // Disable TypeORM logging to reduce noise

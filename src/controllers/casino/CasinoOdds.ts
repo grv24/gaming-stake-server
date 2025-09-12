@@ -7,6 +7,7 @@ import {
   markCasinoAsActive,
   requestImmediateUpdate,
 } from "../../services/casino/CasinoService";
+import { getCasinoDataForWhitelist } from "../../services/casino/WhitelistCasinoService";
 import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 // import { CasinoMatch } from "../../entities/casino/CasinoMatch";
@@ -592,6 +593,38 @@ export const requestCasinoUpdate = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error in requestCasinoUpdate:", err.message);
+    return res.status(500).json({
+      status: "error",
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Get casino data filtered by whitelist panel configuration
+export const getCasinoDataForWhitelistPanel = async (req: Request, res: Response) => {
+  try {
+    const { whitelistId } = req.params;
+
+    if (!whitelistId) {
+      return res.status(400).json({
+        status: "error",
+        message: "whitelistId is required",
+      });
+    }
+
+    // Get filtered casino data for this whitelist panel
+    const casinoData = await getCasinoDataForWhitelist(whitelistId);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Casino data filtered for whitelist panel",
+      data: casinoData,
+      whitelistId: whitelistId,
+      casinoCount: Object.keys(casinoData).length
+    });
+
+  } catch (err: any) {
+    console.error("Error in getCasinoDataForWhitelistPanel:", err.message);
     return res.status(500).json({
       status: "error",
       message: "Internal Server Error",

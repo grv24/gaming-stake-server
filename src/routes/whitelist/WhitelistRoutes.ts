@@ -7,6 +7,18 @@ import {
   deleteWhitelist,
   getWhitelistByUrl
 } from '../../controllers/whitelist/WhitelistController';
+import {
+  getWhitelistCasinoMappings,
+  getActiveCasinosForWhitelist,
+  addCasinoToWhitelist,
+  updateCasinoMapping,
+  removeCasinoFromWhitelist,
+  bulkUpdateCasinoMappings
+} from '../../controllers/whitelist/WhitelistCasinoController';
+import {
+  configureAllCasinosForWhitelist,
+  getWhitelistByName
+} from '../../controllers/whitelist/WhitelistBulkController';
 import { developerAuth } from '../../middlewares/RoleAuth';
 const router = express.Router();
 
@@ -48,5 +60,17 @@ router.post(
   createWhitelist
 );
 router.delete('/:id', developerAuth, deleteWhitelist);
+
+// Casino management routes for whitelist panels
+router.get('/:whitelistId/casinos', developerAuth, getWhitelistCasinoMappings);
+router.get('/:whitelistId/casinos/active', getActiveCasinosForWhitelist);
+router.post('/:whitelistId/casinos', developerAuth, addCasinoToWhitelist);
+router.put('/:whitelistId/casinos/bulk', developerAuth, bulkUpdateCasinoMappings);
+router.patch('/casinos/:mappingId', developerAuth, updateCasinoMapping);
+router.delete('/casinos/:mappingId', developerAuth, removeCasinoFromWhitelist);
+
+// Bulk operations
+router.post('/:whitelistId/configure-all-casinos', developerAuth, configureAllCasinosForWhitelist);
+router.get('/name/:name', getWhitelistByName);
 
 export default router;
