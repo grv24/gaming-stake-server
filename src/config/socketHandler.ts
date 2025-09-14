@@ -20,6 +20,89 @@ interface UserConnection {
 
 const activeConnections: Record<string, UserConnection> = {};
 
+// Cache for tracking Redis key changes
+const redisKeyCache: Record<string, { current: string | null, results: string | null }> = {};
+
+// Function to check for Redis key changes and broadcast updates
+const checkAndBroadcastChanges = async (io: Server) => {
+  try {
+    const { getRedisClient } = await import("../config/redisConfig");
+    const redisClient = getRedisClient();
+
+    const casinoTypes = await discoverCasinoTypesFromRedis();
+    
+    for (const casinoType of casinoTypes) {
+      // Check if room has any subscribers before proceeding
+      const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+      if (!room || room.size === 0) {
+        continue; // Skip if no subscribers
+      }
+
+      const currentKey = `casino_data:${casinoType}`;
+      const resultsKey = `r_${casinoType}`;
+
+      // Get current Redis values
+      const currentRedisData = await redisClient.get(currentKey);
+      const resultsRedisData = await redisClient.get(resultsKey);
+
+      // Check if data has changed
+      const cachedData = redisKeyCache[casinoType] || { current: null, results: null };
+      const hasCurrentChanged = currentRedisData !== cachedData.current;
+      const hasResultsChanged = resultsRedisData !== cachedData.results;
+
+      if (hasCurrentChanged || hasResultsChanged) {
+        // Update cache
+        redisKeyCache[casinoType] = {
+          current: currentRedisData,
+          results: resultsRedisData
+        };
+
+        // Parse and broadcast data
+        let currentData = null;
+        if (currentRedisData) {
+          try {
+            const parsedCurrentData = JSON.parse(currentRedisData);
+            currentData = parsedCurrentData?.data;
+          } catch (error) {
+            console.error(`[SOCKET] Failed to parse current data for ${casinoType}:`, error);
+          }
+        }
+
+        let resultsData = [];
+        if (resultsRedisData) {
+          try {
+            const parsedResultsData = JSON.parse(resultsRedisData);
+            resultsData = parsedResultsData?.data?.res || [];
+          } catch (error) {
+            console.error(`[SOCKET] Failed to parse results data for ${casinoType}:`, error);
+          }
+        }
+
+        // Only broadcast if there's actual data
+        if (currentData || resultsData.length > 0) {
+          io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
+            casinoType,
+            data: {
+              casinoType,
+              current: currentData,
+              results: resultsData,
+              timestamp: Date.now(),
+              source: "change_detection",
+              hasData: true
+            }
+          });
+
+          console.log(
+            `[SOCKET] Broadcasted change detection update for: ${casinoType} to ${room.size} users`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[SOCKET] Error in checkAndBroadcastChanges:", error);
+  }
+};
+
 // Function to discover casino types from Redis
 const discoverCasinoTypesFromRedis = async () => {
   try {
@@ -28,16 +111,26 @@ const discoverCasinoTypesFromRedis = async () => {
 
     // console.log("[SOCKET] Discovering casino types from Redis...");
 
-    // Get all keys matching casino:* pattern
-    const keys = await redisClient.keys('casino:*');
+    // Get all keys matching casino_data:* pattern (provider's format)
+    const casinoDataKeys = await redisClient.keys('casino_data:*');
     const discoveredCasinoTypes = new Set<string>();
 
-    // Extract casino types from keys
-    for (const key of keys) {
-      // Key format: casino:{casinoType}:{current|results}
+    // Extract casino types from casino_data keys
+    for (const key of casinoDataKeys) {
+      // Key format: casino_data:{casinoType}
       const parts = key.split(':');
-      if (parts.length === 3 && parts[0] === 'casino') {
+      if (parts.length === 2 && parts[0] === 'casino_data') {
         discoveredCasinoTypes.add(parts[1]);
+      }
+    }
+
+    // Also check for results keys (r_* pattern)
+    const resultsKeys = await redisClient.keys('r_*');
+    for (const key of resultsKeys) {
+      // Key format: r_{casinoType}
+      if (key.startsWith('r_')) {
+        const casinoType = key.substring(2); // Remove 'r_' prefix
+        discoveredCasinoTypes.add(casinoType);
       }
     }
 
@@ -74,21 +167,23 @@ const broadcastAllCasinoData = async (io: Server) => {
         continue; // Skip broadcasting to empty rooms
       }
 
-      const currentKey = `casino:${casinoType}:current`;
-      const resultsKey = `casino:${casinoType}:results`;
+      const currentKey = `casino_data:${casinoType}`;
+      const resultsKey = `r_${casinoType}`;
 
       // Fetch current data from Redis
       let currentData = null;
       const currentRedisData = await redisClient.get(currentKey);
       if (currentRedisData) {
-        currentData = JSON.parse(currentRedisData);
+        const parsedCurrentData = JSON.parse(currentRedisData);
+        currentData = parsedCurrentData?.data; // Extract data from provider format
       }
 
       // Fetch results data from Redis
       let resultsData = [];
       const resultsRedisData = await redisClient.get(resultsKey);
       if (resultsRedisData) {
-        resultsData = JSON.parse(resultsRedisData);
+        const parsedResultsData = JSON.parse(resultsRedisData);
+        resultsData = parsedResultsData?.data?.res || []; // Extract results from provider format
       }
 
       // Only broadcast if there's actual data
@@ -165,8 +260,8 @@ const checkRedisCasinoData = async () => {
     };
 
     for (const casinoType of discoveredCasinoTypes) {
-      const currentKey = `casino:${casinoType}:current`;
-      const resultsKey = `casino:${casinoType}:results`;
+      const currentKey = `casino_data:${casinoType}`;
+      const resultsKey = `r_${casinoType}`;
 
       // Check current data
       const currentData = await redisClient.get(currentKey);
@@ -355,6 +450,18 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       socket.emit("redisDebugData", redisData);
     });
 
+    // Manual trigger for casino data updates (for testing)
+    socket.on("triggerCasinoUpdate", async (casinoType) => {
+      if (!casinoType || typeof casinoType !== 'string') {
+        socket.emit("error", "Invalid casinoType");
+        return;
+      }
+      
+      // console.log(`[SOCKET] User ${socket.id} triggered manual update for: ${casinoType}`);
+      await checkAndBroadcastChanges(io);
+      socket.emit("casinoUpdateTriggered", { casinoType, timestamp: Date.now() });
+    });
+
     socket.on("checkLoginId", async ({ loginId, whiteListId }) => {
       try {
         // console.log(
@@ -493,10 +600,16 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     });
   });
 
-  // Casino Odds listener
+  // Casino Odds listener - Listen to both old and new pub/sub patterns
   redisSubscriber.psubscribe("casino_odds_updates:*", (err) => {
     if (err) console.error("Failed to subscribe to casino_odds_updates:*:", err);
     else console.log("Subscribed to casino_odds_updates:* pattern");
+  });
+
+  // Also subscribe to provider-specific channels if they exist
+  redisSubscriber.psubscribe("casino_data_updates:*", (err) => {
+    if (err) console.error("Failed to subscribe to casino_data_updates:*:", err);
+    else console.log("Subscribed to casino_data_updates:* pattern");
   });
 
   redisSubscriber.on("pmessage", async (pattern, channel, message) => {
@@ -519,20 +632,22 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // Fetch current data from Redis
         let currentData = null;
         if (notification.hasCurrent) {
-          const currentKey = `casino:${casinoType}:current`;
+          const currentKey = `casino_data:${casinoType}`;
           const currentRedisData = await redisClient.get(currentKey);
           if (currentRedisData) {
-            currentData = JSON.parse(currentRedisData);
+            const parsedCurrentData = JSON.parse(currentRedisData);
+            currentData = parsedCurrentData?.data; // Extract data from provider format
           }
         }
 
         // Fetch results data from Redis
         let resultsData = [];
         if (notification.hasResults) {
-          const resultsKey = `casino:${casinoType}:results`;
+          const resultsKey = `r_${casinoType}`;
           const resultsRedisData = await redisClient.get(resultsKey);
           if (resultsRedisData) {
-            resultsData = JSON.parse(resultsRedisData);
+            const parsedResultsData = JSON.parse(resultsRedisData);
+            resultsData = parsedResultsData?.data?.res || []; // Extract results from provider format
           }
         }
 
@@ -559,6 +674,60 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         }
       } catch (error) {
         console.error("Error processing casino odds update:", error);
+      }
+    } else if (pattern === "casino_data_updates:*") {
+      // Handle provider-specific updates
+      try {
+        const notification = JSON.parse(message);
+        const casinoType = channel.split(":")[1]; // Extract casinoType from channel name
+
+        // Check if room has any subscribers before proceeding
+        const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+        if (!room || room.size === 0) {
+          return; // Skip processing if no subscribers
+        }
+
+        // Get Redis client to fetch actual data
+        const { getRedisClient } = await import("../config/redisConfig");
+        const redisClient = getRedisClient();
+
+        // Fetch current data from Redis
+        let currentData = null;
+        const currentKey = `casino_data:${casinoType}`;
+        const currentRedisData = await redisClient.get(currentKey);
+        if (currentRedisData) {
+          const parsedCurrentData = JSON.parse(currentRedisData);
+          currentData = parsedCurrentData?.data; // Extract data from provider format
+        }
+
+        // Fetch results data from Redis
+        let resultsData = [];
+        const resultsKey = `r_${casinoType}`;
+        const resultsRedisData = await redisClient.get(resultsKey);
+        if (resultsRedisData) {
+          const parsedResultsData = JSON.parse(resultsRedisData);
+          resultsData = parsedResultsData?.data?.res || []; // Extract results from provider format
+        }
+
+        // Only broadcast if there's actual data
+        if (currentData || resultsData.length > 0) {
+          io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
+            casinoType,
+            data: {
+              casinoType,
+              current: currentData,
+              results: resultsData,
+              timestamp: notification.timestamp || Date.now(),
+              source: "provider_update"
+            }
+          });
+
+          console.log(
+            `[SOCKET] Broadcasted provider casino update for: ${casinoType} to ${room.size} users`
+          );
+        }
+      } catch (error) {
+        console.error("Error processing provider casino update:", error);
       }
     }
   });
@@ -607,7 +776,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   });
 
-  // Smart periodic broadcast - only runs if there are active casino subscribers
+  // Smart periodic broadcast - more frequent for provider data updates
   setInterval(async () => {
     // Check if any casino rooms have subscribers
     let hasSubscribers = false;
@@ -622,12 +791,32 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
     
     if (hasSubscribers) {
-      // console.log("[SOCKET] Periodic broadcast triggered - active subscribers found");
-      await broadcastAllCasinoData(io);
+      // Use change detection for more efficient updates
+      await checkAndBroadcastChanges(io);
     } else {
       // console.log("[SOCKET] Periodic broadcast skipped - no active subscribers");
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 10 * 1000); // 10 seconds for very frequent updates
+
+  // Fallback periodic broadcast - less frequent but ensures all data is sent
+  setInterval(async () => {
+    // Check if any casino rooms have subscribers
+    let hasSubscribers = false;
+    const casinoTypes = await discoverCasinoTypesFromRedis();
+    
+    for (const casinoType of casinoTypes) {
+      const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
+      if (room && room.size > 0) {
+        hasSubscribers = true;
+        break;
+      }
+    }
+    
+    if (hasSubscribers) {
+      // console.log("[SOCKET] Fallback broadcast triggered - active subscribers found");
+      await broadcastAllCasinoData(io);
+    }
+  }, 60 * 1000); // 1 minute fallback
 
   return io;
 }
