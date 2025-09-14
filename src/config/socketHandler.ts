@@ -896,6 +896,133 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   }, 30 * 1000); // 30 seconds
 
+  /**
+   * AUTOMATIC SETTLEMENT INTERVAL - 90 seconds
+   * 
+   * Purpose: Automatically settle completed casino matches using pub/sub pattern
+   * Frequency: Every 90 seconds (optimized for settlement processing)
+   * 
+   * What it does:
+   * - Monitors Redis results data for completed matches
+   * - Automatically fetches result data from third-party API
+   * - Updates casino_match_new table with result data
+   * - Settles all pending bets for completed matches
+   * - Provides comprehensive settlement statistics
+   * 
+   * Performance: Batch settlement operations with smart filtering
+   */
+  setInterval(async () => {
+    console.log("[SOCKET] Automatic settlement triggered");
+    
+    try {
+      // Import settlement service dynamically to avoid circular dependencies
+      const { getCasinoSettlementService } = await import("../services/casino/CasinoSettlementService");
+      const casinoSettlementService = getCasinoSettlementService(dataSource);
+      
+      // Get all casino types from predefined list
+      const casinoTypes = [
+        "dt6", "teen", "poker", "teen20", "teen9", "teen8", "poker20", "poker6",
+        "card32eu", "war", "aaa", "abj", "dt20", "lucky7eu", "dt202", "teenmuf",
+        "teen20c", "btable2", "goal", "baccarat2", "lucky5", "joker20", "joker1",
+        "ab4", "lottcard", "poison20"
+      ];
+      
+      // ULTRA-OPTIMIZED: Collect all potential matches first, then batch check for bets
+      const potentialMatches = [];
+      const { getRedisClient } = await import("../config/redisConfig");
+      const redisClient = getRedisClient();
+      
+      // Collect all potential matches from Redis results
+      for (const casinoType of casinoTypes) {
+        try {
+          const resultsKey = `r_${casinoType}`;
+          const resultsRedisData = await redisClient.get(resultsKey);
+          
+          if (resultsRedisData) {
+            const parsedResultsData = JSON.parse(resultsRedisData);
+            const resultsData = parsedResultsData?.data?.res || [];
+            
+            for (const result of resultsData) {
+              const resultMid = String(result.mid || result.matchId);
+              const winner = result.win || result.result || result.winner;
+              
+              if (resultMid && winner) {
+                potentialMatches.push({ casinoType, mid: resultMid });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`[SOCKET] Error collecting potential matches for ${casinoType}:`, error);
+        }
+      }
+      
+      console.log(`[SOCKET] Found ${potentialMatches.length} potential matches from Redis`);
+      
+      if (potentialMatches.length === 0) {
+        console.log("[SOCKET] No potential matches found - skipping settlement check");
+        return;
+      }
+      
+      // SINGLE BATCH QUERY: Check all potential matches for pending bets at once
+      const { CasinoBet } = await import("../entities/casino/CasinoBet");
+      const { In } = await import("typeorm");
+      
+      const allMatchIds = potentialMatches.map(m => m.mid);
+      const allPendingBets = await dataSource.getRepository(CasinoBet).find({
+        where: {
+          matchId: In(allMatchIds),
+          status: "pending",
+        },
+      });
+      
+      console.log(`[SOCKET] Found ${allPendingBets.length} total pending bets across all potential matches`);
+      
+      // Group bets by match ID
+      const betsByMatch = new Map<string, any[]>();
+      for (const bet of allPendingBets) {
+        if (!betsByMatch.has(bet.matchId)) {
+          betsByMatch.set(bet.matchId, []);
+        }
+        betsByMatch.get(bet.matchId)!.push(bet);
+      }
+      
+      // Filter matches that have pending bets
+      const matchesToSettle = potentialMatches.filter(match => {
+        const hasBets = betsByMatch.has(match.mid);
+        if (hasBets) {
+          console.log(`[SOCKET] Match ${match.mid} has ${betsByMatch.get(match.mid)!.length} pending bets - added to settlement queue`);
+        }
+        return hasBets;
+      });
+      
+      if (matchesToSettle.length > 0) {
+        console.log(`[SOCKET] Found ${matchesToSettle.length} matches requiring settlement`);
+        
+        // Execute batch settlement
+        const settlementResult = await casinoSettlementService.batchSettleMatches(matchesToSettle);
+        console.log("[SOCKET] Automatic settlement completed:", settlementResult);
+        
+        // Publish settlement notification for other services
+        const { getRedisClient: getRedisClientForPublish } = await import("../config/redisConfig");
+        const redisClientForPublish = getRedisClientForPublish();
+        await redisClientForPublish.publish("casino_settlement_completed", JSON.stringify({
+          timestamp: new Date().toISOString(),
+          matchesSettled: matchesToSettle.length,
+          totalBetsSettled: settlementResult.totalSettledCount,
+          errors: settlementResult.totalErrors,
+          matches: matchesToSettle
+        }));
+        
+      } else {
+        console.log("[SOCKET] No matches requiring settlement found");
+      }
+      
+    } catch (error) {
+      console.error("[SOCKET] Error in automatic settlement:", error);
+      // Continue execution - settlement errors shouldn't crash the socket service
+    }
+  }, 90 * 1000); // 90 seconds
+
   return io;
 }
 
