@@ -11,7 +11,6 @@ import { casinoResult, createBet, getCurrentBet } from "../../controllers/casino
 import { clientAuth } from "../../middlewares/RoleAuth";
 import { settleUserCasinoBets } from "../../controllers/casino/settlement/SettleController";
 import { getActiveCasinosForWhitelist } from "../../controllers/whitelist/WhitelistCasinoController";
-
 const router = Router();
 
 

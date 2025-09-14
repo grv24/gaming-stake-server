@@ -428,26 +428,31 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
             };
           }
 
-          // Create or update casinoMatch record
+          // Create or update casinoMatch record with result data only
           if (resultData) {
             try {
               if (casinoMatch) {
-                // Update existing record
+                // Update existing record with result data only
                 casinoMatch.result = resultData;
+                casinoMatch.winner = resultData?.win || resultData?.result || resultData?.winner || null;
                 await casinoMatchRepo.save(casinoMatch);
+                console.log(`[CASINO_SETTLEMENT] Updated existing casino match record for mid: ${mid}`);
               } else {
-                // Create new record with duplicate handling
+                // Create new record with result data only
                 casinoMatch = casinoMatchRepo.create({
                   mid,
                   casinoType,
-                  result: resultData
+                  winner: resultData?.win || resultData?.result || resultData?.winner || null,
+                  result: resultData,
+                  data: null, // No current data stored in DB, comes from Redis
                 });
                 await casinoMatchRepo.save(casinoMatch);
+                console.log(`[CASINO_SETTLEMENT] Created new casino match record for mid: ${mid}`);
               }
             } catch (saveError: any) {
               // Handle duplicate key error (race condition)
               if (saveError.code === '23505' || saveError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-                console.log(`Duplicate key detected for mid ${mid}, fetching existing record`);
+                console.log(`[CASINO_SETTLEMENT] Duplicate key detected for mid ${mid}, fetching existing record`);
                 // Record already exists, fetch it
                 casinoMatch = await casinoMatchRepo.findOne({
                   where: { mid, casinoType }
@@ -456,7 +461,9 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
                 // If the existing record has no result, update it
                 if (casinoMatch && (!casinoMatch.result || casinoMatch.result === null)) {
                   casinoMatch.result = resultData;
+                  casinoMatch.winner = resultData?.win || resultData?.result || resultData?.winner || null;
                   await casinoMatchRepo.save(casinoMatch);
+                  console.log(`[CASINO_SETTLEMENT] Updated existing record with result for mid: ${mid}`);
                 }
               } else {
                 throw saveError;

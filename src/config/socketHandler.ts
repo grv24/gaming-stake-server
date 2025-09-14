@@ -9,7 +9,7 @@ const CASINO_TYPES = [
   "dt6", "teen", "poker", "teen20", "teen9", "teen8", "poker20", "poker6",
   "card32eu", "war", "aaa", "abj", "dt20", "lucky7eu", "dt202", "teenmuf",
   "teen20c", "btable2", "goal", "baccarat2", "lucky5", "joker20", "joker1",
-  "ab4", "lottcard"
+  "ab4", "lottcard", "poison20"
 ];
 
 interface UserConnection {
@@ -24,12 +24,13 @@ const activeConnections: Record<string, UserConnection> = {};
 const redisKeyCache: Record<string, { current: string | null, results: string | null }> = {};
 
 // Function to check for Redis key changes and broadcast updates
-const checkAndBroadcastChanges = async (io: Server) => {
+const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
   try {
     const { getRedisClient } = await import("../config/redisConfig");
     const redisClient = getRedisClient();
 
     const casinoTypes = await discoverCasinoTypesFromRedis();
+    console.log(`[SOCKET] Checking ${casinoTypes.length} casino types for changes:`, casinoTypes);
     
     for (const casinoType of casinoTypes) {
       // Check if room has any subscribers before proceeding
@@ -91,6 +92,38 @@ const checkAndBroadcastChanges = async (io: Server) => {
               hasData: true
             }
           });
+
+          // Publish notification to Redis for casino match service to pick up
+          try {
+            const { getRedisClient } = await import("../config/redisConfig");
+            const redisClient = getRedisClient();
+            
+            await redisClient.publish(
+              `casino_data_updates:${casinoType}`,
+              JSON.stringify({
+                casinoType,
+                hasCurrent: !!currentData,
+                hasResults: resultsData.length > 0,
+                timestamp: Date.now(),
+                source: "socket_change_detection"
+              })
+            );
+            
+            console.log(`[SOCKET] Published casino data update notification for: ${casinoType}`);
+          } catch (pubError) {
+            console.error(`[SOCKET] Error publishing casino data update notification for ${casinoType}:`, pubError);
+          }
+
+          // Also update casino match database directly
+          try {
+            console.log(`[SOCKET] Attempting to update casino match database for: ${casinoType}`);
+            const { getCasinoMatchService } = await import("../services/casino/CasinoMatchService");
+            const casinoMatchService = getCasinoMatchService(dataSource);
+            const result = await casinoMatchService.updateCasinoMatchFromRedis(casinoType);
+            console.log(`[SOCKET] Successfully updated casino match database for: ${casinoType}`, result);
+          } catch (dbError) {
+            console.error(`[SOCKET] Error updating casino match database for ${casinoType}:`, dbError);
+          }
 
           console.log(
             `[SOCKET] Broadcasted change detection update for: ${casinoType} to ${room.size} users`
@@ -458,7 +491,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       }
       
       // console.log(`[SOCKET] User ${socket.id} triggered manual update for: ${casinoType}`);
-      await checkAndBroadcastChanges(io);
+      await checkAndBroadcastChanges(io, dataSource);
       socket.emit("casinoUpdateTriggered", { casinoType, timestamp: Date.now() });
     });
 
@@ -778,24 +811,23 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
 
   // Smart periodic broadcast - more frequent for provider data updates
   setInterval(async () => {
-    // Check if any casino rooms have subscribers
-    let hasSubscribers = false;
-    const casinoTypes = await discoverCasinoTypesFromRedis();
+    console.log("[SOCKET] Periodic check triggered - updating all casino types");
     
-    for (const casinoType of casinoTypes) {
-      const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
-      if (room && room.size > 0) {
-        hasSubscribers = true;
-        break;
+    // Always update all casino types, regardless of subscribers
+    for (const casinoType of CASINO_TYPES) {
+      try {
+        console.log(`[SOCKET] Updating casino match database for: ${casinoType}`);
+        const { getCasinoMatchService } = await import("../services/casino/CasinoMatchService");
+        const casinoMatchService = getCasinoMatchService(dataSource);
+        const result = await casinoMatchService.updateCasinoMatchFromRedis(casinoType);
+        console.log(`[SOCKET] Updated casino match database for: ${casinoType}`, result);
+      } catch (error) {
+        console.error(`[SOCKET] Error updating casino match database for ${casinoType}:`, error);
       }
     }
     
-    if (hasSubscribers) {
-      // Use change detection for more efficient updates
-      await checkAndBroadcastChanges(io);
-    } else {
-      // console.log("[SOCKET] Periodic broadcast skipped - no active subscribers");
-    }
+    // Also run change detection for broadcasting to subscribers
+    await checkAndBroadcastChanges(io, dataSource);
   }, 10 * 1000); // 10 seconds for very frequent updates
 
   // Fallback periodic broadcast - less frequent but ensures all data is sent
