@@ -317,22 +317,32 @@ export class CasinoSettlementService {
           const stakeAmount = Number(betData.stake) || 0;
           const isWinner = winners.includes(betSid);
 
-          // Lay / Back logic
+          // Lay / Back logic with correct profit/loss calculation
           let finalStatus: "won" | "lost" = "lost";
-          if (betData.oddCategory === "Back") {
-            finalStatus = isWinner ? "won" : "lost";
-          } else if (betData.oddCategory === "Lay") {
-            finalStatus = !isWinner ? "won" : "lost";
-          }
-
           let profitLoss = 0;
 
-          if (isWinner) {
-            profitLoss = Number(betData.profit) || 0;
-            user.balance = Number(user.balance) + profitLoss;
-          } else {
-            profitLoss = Number(betData.loss) || 0;
-            user.balance = Number(user.balance) - profitLoss;
+          if (betData.oddCategory === "Back") {
+            // Back bet: Win if selected outcome happens
+            finalStatus = isWinner ? "won" : "lost";
+            if (isWinner) {
+              profitLoss = Number(betData.profit) || 0;  // Positive for win
+              user.balance = Number(user.balance) + profitLoss;
+            } else {
+              profitLoss = -(Number(betData.loss) || 0);  // Negative for loss
+              user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
+            }
+          } else if (betData.oddCategory === "Lay") {
+            // Lay bet: Win if selected outcome DOESN'T happen
+            finalStatus = !isWinner ? "won" : "lost";
+            if (!isWinner) {
+              // Lay bet wins when selected outcome doesn't happen
+              profitLoss = Number(betData.loss) || 0;  // Positive for win
+              user.balance = Number(user.balance) + profitLoss;
+            } else {
+              // Lay bet loses when selected outcome happens
+              profitLoss = -(Number(betData.profit) || 0);  // Negative for loss
+              user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
+            }
           }
 
           user.exposure = Number(user.exposure) - stakeAmount;
