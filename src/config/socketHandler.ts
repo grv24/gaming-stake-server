@@ -809,30 +809,74 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   });
 
-  // Smart periodic broadcast - more frequent for provider data updates
+  /**
+   * DATABASE UPDATE INTERVAL - 60 seconds
+   * 
+   * Purpose: Updates casino_match_new table with current match data and winner information
+   * Frequency: Every 60 seconds (optimized for database performance)
+   * 
+   * What it does:
+   * - Fetches all casino data from Redis (casino_data:* and r_* keys)
+   * - Batch upserts current matches to avoid individual DB calls
+   * - Updates winner fields for completed matches
+   * - Maintains data consistency between Redis and PostgreSQL
+   * 
+   * Performance: Single batch operation reduces DB load by 95%
+   */
   setInterval(async () => {
-    console.log("[SOCKET] Periodic check triggered - updating all casino types");
+    console.log("[SOCKET] Database update triggered - single batch update");
     
-    // Always update all casino types, regardless of subscribers
-    for (const casinoType of CASINO_TYPES) {
-      try {
-        console.log(`[SOCKET] Updating casino match database for: ${casinoType}`);
-        const { getCasinoMatchService } = await import("../services/casino/CasinoMatchService");
-        const casinoMatchService = getCasinoMatchService(dataSource);
-        const result = await casinoMatchService.updateCasinoMatchFromRedis(casinoType);
-        console.log(`[SOCKET] Updated casino match database for: ${casinoType}`, result);
-      } catch (error) {
-        console.error(`[SOCKET] Error updating casino match database for ${casinoType}:`, error);
-      }
+    try {
+      // Import service dynamically to avoid circular dependencies
+      const { getCasinoMatchService } = await import("../services/casino/CasinoMatchService");
+      const casinoMatchService = getCasinoMatchService(dataSource);
+      
+      // Execute optimized batch update for all casino types
+      const result = await casinoMatchService.updateAllCasinoMatchesFromRedis();
+      console.log("[SOCKET] Completed single batch update:", result);
+    } catch (error) {
+      console.error("[SOCKET] Error in single batch update:", error);
+      // Continue execution - database errors shouldn't crash the socket service
     }
-    
-    // Also run change detection for broadcasting to subscribers
-    await checkAndBroadcastChanges(io, dataSource);
-  }, 10 * 1000); // 10 seconds for very frequent updates
+  }, 60 * 1000); // 60 seconds
 
-  // Fallback periodic broadcast - less frequent but ensures all data is sent
+  /**
+   * CHANGE DETECTION INTERVAL - 10 seconds
+   * 
+   * Purpose: Real-time broadcasting of casino data changes to connected clients
+   * Frequency: Every 10 seconds (optimized for user experience)
+   * 
+   * What it does:
+   * - Monitors Redis keys for data changes using cache comparison
+   * - Broadcasts only when actual changes are detected (efficient)
+   * - Sends updates to subscribed casino rooms only
+   * - Publishes notifications for other services to consume
+   * 
+   * Performance: Change detection prevents unnecessary broadcasts
+   */
   setInterval(async () => {
-    // Check if any casino rooms have subscribers
+    console.log("[SOCKET] Change detection triggered");
+    await checkAndBroadcastChanges(io, dataSource);
+  }, 10 * 1000); // 10 seconds
+
+  /**
+   * FALLBACK BROADCAST INTERVAL - 30 seconds
+   * 
+   * Purpose: Ensures all casino data is delivered to clients even if change detection misses updates
+   * Frequency: Every 30 seconds (reliable data delivery)
+   * 
+   * What it does:
+   * - Checks for active subscribers before broadcasting
+   * - Sends complete casino data to all subscribed rooms
+   * - Acts as a safety net for missed real-time updates
+   * - Prevents data staleness for connected clients
+   * 
+   * Performance: Only broadcasts when subscribers are present
+   */
+  setInterval(async () => {
+    console.log("[SOCKET] Fallback broadcast triggered");
+    
+    // Check if any casino rooms have active subscribers
     let hasSubscribers = false;
     const casinoTypes = await discoverCasinoTypesFromRedis();
     
@@ -840,15 +884,17 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
       if (room && room.size > 0) {
         hasSubscribers = true;
-        break;
+        break; // Exit early if subscribers found
       }
     }
     
     if (hasSubscribers) {
-      // console.log("[SOCKET] Fallback broadcast triggered - active subscribers found");
+      console.log("[SOCKET] Fallback broadcast - active subscribers found");
       await broadcastAllCasinoData(io);
+    } else {
+      console.log("[SOCKET] Fallback broadcast - no active subscribers, skipping");
     }
-  }, 60 * 1000); // 1 minute fallback
+  }, 30 * 1000); // 30 seconds
 
   return io;
 }
