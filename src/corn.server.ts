@@ -52,6 +52,7 @@ import { InternationalCasinoSettings } from "./entities/users/utils/Internationa
 import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
 import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
+import { SportMatch } from "./entities/sports/SportMatch";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -116,6 +117,8 @@ export const CronDataSource = new DataSource({
     MatkaSettings,
     CasinoMatchNew,
     WhitelistCasinoMapping,
+    //sport 
+    SportMatch
   ],
   synchronize: false, // Disable auto-sync for safety in production
   logging: false, // Disable TypeORM logging to reduce noise
@@ -162,7 +165,7 @@ const startCronService = async () => {
     // NOTE: No HTTP server is started - this is a silent background service
 
     startLiveMatchesCron();
-    startCasinoCronJobs();
+    // startCasinoCronJobs();
     // startOddsCron();
 
     logger.info("Cron jobs started successfully");

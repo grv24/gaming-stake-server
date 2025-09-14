@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { SportBet } from "../../entities/sports/SportBet";
+import { SportMatch } from "../../entities/sports/SportMatch";
 import { CronDataSource } from "../../corn.server";
 import axios from "axios";
 
@@ -16,6 +17,9 @@ export const createBet = async (req: Request, res: Response) => {
 
     const betData = {...req.body};
 
+
+
+    console.log(betData);
     // Validate required fields
     if (!userId || !betData?.stake || !betData?.eventId || !betData?.oddType || !betData?.sid) {
       await queryRunner.rollbackTransaction();
@@ -27,6 +31,7 @@ export const createBet = async (req: Request, res: Response) => {
 
     const userRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type!]);
     const sportsBetRepository = queryRunner.manager.getRepository(SportBet);
+    const sportMatchRepository = queryRunner.manager.getRepository(SportMatch);
 
     // Get user with lock to prevent race conditions
     const user = await userRepo.findOne({
@@ -84,6 +89,93 @@ export const createBet = async (req: Request, res: Response) => {
       });
     }
 
+    // 🔗 Send bet to external API
+    console.log("🚀 Attempting to forward bet to external provider...");
+    console.log("📊 Bet Data:", {
+      userId,
+      eventId: betData.eventId,
+      eventName: betData.eventName,
+      marketId: betData.marketId,
+      marketName: betData.marketName,
+      marketType: betData.marketType,
+      stake: stakeAmount,
+      oddType: betData.oddType,
+      sid: betData.sid
+    });
+
+    let thirdPartyResponse = null;
+    try {
+      const baseUrl = `${process.env.THIRD_PARTY_URL}/api/new/placed_bets`;
+      const url = `${baseUrl}?event_id=${encodeURIComponent(
+        betData.eventId
+      )}&event_name=${encodeURIComponent(
+        betData.eventName
+      )}&market_id=${encodeURIComponent(
+        betData.marketId
+      )}&market_name=${encodeURIComponent(
+        betData.marketName
+      )}&market_type=${encodeURIComponent(betData.marketType)}`;
+
+      console.log("🌐 External API URL:", url);
+      console.log("📤 Sending GET request to external provider...");
+
+      const response = await axios.get(url, {
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      console.log("✅ SUCCESS: Bet forwarded to external provider");
+      console.log("📈 Response Status:", response.status);
+      console.log("📋 Response Data:", response.data);
+      console.log("🔗 Provider URL:", url);
+
+      thirdPartyResponse = response.data;
+
+    } catch (err: any) {
+      console.error("❌ FAILED: Could not forward bet to external provider");
+      console.error("🚨 Error Details:", {
+        message: err.message,
+        code: err.code,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseData: err.response?.data,
+        url: err.config?.url,
+        method: err.config?.method
+      });
+      
+      if (err.code === 'ECONNREFUSED') {
+        console.error("🔌 Connection Error: External provider server is not reachable");
+      } else if (err.code === 'ETIMEDOUT') {
+        console.error("⏰ Timeout Error: External provider took too long to respond");
+      } else if (err.response?.status >= 400) {
+        console.error(`🚫 HTTP Error: External provider returned ${err.response.status}`);
+      }
+      
+      // Rollback transaction and return third-party error
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        status: false,
+        message: "Failed to place bet with external provider",
+        error: {
+          message: err.message,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          responseData: err.response?.data
+        }
+      });
+    }
+
+    // Only proceed with database operations if third-party API succeeded
+    if (!thirdPartyResponse) {
+      await queryRunner.rollbackTransaction();
+      return res.status(500).json({
+        status: false,
+        message: "No response from external provider"
+      });
+    }
+
     // Create and save bet
     const bet = sportsBetRepository.create({
       userId,
@@ -100,6 +192,85 @@ export const createBet = async (req: Request, res: Response) => {
 
     await sportsBetRepository.save(bet);
 
+    // 🏆 Create or update SportMatch record for this event
+    try {
+      console.log("🏆 Creating/updating SportMatch record for event:", betData.eventId);
+      
+      // Check if SportMatch already exists for this event
+      let sportMatch = await sportMatchRepository.findOne({
+        where: { eventId: betData.eventId }
+      });
+
+      if (!sportMatch) {
+        // Create new SportMatch record
+        sportMatch = sportMatchRepository.create({
+          eventId: betData.eventId,
+          eventName: betData.eventName,
+          sportType: betData.sportType,
+          categories: [{
+            marketName: betData.marketName,
+            marketType: betData.marketType,
+            marketId: betData.marketId,
+            sid: betData.sid,
+            resultData: null,
+          }],
+        });
+        
+        console.log("✅ Created new SportMatch record:", {
+          eventId: sportMatch.eventId,
+          eventName: sportMatch.eventName,
+          sportType: sportMatch.sportType,
+          categories: sportMatch.categories
+        });
+      } else {
+        // Update existing SportMatch with new market info
+        console.log("📝 SportMatch already exists for event:", betData.eventId);
+        
+        // Check if this market combination already exists
+        const existingCategory = sportMatch.categories.find(cat => 
+          cat.marketName === betData.marketName && 
+          cat.marketType === betData.marketType &&
+          cat.marketId === betData.marketId &&
+          cat.sid === betData.sid
+        );
+        
+        if (!existingCategory) {
+          // Add new category if not already present
+          sportMatch.categories.push({
+            marketName: betData.marketName,
+            marketType: betData.marketType,
+            marketId: betData.marketId,
+            sid: betData.sid,
+            resultData: null
+          });
+          console.log("➕ Added new market category:", {
+            marketName: betData.marketName,
+            marketType: betData.marketType,
+            marketId: betData.marketId,
+            sid: betData.sid
+
+          });
+        } else {
+          console.log("📋 Market category already exists:", {
+            marketName: betData.marketName,
+            marketType: betData.marketType,
+            marketId: betData.marketId,
+            sid: betData.sid
+          });
+        }
+        
+        console.log("🔄 Updated SportMatch categories:", sportMatch.categories);
+      }
+
+      await sportMatchRepository.save(sportMatch);
+      console.log("💾 SportMatch record saved successfully");
+
+    } catch (matchError: any) {
+      console.error("⚠️ Error handling SportMatch record:", matchError.message);
+      // Don't fail the entire bet if SportMatch creation fails
+      // This is non-critical for bet placement
+    }
+
     // Update user exposure
     user.exposure = userExposure + stakeAmount;
     await userRepo.save(user);
@@ -110,6 +281,7 @@ export const createBet = async (req: Request, res: Response) => {
       status: true,
       message: "Bet placed successfully",
       data: bet,
+      thirdPartyResponse: thirdPartyResponse
     });
 
   } catch (error: any) {

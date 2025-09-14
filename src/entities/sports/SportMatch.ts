@@ -12,16 +12,28 @@ export class SportMatch {
     id!: string;
 
     @Column({ type: "varchar", unique: true })
-    mid!: String;
+    eventId!: String;
+
+    @Column({ type: "varchar", unique: true })
+    eventName!: String;
 
     @Column({ type: "varchar", length: 255 })
     sportType!: string;
 
-    @Column({ type: "varchar", nullable: true })
-    winner!: string | null;
+    @Column({ type: "jsonb", default: "[]" })
+    categories!: Array<{
+        marketName: string;
+        marketType: string;
+        marketId?: string;
+        sid?: string;
+        resultData?: any;
+    }>;
 
-    @Column({ type: "jsonb", nullable: true })
-    data: any;
+    // @Column({ type: "varchar", nullable: true })
+    // winner!: string | null;
+
+    // @Column({ type: "jsonb", nullable: true })
+    // resultData: any;
 
     @CreateDateColumn({ type: "timestamp" })
     createdAt!: Date;

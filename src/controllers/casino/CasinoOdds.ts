@@ -30,48 +30,53 @@ export const getCasinoData = async (req: Request, res: Response) => {
     }
 
     const casinoTypeStr = String(casinoType);
-
-    // Mark casino as active for priority processing
-    markCasinoAsActive(casinoTypeStr);
-
-    // Request immediate update if needed
-    const needsUpdate = requestImmediateUpdate(casinoTypeStr);
-
     const redisClient = getRedisClient();
-    const cacheKey = `casino:${casinoTypeStr}:current`;
+    
+    // Use the direct Redis key pattern: casino_data:${slug}
+    const redisKey = `casino_data:${casinoTypeStr}`;
 
-    // 1. Check Redis for current match
-    const cachedData = await redisClient.get(cacheKey);
+    console.log(`[CASINO_DATA] Fetching data for key: ${redisKey}`);
 
-    if (cachedData) {
-      return res.status(200).json({
-        status: "success",
-        message: "Current match data from cache",
-        data: JSON.parse(cachedData),
-        needsUpdate: needsUpdate,
-      });
+    // Fetch directly from Redis using the provider's key pattern
+    const redisData = await redisClient.get(redisKey);
+
+    if (redisData) {
+      try {
+        const parsedData = JSON.parse(redisData);
+        console.log(`[CASINO_DATA] Successfully retrieved data from Redis key: ${redisKey}`);
+        
+        return res.status(200).json({
+          status: "success",
+          message: "Casino data retrieved from Redis",
+          data: parsedData?.data,
+          source: "redis",
+          redisKey: redisKey,
+        });
+      } catch (parseError) {
+        console.error(`[CASINO_DATA] Failed to parse Redis data for key: ${redisKey}`, parseError);
+        return res.status(500).json({
+          status: "error",
+          message: "Failed to parse casino data from Redis",
+          redisKey: redisKey,
+        });
+      }
     }
 
-    // 2. If cache miss → fetch + update immediately
-    const freshData = await fetchAndUpdateCasinoOdds(casinoTypeStr);
-    if (!freshData?.data) {
-      return res.status(500).json({
-        status: "error",
-        message: "Failed to fetch odds",
-      });
-    }
-
-    return res.status(200).json({
-      status: "success",
-      message: "Current match data fetched fresh",
-      data: freshData.data,
-      needsUpdate: false,
+    // If not found in Redis, return appropriate error
+    console.log(`[CASINO_DATA] No data found in Redis for key: ${redisKey}`);
+    return res.status(404).json({
+      status: "error",
+      message: "Casino data not found in Redis",
+      redisKey: redisKey,
+      suggestion: "Check if the casino type exists or if data is being updated",
     });
+
   } catch (err: any) {
     console.error("Error in getCasinoData:", err.message);
     return res.status(500).json({
       status: "error",
       message: "Internal Server Error",
+      error: err.message,
     });
   }
 };
@@ -87,56 +92,53 @@ export const getCasinoResults = async (req: Request, res: Response) => {
     }
 
     const casinoTypeStr = String(casinoType);
-
-    // Mark casino as active for priority processing
-    markCasinoAsActive(casinoTypeStr);
-
-    // Request immediate update if needed
-    const needsUpdate = requestImmediateUpdate(casinoTypeStr);
-
     const redisClient = getRedisClient();
-    const cacheKey = `casino:${casinoTypeStr}:results`;
+    
+    // Use the direct Redis key pattern: r_${slug} for results
+    const redisKey = `r_${casinoTypeStr}`;
 
-    // 1. Check Redis for results
-    const cachedResults = await redisClient.get(cacheKey);
-    if (cachedResults) {
-      return res.status(200).json({
-        status: "success",
-        message: "Results data from cache",
-        results: JSON.parse(cachedResults),
-        needsUpdate: needsUpdate,
-      });
+    console.log(`[CASINO_RESULTS] Fetching results for key: ${redisKey}`);
+
+    // Fetch directly from Redis using the provider's key pattern
+    const redisData = await redisClient.get(redisKey);
+
+    if (redisData) {
+      try {
+        const parsedData = JSON.parse(redisData);
+        console.log(`[CASINO_RESULTS] Successfully retrieved results from Redis key: ${redisKey}`);
+        
+        return res.status(200).json({
+          status: "success",
+          message: "Casino results retrieved from Redis",
+          results: parsedData?.data?.res,
+          source: "redis",
+          redisKey: redisKey,
+        });
+      } catch (parseError) {
+        console.error(`[CASINO_RESULTS] Failed to parse Redis data for key: ${redisKey}`, parseError);
+        return res.status(500).json({
+          status: "error",
+          message: "Failed to parse casino results from Redis",
+          redisKey: redisKey,
+        });
+      }
     }
 
-    // 2. If cache miss → fetch + update immediately
-    const freshData = await fetchAndUpdateCasinoOdds(casinoTypeStr);
-
-    // Handle both result structures
-    let results = [];
-    if (freshData?.result?.res && Array.isArray(freshData.result.res)) {
-      results = freshData.result.res;
-    } else if (freshData?.result && Array.isArray(freshData.result)) {
-      results = freshData.result;
-    }
-
-    if (results.length === 0) {
-      return res.status(500).json({
-        status: "error",
-        message: "Failed to fetch results",
-      });
-    }
-
-    return res.status(200).json({
-      status: "success",
-      message: "Results data fetched fresh",
-      results: results,
-      needsUpdate: false,
+    // If not found in Redis, return appropriate error
+    console.log(`[CASINO_RESULTS] No results found in Redis for key: ${redisKey}`);
+    return res.status(404).json({
+      status: "error",
+      message: "Casino results not found in Redis",
+      redisKey: redisKey,
+      suggestion: "Check if the casino type exists or if results are being updated",
     });
+
   } catch (err: any) {
     console.error("Error in getCasinoResults:", err.message);
     return res.status(500).json({
       status: "error",
       message: "Internal Server Error",
+      error: err.message,
     });
   }
 };

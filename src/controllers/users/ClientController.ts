@@ -919,36 +919,126 @@ export const clientLogin = async (req: Request, res: Response) => {
             });
         }
 
-        const whiteListRepo = AppDataSource.getRepository(Whitelist);
-        const whiteList = await whiteListRepo.findOne({
-            where: { ClientUrl: hostUrl }
-            // where: { ClientUrls: Like(`%${hostUrl}%`) }
-        });
+        // Retry logic for database operations to handle deadlocks
+        const maxRetries = 3;
+        let retryCount = 0;
+        let client: Client | null = null;
+        let whiteList: Whitelist | null = null;
 
-        if (!whiteList) {
-            return res.status(403).json({
-                success: false,
-                error: 'Access denied - URL not authorized for Client access'
-            });
+        while (retryCount < maxRetries) {
+            try {
+                // Add timeout to prevent hanging operations
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Database operation timeout')), 10000);
+                });
+
+                const dbOperationPromise = (async () => {
+                    const whiteListRepo = AppDataSource.getRepository(Whitelist);
+                    whiteList = await whiteListRepo.findOne({
+                        where: { ClientUrl: hostUrl }
+                    });
+
+                    if (!whiteList) {
+                        return { error: 'Access denied - URL not authorized for Client access', status: 403 };
+                    }
+
+                    const clientRepo = AppDataSource.getRepository(Client);
+                    
+                    // First, find the client without relations to avoid deadlock
+                    client = await clientRepo.findOne({
+                        where: {
+                            loginId,
+                            whiteListId: whiteList.id
+                        }
+                    });
+
+                    if (!client) {
+                        return { error: 'Invalid Client credentials', status: 401 };
+                    }
+
+                    // Load relations separately to avoid complex joins that can cause deadlocks
+                    const [
+                        soccerSettings,
+                        cricketSettings,
+                        tennisSettings,
+                        matkaSettings,
+                        casinoSettings,
+                        internationalCasinoSettings
+                    ] = await Promise.all([
+                        client.soccerSettingId
+                            ? AppDataSource.getRepository(SoccerSettings).findOne({
+                                where: { id: client.soccerSettingId }
+                            })
+                            : Promise.resolve(null),
+
+                        client.cricketSettingId
+                            ? AppDataSource.getRepository(CricketSettings).findOne({
+                                where: { id: client.cricketSettingId }
+                            })
+                            : Promise.resolve(null),
+
+                        client.tennisSettingId
+                            ? AppDataSource.getRepository(TennisSettings).findOne({
+                                where: { id: client.tennisSettingId }
+                            })
+                            : Promise.resolve(null),
+
+                        client.matkaSettingId
+                            ? AppDataSource.getRepository(MatkaSettings).findOne({
+                                where: { id: client.matkaSettingId }
+                            })
+                            : Promise.resolve(null),
+
+                        client.casinoSettingId
+                            ? AppDataSource.getRepository(CasinoSettings).findOne({
+                                where: { id: client.casinoSettingId }
+                            })
+                            : Promise.resolve(null),
+
+                        client.internationalCasinoSettingId
+                            ? AppDataSource.getRepository(InternationalCasinoSettings).findOne({
+                                where: { id: client.internationalCasinoSettingId }
+                            })
+                            : Promise.resolve(null)
+                    ]);
+
+                    // Attach the relations to the client object
+                    (client as any).soccerSettings = soccerSettings;
+                    (client as any).cricketSettings = cricketSettings;
+                    (client as any).tennisSettings = tennisSettings;
+                    (client as any).matkaSettings = matkaSettings;
+                    (client as any).casinoSettings = casinoSettings;
+                    (client as any).internationalCasinoSettings = internationalCasinoSettings;
+
+                    return { success: true };
+                })();
+
+                const result = await Promise.race([dbOperationPromise, timeoutPromise]) as any;
+
+                if (result.error) {
+                    return res.status(result.status).json({
+                        success: false,
+                        error: result.error
+                    });
+                }
+
+                // If we get here, the database operations succeeded
+                break;
+
+            } catch (dbError: any) {
+                retryCount++;
+                console.warn(`Database operation failed (attempt ${retryCount}/${maxRetries}):`, dbError.message);
+                
+                if (retryCount >= maxRetries) {
+                    throw dbError; // Re-throw the error if max retries reached
+                }
+                
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
+            }
         }
 
-        const clientRepo = AppDataSource.getRepository(Client);
-        const client = await clientRepo.findOne({
-            where: {
-                loginId,
-                whiteListId: whiteList.id
-            },
-            relations: [
-                'soccerSettings',
-                'cricketSettings',
-                'tennisSettings',
-                'matkaSettings',
-                'casinoSettings',
-                'internationalCasinoSettings'
-            ]
-        });
-
-        // Authentication checks
+        // Ensure client is not null after successful database operations
         if (!client) {
             return res.status(401).json({
                 success: false,
@@ -956,7 +1046,10 @@ export const clientLogin = async (req: Request, res: Response) => {
             });
         }
 
-        if (client.__type !== 'client') {
+        // Type assertion to help TypeScript understand the client is not null
+        const authenticatedClient = client as Client;
+
+        if (authenticatedClient.__type !== 'client') {
             return res.status(401).json({
                 success: false,
                 error: 'Invalid Client account'
@@ -964,81 +1057,81 @@ export const clientLogin = async (req: Request, res: Response) => {
         }
 
 
-        if (client.userLocked) {
+        if (authenticatedClient.userLocked) {
             return res.status(403).json({
                 success: false,
                 error: 'Client account is not active'
             });
         }
 
-        if (password !== client.user_password) {
+        if (password !== authenticatedClient.user_password) {
             return res.status(401).json({
                 success: false,
                 error: 'Invalid Client credentials'
             });
         }
 
-        const { user_password, ...safeUserData } = client;
+        const { user_password, ...safeUserData } = authenticatedClient;
 
         const token = jwt.sign(
             {
                 user: {
-                    userId: client.id,
+                    userId: authenticatedClient.id,
                     PersonalDetails: {
-                        userName: client.userName,
-                        loginId: client.loginId,
-                        user_password: client.user_password,
-                        countryCode: client.countryCode,
-                        mobile: client.mobile,
-                        idIsActive: client.isActive,
-                        isAutoRegisteredUser: client.isAutoRegisteredUser
+                        userName: authenticatedClient.userName,
+                        loginId: authenticatedClient.loginId,
+                        user_password: authenticatedClient.user_password,
+                        countryCode: authenticatedClient.countryCode,
+                        mobile: authenticatedClient.mobile,
+                        idIsActive: authenticatedClient.isActive,
+                        isAutoRegisteredUser: authenticatedClient.isAutoRegisteredUser
                     },
-                    IpAddress: client.IpAddress,
-                    transactionPassword: client.transactionPassword,
-                    uplineId: client.uplineId,
-                    whiteListId: client.whiteListId,
-                    fancyLocked: client.fancyLocked,
-                    bettingLocked: client.bettingLocked,
-                    userLocked: client.userLocked,
+                    IpAddress: authenticatedClient.IpAddress,
+                    transactionPassword: authenticatedClient.transactionPassword,
+                    uplineId: authenticatedClient.uplineId,
+                    whiteListId: authenticatedClient.whiteListId,
+                    fancyLocked: authenticatedClient.fancyLocked,
+                    bettingLocked: authenticatedClient.bettingLocked,
+                    userLocked: authenticatedClient.userLocked,
                     // closedAccounts: user,
-                    __type: client.__type,
-                    remarks: client.remarks,
+                    __type: authenticatedClient.__type,
+                    remarks: authenticatedClient.remarks,
                     // featureAccessPermissions: user,
                     AccountDetails: {
-                        liability: client.liability,
-                        Balance: client.balance,
-                        profitLoss: client.profitLoss,
-                        freeChips: client.freeChips,
-                        totalSettledAmount: client.totalSettledAmount,
-                        Exposure: client.exposure,
-                        ExposureLimit: client.exposureLimit,
-                        uplineSettlement: client.uplineSettlement
+                        liability: authenticatedClient.liability,
+                        Balance: authenticatedClient.balance,
+                        profitLoss: authenticatedClient.profitLoss,
+                        freeChips: authenticatedClient.freeChips,
+                        totalSettledAmount: authenticatedClient.totalSettledAmount,
+                        Exposure: authenticatedClient.exposure,
+                        ExposureLimit: authenticatedClient.exposureLimit,
+                        uplineSettlement: authenticatedClient.uplineSettlement
                     },
                     allowedNoOfUsers: null,
                     createdUsersCount: null,
                     commissionSettings: {
-                        commissionUplineType: client.commissionUplineType,
-                        commissionUplineUserId: client.commissionUplineUserId,
-                        commissionUpline: client.commissionUpline,
-                        commissionOwn: client.commissionOwn,
-                        partnershipUplineType: client.partnershipUplineType,
-                        partnershipUplineUserId: client.partnershipUplineUserId,
-                        partnershipUpline: client.partnershipUpline,
-                        partnershipOwn: client.partnershipOwn,
+                        commissionUplineType: authenticatedClient.commissionUplineType,
+                        commissionUplineUserId: authenticatedClient.commissionUplineUserId,
+                        commissionUpline: authenticatedClient.commissionUpline,
+                        commissionOwn: authenticatedClient.commissionOwn,
+                        partnershipUplineType: authenticatedClient.partnershipUplineType,
+                        partnershipUplineUserId: authenticatedClient.partnershipUplineUserId,
+                        partnershipUpline: authenticatedClient.partnershipUpline,
+                        partnershipOwn: authenticatedClient.partnershipOwn,
                     },
                     commissionLenaYaDena: {
-                        commissionLena: client.commissionLena,
-                        commissionDena: client.commissionDena,
+                        commissionLena: authenticatedClient.commissionLena,
+                        commissionDena: authenticatedClient.commissionDena,
                     },
-                    groupID: client.groupID,
-                    createdAt: client.createdAt,
-                    updatedAt: client.updatedAt,
+                    groupID: authenticatedClient.groupID,
+                    createdAt: authenticatedClient.createdAt,
+                    updatedAt: authenticatedClient.updatedAt,
 
                 },
                 permissions: {
-                    canBet: !client.bettingLocked,
-                    canWithdraw: client.depositWithdrawlAccess,
-                    bypassRestrictions: client.canBypassCasinoBet || client.canBypassSportBet
+                    canBet: !authenticatedClient.bettingLocked,
+                    canWithdraw: authenticatedClient.depositWithdrawlAccess,
+                    bypassRestrictions: authenticatedClient.canBypassCasinoBet || authenticatedClient.canBypassSportBet
                 },
                 sessionData: {
                     ip: userIp,
@@ -1054,7 +1147,7 @@ export const clientLogin = async (req: Request, res: Response) => {
         );
 
         if (io) {
-            const existingSocket = getUserSocket(io, client.id);
+            const existingSocket = getUserSocket(io, authenticatedClient.id);
 
             if (existingSocket) {
                 existingSocket.emit('forceLogout', {
@@ -1066,8 +1159,8 @@ export const clientLogin = async (req: Request, res: Response) => {
             }
 
             io.to('clients').emit('clientLogin', {
-                clientId: client.id,
-                username: client.loginId,
+                clientId: authenticatedClient.id,
+                username: authenticatedClient.loginId,
                 ip: userIp,
                 timestamp: new Date().toISOString()
             });
@@ -1085,7 +1178,7 @@ export const clientLogin = async (req: Request, res: Response) => {
             message: "Client login successful",
             data: {
                 token,
-                isActive: client.isActive,
+                isActive: authenticatedClient.isActive,
                 // user: safeUserData,
                 socketRequired: true
             }

@@ -163,3 +163,15 @@ export const getFilteredIPlayMatches = async (limit: number = 10) => {
     return [];
   }
 };
+
+
+export const betSettlement = async (betId: string) => {
+  try {
+
+    
+    return null;
+  } catch (error) {
+    console.error('Error settling bet:', error);
+    return null;
+  }
+};

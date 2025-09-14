@@ -30,6 +30,7 @@ import { Buttons } from "./entities/games/Buttons";
 import { SportBet } from "./entities/sports/SportBet";
 import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
+import { SportMatch } from "./entities/sports/SportMatch";
 
 dotenv.config();
 
@@ -65,7 +66,9 @@ export const AppDataSource = new DataSource({
     CasinoBet,
     SportBet,
     Buttons,
-    WhitelistCasinoMapping
+    WhitelistCasinoMapping,
+    //sport 
+    SportMatch
   ],
   synchronize: false,
   logging: process.env.NODE_ENV === "development",
