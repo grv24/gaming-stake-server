@@ -4285,3 +4285,363 @@
   ]
 }
 ================================================================================
+[2025-09-15T10:11:25.755Z] [INFO] [SPORT-SETTLE] Starting batch settlement for 2 events
+{
+  "eventIds": [
+    "778162788",
+    "802156626"
+  ]
+}
+================================================================================
+[2025-09-15T10:11:25.928Z] [INFO] [SPORT-SETTLE] Found 5 pending bets across 2 events
+{
+  "totalBets": 5,
+  "totalEvents": 2,
+  "eventIds": [
+    "778162788",
+    "802156626"
+  ]
+}
+================================================================================
+[2025-09-15T10:11:25.929Z] [INFO] [SPORT-SETTLE] Grouped bets by event
+{
+  "eventsWithBets": 2,
+  "betsPerEvent": [
+    {
+      "eventId": "778162788",
+      "betCount": 4
+    },
+    {
+      "eventId": "802156626",
+      "betCount": 1
+    }
+  ]
+}
+================================================================================
+[2025-09-15T10:11:25.929Z] [INFO] [SPORT-SETTLE] Processing event 778162788 with 4 pending bets
+================================================================================
+[2025-09-15T10:11:26.111Z] [INFO] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Trying Diamond API first for event 778162788
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:26.111Z] [INFO] [SPORT-SETTLE] Trying Diamond API for event 778162788, market type: MATCH_ODDS
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS",
+  "apiType": "diamond"
+}
+================================================================================
+[2025-09-15T10:11:26.111Z] [DEBUG] [SPORT-SETTLE] Diamond API URL: http://localhost:3000/api/v2/diamondResults?eventId=778162788
+{
+  "url": "http://localhost:3000/api/v2/diamondResults?eventId=778162788"
+}
+================================================================================
+[2025-09-15T10:11:28.702Z] [ERROR] [SPORT-SETTLE] Diamond API failed for event 778162788
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS",
+  "error": {
+    "message": "Request failed with status code 500",
+    "code": "ERR_BAD_RESPONSE",
+    "status": 500,
+    "statusText": "Internal Server Error"
+  }
+}
+================================================================================
+[2025-09-15T10:11:28.702Z] [WARN] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Diamond API failed for event 778162788, trying Fancy API fallback
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:28.703Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 778162788, market type: MATCH_ODDS
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:28.703Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://localhost:3000/api/new/fancyResultData?eventId=778162788
+{
+  "url": "http://localhost:3000/api/new/fancyResultData?eventId=778162788"
+}
+================================================================================
+[2025-09-15T10:11:29.080Z] [INFO] [SPORT-SETTLE] Fancy API response received
+{
+  "eventId": "778162788",
+  "status": 200,
+  "dataLength": 0,
+  "hasData": true
+}
+================================================================================
+[2025-09-15T10:11:29.081Z] [DEBUG] [SPORT-SETTLE] FANCY API response data
+{
+  "eventId": "778162788",
+  "responseData": []
+}
+================================================================================
+[2025-09-15T10:11:29.081Z] [WARN] [SPORT-SETTLE] FANCY API returned empty data for event 778162788
+{
+  "eventId": "778162788",
+  "apiUsed": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.081Z] [ERROR] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Both Diamond and Fancy APIs failed for event 778162788 - bet will remain pending
+{
+  "eventId": "778162788",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:29.081Z] [INFO] [SPORT-SETTLE] OTHER MARKETS: Trying Fancy API ONLY for event 778162788, market type: Normal
+{
+  "eventId": "778162788",
+  "marketType": "Normal"
+}
+================================================================================
+[2025-09-15T10:11:29.082Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 778162788, market type: Normal
+{
+  "eventId": "778162788",
+  "marketType": "Normal",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.082Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://localhost:3000/api/new/fancyResultData?eventId=778162788
+{
+  "url": "http://localhost:3000/api/new/fancyResultData?eventId=778162788"
+}
+================================================================================
+[2025-09-15T10:11:29.206Z] [INFO] [SPORT-SETTLE] Fancy API response received
+{
+  "eventId": "778162788",
+  "status": 200,
+  "dataLength": 0,
+  "hasData": true
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [DEBUG] [SPORT-SETTLE] FANCY API response data
+{
+  "eventId": "778162788",
+  "responseData": []
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [WARN] [SPORT-SETTLE] FANCY API returned empty data for event 778162788
+{
+  "eventId": "778162788",
+  "apiUsed": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [ERROR] [SPORT-SETTLE] OTHER MARKETS: Fancy API failed for event 778162788, market type Normal - bet will remain pending (no fallback)
+{
+  "eventId": "778162788",
+  "marketType": "Normal"
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [INFO] [SPORT-SETTLE] OTHER MARKETS: Trying Fancy API ONLY for event 778162788, market type: Odd/Even
+{
+  "eventId": "778162788",
+  "marketType": "Odd/Even"
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 778162788, market type: Odd/Even
+{
+  "eventId": "778162788",
+  "marketType": "Odd/Even",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.207Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://localhost:3000/api/new/fancyResultData?eventId=778162788
+{
+  "url": "http://localhost:3000/api/new/fancyResultData?eventId=778162788"
+}
+================================================================================
+[2025-09-15T10:11:29.324Z] [INFO] [SPORT-SETTLE] Fancy API response received
+{
+  "eventId": "778162788",
+  "status": 200,
+  "dataLength": 0,
+  "hasData": true
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [DEBUG] [SPORT-SETTLE] FANCY API response data
+{
+  "eventId": "778162788",
+  "responseData": []
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [WARN] [SPORT-SETTLE] FANCY API returned empty data for event 778162788
+{
+  "eventId": "778162788",
+  "apiUsed": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [ERROR] [SPORT-SETTLE] OTHER MARKETS: Fancy API failed for event 778162788, market type Odd/Even - bet will remain pending (no fallback)
+{
+  "eventId": "778162788",
+  "marketType": "Odd/Even"
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [INFO] [SPORT-SETTLE] OTHER MARKETS: Trying Fancy API ONLY for event 778162788, market type: 1ST INN 10 OVER SUR VS NOT
+{
+  "eventId": "778162788",
+  "marketType": "1ST INN 10 OVER SUR VS NOT"
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 778162788, market type: 1ST INN 10 OVER SUR VS NOT
+{
+  "eventId": "778162788",
+  "marketType": "1ST INN 10 OVER SUR VS NOT",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.325Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://localhost:3000/api/new/fancyResultData?eventId=778162788
+{
+  "url": "http://localhost:3000/api/new/fancyResultData?eventId=778162788"
+}
+================================================================================
+[2025-09-15T10:11:29.442Z] [INFO] [SPORT-SETTLE] Fancy API response received
+{
+  "eventId": "778162788",
+  "status": 200,
+  "dataLength": 0,
+  "hasData": true
+}
+================================================================================
+[2025-09-15T10:11:29.442Z] [DEBUG] [SPORT-SETTLE] FANCY API response data
+{
+  "eventId": "778162788",
+  "responseData": []
+}
+================================================================================
+[2025-09-15T10:11:29.442Z] [WARN] [SPORT-SETTLE] FANCY API returned empty data for event 778162788
+{
+  "eventId": "778162788",
+  "apiUsed": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:29.442Z] [ERROR] [SPORT-SETTLE] OTHER MARKETS: Fancy API failed for event 778162788, market type 1ST INN 10 OVER SUR VS NOT - bet will remain pending (no fallback)
+{
+  "eventId": "778162788",
+  "marketType": "1ST INN 10 OVER SUR VS NOT"
+}
+================================================================================
+[2025-09-15T10:11:29.443Z] [INFO] [SPORT-SETTLE] Event 778162788 settlement completed
+{
+  "eventId": "778162788",
+  "settledCount": 0,
+  "errorCount": 1,
+  "errors": [
+    {
+      "eventId": "778162788",
+      "error": "No result data available for settlement - both APIs failed"
+    }
+  ]
+}
+================================================================================
+[2025-09-15T10:11:29.443Z] [INFO] [SPORT-SETTLE] Processing event 802156626 with 1 pending bets
+================================================================================
+[2025-09-15T10:11:29.549Z] [INFO] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Trying Diamond API first for event 802156626
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:29.550Z] [INFO] [SPORT-SETTLE] Trying Diamond API for event 802156626, market type: MATCH_ODDS
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS",
+  "apiType": "diamond"
+}
+================================================================================
+[2025-09-15T10:11:29.550Z] [DEBUG] [SPORT-SETTLE] Diamond API URL: http://localhost:3000/api/v2/diamondResults?eventId=802156626
+{
+  "url": "http://localhost:3000/api/v2/diamondResults?eventId=802156626"
+}
+================================================================================
+[2025-09-15T10:11:30.147Z] [ERROR] [SPORT-SETTLE] Diamond API failed for event 802156626
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS",
+  "error": {
+    "message": "Request failed with status code 500",
+    "code": "ERR_BAD_RESPONSE",
+    "status": 500,
+    "statusText": "Internal Server Error"
+  }
+}
+================================================================================
+[2025-09-15T10:11:30.148Z] [WARN] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Diamond API failed for event 802156626, trying Fancy API fallback
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:30.148Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 802156626, market type: MATCH_ODDS
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:30.148Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://localhost:3000/api/new/fancyResultData?eventId=802156626
+{
+  "url": "http://localhost:3000/api/new/fancyResultData?eventId=802156626"
+}
+================================================================================
+[2025-09-15T10:11:30.351Z] [INFO] [SPORT-SETTLE] Fancy API response received
+{
+  "eventId": "802156626",
+  "status": 200,
+  "dataLength": 0,
+  "hasData": true
+}
+================================================================================
+[2025-09-15T10:11:30.352Z] [DEBUG] [SPORT-SETTLE] FANCY API response data
+{
+  "eventId": "802156626",
+  "responseData": []
+}
+================================================================================
+[2025-09-15T10:11:30.352Z] [WARN] [SPORT-SETTLE] FANCY API returned empty data for event 802156626
+{
+  "eventId": "802156626",
+  "apiUsed": "fancy"
+}
+================================================================================
+[2025-09-15T10:11:30.352Z] [ERROR] [SPORT-SETTLE] MATCH_ODDS/BOOKMAKER: Both Diamond and Fancy APIs failed for event 802156626 - bet will remain pending
+{
+  "eventId": "802156626",
+  "marketType": "MATCH_ODDS"
+}
+================================================================================
+[2025-09-15T10:11:30.352Z] [INFO] [SPORT-SETTLE] Event 802156626 settlement completed
+{
+  "eventId": "802156626",
+  "settledCount": 0,
+  "errorCount": 1,
+  "errors": [
+    {
+      "eventId": "802156626",
+      "error": "No result data available for settlement - both APIs failed"
+    }
+  ]
+}
+================================================================================
+[2025-09-15T10:11:30.352Z] [INFO] [SPORT-SETTLE] Batch settlement completed
+{
+  "totalSettled": 0,
+  "totalErrors": 2,
+  "totalEvents": 2,
+  "errors": [
+    {
+      "eventId": "778162788",
+      "error": "No result data available for settlement - both APIs failed"
+    },
+    {
+      "eventId": "802156626",
+      "error": "No result data available for settlement - both APIs failed"
+    }
+  ]
+}
+================================================================================
