@@ -328,7 +328,8 @@ export class CasinoSettlementService {
               profitLoss = Number(betData.profit) || 0;  // Positive for win
               user.balance = Number(user.balance) + profitLoss;
             } else {
-              profitLoss = -(Number(betData.loss) || 0);  // Negative for loss
+              // For lost Back bet: user loses the stake amount
+              profitLoss = -(Number(betData.stake) || 0);  // Negative for loss (stake amount)
               user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
             }
           } else if (betData.oddCategory === "Lay") {
@@ -336,14 +337,17 @@ export class CasinoSettlementService {
             finalStatus = !isWinner ? "won" : "lost";
             if (!isWinner) {
               // Lay bet wins when selected outcome doesn't happen
-              profitLoss = Number(betData.loss) || 0;  // Positive for win
+              profitLoss = Number(betData.stake) || 0;  // Positive for win (stake amount)
               user.balance = Number(user.balance) + profitLoss;
             } else {
               // Lay bet loses when selected outcome happens
-              profitLoss = -(Number(betData.profit) || 0);  // Negative for loss
+              profitLoss = -(Number(betData.stake) || 0);  // Negative for loss (stake amount)
               user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
             }
           }
+
+          // Determine the actual winner for display purposes
+          const actualWinner = winners.length > 0 ? winners[0] : null;
 
           user.exposure = Number(user.exposure) - stakeAmount;
 
@@ -355,7 +359,7 @@ export class CasinoSettlementService {
               betData: {
                 ...betData,
                 result: {
-                  winner: isWinner ? betSid : null,
+                  winner: actualWinner,
                   winnerNation: betData.name || "",
                   settledAt: new Date(),
                   profitLoss: profitLoss,

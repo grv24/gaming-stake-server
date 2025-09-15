@@ -9,7 +9,7 @@ import {
 } from "../../controllers/casino/DefaultCasino";
 import { casinoResult, createBet, getCurrentBet } from "../../controllers/casino/CasinoBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
-import { settleUserCasinoBets } from "../../controllers/casino/settlement/SettleController";
+import { settleUserCasinoBets, reverseCasinoBetSettlement, getSettlementReversalHistory, getDownlineSettledBets, getDownlineUsers, debugGetAllSettledBets } from "../../controllers/casino/settlement/SettleController";
 import { getActiveCasinosForWhitelist } from "../../controllers/whitelist/WhitelistCasinoController";
 const router = Router();
 
@@ -20,6 +20,17 @@ router.get("/odds", getCasinoData);
 router.get("/getCasinoTopTenResult", getCasinoResults);
 router.post("/place-bet", clientAuth, createBet);
 router.patch("/settle-my-casino-bets", clientAuth, settleUserCasinoBets);
+
+// Settlement reversal endpoints (upline users only)
+router.post("/reverse-settlement", clientAuth, reverseCasinoBetSettlement);
+router.get("/reversal-history", clientAuth, getSettlementReversalHistory);
+
+// Downline management endpoints (upline users only)
+router.get("/downline-settled-bets", clientAuth, getDownlineSettledBets);
+router.get("/downline-users", clientAuth, getDownlineUsers);
+
+// Debug endpoint (for troubleshooting)
+router.get("/debug-all-settled-bets", clientAuth, debugGetAllSettledBets);
 
 router.get("/history", clientAuth, getCasinoHistory);
 router.get("/match-details", clientAuth, getCasinoMatchDetails);

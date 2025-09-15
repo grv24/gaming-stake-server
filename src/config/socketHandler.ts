@@ -434,15 +434,15 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // console.error(`Invalid casinoType received from socket ${socket.id}:`, casinoType);
         return;
       }
-
+      
       socket.join(`casino:${casinoType}`);
       // console.log(`Socket ${socket.id} joined room casino:${casinoType}`);
-
+      
       // Track user's casino subscriptions
       const userId = Object.keys(activeConnections).find(
         (id) => activeConnections[id].socketId === socket.id
       );
-
+      
       if (userId && activeConnections[userId]) {
         activeConnections[userId].casinoSubscriptions.add(casinoType);
       }
@@ -454,15 +454,15 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // console.error(`Invalid casinoType received from socket ${socket.id}:`, casinoType);
         return;
       }
-
+      
       socket.leave(`casino:${casinoType}`);
       // console.log(`Socket ${socket.id} left room casino:${casinoType}`);
-
+      
       // Remove from user's casino subscriptions
       const userId = Object.keys(activeConnections).find(
         (id) => activeConnections[id].socketId === socket.id
       );
-
+      
       if (userId && activeConnections[userId]) {
         activeConnections[userId].casinoSubscriptions.delete(casinoType);
       }
@@ -474,20 +474,20 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // console.error(`Invalid casinoTypes array received from socket ${socket.id}:`, casinoTypes);
         return;
       }
-
+      
       casinoTypes.forEach((casinoType) => {
         if (typeof casinoType === "string") {
           socket.join(`casino:${casinoType}`);
         }
       });
-
+      
       // console.log(`Socket ${socket.id} joined ${casinoTypes.length} casino rooms:`, casinoTypes);
-
+      
       // Track user's casino subscriptions
       const userId = Object.keys(activeConnections).find(
         (id) => activeConnections[id].socketId === socket.id
       );
-
+      
       if (userId && activeConnections[userId]) {
         casinoTypes.forEach((casinoType) => {
           if (typeof casinoType === "string") {
@@ -503,20 +503,20 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // console.error(`Invalid casinoTypes array received from socket ${socket.id}:`, casinoTypes);
         return;
       }
-
+      
       casinoTypes.forEach((casinoType) => {
         if (typeof casinoType === "string") {
           socket.leave(`casino:${casinoType}`);
         }
       });
-
+      
       // console.log(`Socket ${socket.id} left ${casinoTypes.length} casino rooms:`, casinoTypes);
-
+      
       // Remove from user's casino subscriptions
       const userId = Object.keys(activeConnections).find(
         (id) => activeConnections[id].socketId === socket.id
       );
-
+      
       if (userId && activeConnections[userId]) {
         casinoTypes.forEach((casinoType) => {
           if (typeof casinoType === "string") {
@@ -634,8 +634,8 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       }
 
       // Store new connection with empty casino subscriptions
-      activeConnections[userId] = {
-        socketId: socket.id,
+      activeConnections[userId] = { 
+        socketId: socket.id, 
         userType,
         casinoSubscriptions: new Set<string>(),
       };
@@ -672,7 +672,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         activeConnections[userId].casinoSubscriptions.forEach((casinoType) => {
           socket.leave(`casino:${casinoType}`);
         });
-
+        
         delete activeConnections[userId];
         socket.leave(`user_${userId}`);
         socket.leave("techAdmins");
@@ -942,7 +942,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     // Check if any casino rooms have active subscribers
     let hasSubscribers = false;
     const casinoTypes = await discoverCasinoTypesFromRedis();
-
+    
     for (const casinoType of casinoTypes) {
       const room = io.sockets.adapter.rooms.get(`casino:${casinoType}`);
       if (room && room.size > 0) {
@@ -950,7 +950,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         break; // Exit early if subscribers found
       }
     }
-
+    
     if (hasSubscribers) {
       console.log("[SOCKET] Fallback broadcast - active subscribers found");
       await broadcastAllCasinoData(io);
