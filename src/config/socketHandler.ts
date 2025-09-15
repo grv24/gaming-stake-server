@@ -1134,6 +1134,113 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
   }, 60 * 1000); // 60 seconds
 
+  /**
+   * AUTOMATIC SPORT SETTLEMENT INTERVAL - 60 seconds
+   *
+   * Purpose: Automatically settle completed sport matches using third-party APIs
+   * Frequency: Every 60 seconds (optimized for faster settlement processing)
+   *
+   * What it does:
+   * - Monitors SportMatch table for events with null result data
+   * - Fetches result data from fancy and diamond APIs
+   * - Updates SportMatch result data when null
+   * - Settles all pending sport bets for completed matches
+   * - Provides comprehensive settlement statistics
+   *
+   * Performance: Batch settlement operations with smart filtering
+   */
+  setInterval(async () => {
+    console.log("[SOCKET] Automatic sport settlement triggered");
+
+    try {
+      // Check database connection
+      if (!dataSource.isInitialized) {
+        console.log("[SOCKET] Database not initialized, skipping sport settlement");
+        return;
+      }
+
+      // Import sport settlement service dynamically to avoid circular dependencies
+      const { SportSettlementService } = await import(
+        "../services/sports/SportSettlementService"
+      );
+      const sportSettlementService = new SportSettlementService(dataSource);
+
+      // Get all sport events with pending bets AND events with null result data
+      const sportBetRepo = dataSource.getRepository("SportBet");
+      const sportMatchRepo = dataSource.getRepository("SportMatch");
+
+      // Find all events with pending bets
+      const pendingBets = await sportBetRepo.find({
+        where: { status: "pending" },
+        select: ["eventId"]
+      });
+
+      // Find all SportMatch records with null result data
+      const sportMatchesWithNullResults = await sportMatchRepo.find({
+        select: ["eventId"]
+      });
+
+      // Filter for matches with null result data (post-query filtering for JSON fields)
+      const matchesWithNullResults = sportMatchesWithNullResults.filter((match: any) => {
+        return match.categories && match.categories.some((cat: any) => cat.resultData === null);
+      });
+
+      // Combine both sets of event IDs
+      const pendingBetEventIds = [...new Set(pendingBets.map(bet => bet.eventId))];
+      const nullResultEventIds = [...new Set(matchesWithNullResults.map(match => match.eventId))];
+      const allEventIds = [...new Set([...pendingBetEventIds, ...nullResultEventIds])];
+
+      if (allEventIds.length === 0) {
+        console.log("[SOCKET] No sport events found - skipping settlement");
+        return;
+      }
+
+      console.log(`[SOCKET] Found ${allEventIds.length} sport events to process:`, {
+        pendingBets: pendingBetEventIds.length,
+        nullResults: nullResultEventIds.length,
+        total: allEventIds.length
+      });
+
+      // Execute batch settlement
+      const settlementResult = await sportSettlementService.batchSettleMatches(allEventIds);
+      console.log("[SOCKET] Automatic sport settlement completed:", settlementResult);
+
+      // Publish settlement notification for other services
+      const { getRedisClient: getRedisClientForPublish } = await import(
+        "../config/redisConfig"
+      );
+      const redisClientForPublish = getRedisClientForPublish();
+      await redisClientForPublish.publish(
+        "sport_settlement_completed",
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          eventsSettled: allEventIds.length,
+          totalBetsSettled: settlementResult.settledCount,
+          errors: settlementResult.errorCount,
+          events: allEventIds,
+        })
+      );
+
+    } catch (error: any) {
+      console.error("[SOCKET] Error in automatic sport settlement:", error);
+      
+      // If it's a database connection error, try to reinitialize
+      if (error.message && error.message.includes("Driver not Connected")) {
+        console.log("[SOCKET] Database connection lost, attempting to reconnect...");
+        try {
+          if (!dataSource.isInitialized) {
+            await dataSource.initialize();
+            console.log("[SOCKET] Database reconnected successfully");
+          }
+        } catch (reconnectError) {
+          console.error("[SOCKET] Failed to reconnect to database:", reconnectError);
+        }
+      }
+      
+      // Continue execution - settlement errors shouldn't crash the socket service
+    }
+  }, 60 * 1000); // 60 seconds
+
   return io;
 }
 

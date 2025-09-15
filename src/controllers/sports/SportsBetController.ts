@@ -470,7 +470,7 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
 
           if (!currentBet) return;
 
-          const user: any = await transactionalEntityManager.findOne(USER_TABLES.sports, {
+          const user: any = await transactionalEntityManager.findOne(USER_TABLES[bet.userType as any], {
             where: { id: userId },
             lock: { mode: "pessimistic_write" }
           });

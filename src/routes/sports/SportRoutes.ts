@@ -3,6 +3,7 @@ import { getAllSportsDataController, getCricketData, getCricketScore, getFIltere
 import { createBet, getCurrentBet, settleUserSportBets } from "../../controllers/sports/SportsBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
 import { getDownlineBets, reopenBet, updateBet } from "../../controllers/sports/ManualSettle";
+import { testSportSettlement } from "../../controllers/sports/TestSportSettlement";
 // import { getSportsList } from "../../controllers/sports/SportControllers";
 
 const router = Router();
@@ -17,6 +18,9 @@ router.get('/cricket-score', clientAuth, getCricketScore)
 router.get("/bets/downline", clientAuth, getDownlineBets);
 router.patch("/bets/:id", clientAuth, updateBet);
 router.patch("/bets/reopen/:id", clientAuth, reopenBet);
+
+// Test endpoint for sport settlement
+router.post("/test-settlement", clientAuth, testSportSettlement);
 
 router.get('/cricket-latest-matches-diamond', getCricketData);
 router.get('/soccer-latest-matches-diamond', getSoccerData);
