@@ -15,10 +15,19 @@ export const getDownlineBets = async (req: Request, res: Response) => {
     const userRepo = AppDataSource.getRepository(Client);
     const betRepo = AppDataSource.getRepository(SportBet);
 
-    // 1. Find all users whose uplineId = myUserId
+    // 1. Find all users whose uplineId = myUserId with their details
     const downlineUsers = await userRepo.find({
       where: { uplineId: myUserId },
-      select: ["id"], 
+      select: [
+        "id", 
+        "userName", 
+        "loginId", 
+        "mobile", 
+        "balance", 
+        "exposure", 
+        "isActive", 
+        "createdAt"
+      ], 
     });
 
     const downlineUserIds = downlineUsers.map((u) => u.id);
@@ -33,7 +42,34 @@ export const getDownlineBets = async (req: Request, res: Response) => {
       order: { createdAt: "DESC" },
     });
 
-    return res.json({success: true, message: "bet updated", bets });
+    // 3. Create a map of user details for quick lookup
+    const userDetailsMap = new Map();
+    downlineUsers.forEach(user => {
+      userDetailsMap.set(user.id, {
+        id: user.id,
+        userName: user.userName,
+        loginId: user.loginId,
+        mobile: user.mobile,
+        balance: user.balance,
+        exposure: user.exposure,
+        isActive: user.isActive,
+        createdAt: user.createdAt
+      });
+    });
+
+    // 4. Combine bets with user details
+    const betsWithUserDetails = bets.map(bet => ({
+      ...bet,
+      userDetails: userDetailsMap.get(bet.userId) || null
+    }));
+
+    return res.json({
+      success: true, 
+      message: "Downline bets retrieved successfully", 
+      bets: betsWithUserDetails,
+      totalBets: betsWithUserDetails.length,
+      totalDownlineUsers: downlineUsers.length
+    });
   } catch (error: any) {
     console.error(error);
     return res.status(500).json({ success: false, message: error.message });
