@@ -3,6 +3,63 @@ import { Server as HttpServer } from "http";
 import { getRedisSubscriber } from "../config/redisPubSub";
 import { USER_TABLES } from "../Helpers/users/Roles";
 import { DataSource } from "typeorm";
+import * as fs from "fs";
+import * as path from "path";
+
+// Casino Socket Handler Logging System
+const LOG_DIRECTORY = path.join(process.cwd(), "logs", "casino-socket");
+
+// Get current date string for log file naming
+const getCurrentDateString = (): string => {
+  const now = new Date();
+  return now.toISOString().split('T')[0]; // YYYY-MM-DD format
+};
+
+const LOG_FILE_PATH = path.join(LOG_DIRECTORY, `casino-socket-${getCurrentDateString()}.log`);
+
+// Ensure log directory exists
+const ensureLogDirectory = (): void => {
+  if (!fs.existsSync(LOG_DIRECTORY)) {
+    fs.mkdirSync(LOG_DIRECTORY, { recursive: true });
+  }
+};
+
+// Write to log file
+const writeToLogFile = (message: string): void => {
+  try {
+    ensureLogDirectory();
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(LOG_FILE_PATH, logMessage);
+  } catch (error) {
+    console.error("[CASINO-SOCKET] Error writing to log file:", error);
+  }
+};
+
+// Logging methods
+const logInfo = (message: string, data?: any): void => {
+  const logMessage = `[CASINO-SOCKET-INFO] ${message}`;
+  console.log(logMessage, data || "");
+  writeToLogFile(logMessage + (data ? ` | Data: ${JSON.stringify(data)}` : ""));
+};
+
+const logError = (message: string, data?: any): void => {
+  const logMessage = `[CASINO-SOCKET-ERROR] ${message}`;
+  console.error(logMessage, data || "");
+  writeToLogFile(logMessage + (data ? ` | Data: ${JSON.stringify(data)}` : ""));
+};
+
+const logWarn = (message: string, data?: any): void => {
+  const logMessage = `[CASINO-SOCKET-WARN] ${message}`;
+  console.warn(logMessage, data || "");
+  writeToLogFile(logMessage + (data ? ` | Data: ${JSON.stringify(data)}` : ""));
+};
+
+const logDebug = (message: string, data?: any): void => {
+  const logMessage = `[CASINO-SOCKET-DEBUG] ${message}`;
+  console.log(logMessage, data || "");
+  writeToLogFile(logMessage + (data ? ` | Data: ${JSON.stringify(data)}` : ""));
+};
 
 // Casino types from Validation.ts
 const CASINO_TYPES = [
@@ -48,6 +105,148 @@ const redisKeyCache: Record<
   { current: string | null; results: string | null }
 > = {};
 
+// Cache for tracking game states and timing
+const gameStateCache: Record<string, {
+  mid: string | null;
+  lt: number | null;
+  ft: number | null;
+  phase: string;
+  lastUpdate: number;
+}> = {};
+
+/**
+ * ANALYZE GAME TIMING AND STATE
+ * 
+ * Purpose: Determine game phase and actions based on timing fields
+ * 
+ * Game Phases:
+ * - RUNNING: Game is active (lt > 0)
+ * - FINISHING: Game is about to end (lt <= 5)
+ * - FINISHED: Game has ended (lt = 0)
+ * - SUSPENDED: Game is paused
+ * 
+ * Actions:
+ * - shouldBroadcast: Always broadcast changes
+ * - shouldSettle: Only when game is finished
+ */
+const analyzeGameTiming = (casinoType: string, gameData: any): {
+  phase: string;
+  shouldBroadcast: boolean;
+  shouldSettle: boolean;
+  timeRemaining: number;
+  gameProgress: number;
+} => {
+  try {
+    const mid = gameData.mid?.toString();
+    const lt = Number(gameData.lt) || 0; // Last time (seconds remaining)
+    const ft = Number(gameData.ft) || 0; // Finish time (total duration)
+    const currentTime = Date.now();
+    
+    // Get previous state
+    const previousState = gameStateCache[casinoType] || {
+      mid: null,
+      lt: null,
+      ft: null,
+      phase: 'UNKNOWN',
+      lastUpdate: 0
+    };
+    
+    // Calculate game progress
+    const gameProgress = ft > 0 ? ((ft - lt) / ft) * 100 : 0;
+    
+    // Determine game phase
+    let phase = 'UNKNOWN';
+    let shouldBroadcast = true;
+    let shouldSettle = false;
+    
+    if (lt > 5) {
+      phase = 'RUNNING';
+    } else if (lt > 0 && lt <= 5) {
+      phase = 'FINISHING';
+    } else if (lt === 0) {
+      phase = 'FINISHED';
+      shouldSettle = true;
+    } else {
+      phase = 'SUSPENDED';
+    }
+    
+    // Check if this is a new game (different mid)
+    const isNewGame = mid && mid !== previousState.mid;
+    
+    // Check if game just finished
+    const justFinished = (previousState.lt || 0) > 0 && lt === 0;
+    
+    // Update cache
+    gameStateCache[casinoType] = {
+      mid,
+      lt,
+      ft,
+      phase,
+      lastUpdate: currentTime
+    };
+    
+    logInfo(`Game timing analysis for ${casinoType}`, {
+      mid,
+      lt,
+      ft,
+      phase,
+      gameProgress: Math.round(gameProgress),
+      isNewGame,
+      justFinished,
+      shouldBroadcast,
+      shouldSettle
+    });
+    
+    return {
+      phase,
+      shouldBroadcast,
+      shouldSettle: shouldSettle || justFinished,
+      timeRemaining: lt,
+      gameProgress: Math.round(gameProgress)
+    };
+    
+  } catch (error: any) {
+    logError(`Error analyzing game timing for ${casinoType}`, { error: error.message, stack: error.stack });
+    return {
+      phase: 'ERROR',
+      shouldBroadcast: true,
+      shouldSettle: false,
+      timeRemaining: 0,
+      gameProgress: 0
+    };
+  }
+};
+
+/**
+ * TRIGGER CASINO SETTLEMENT
+ * 
+ * Purpose: Trigger immediate settlement for finished games
+ */
+const triggerCasinoSettlement = async (casinoType: string, mid: string, dataSource: DataSource) => {
+  try {
+    logInfo(`Triggering immediate settlement for ${casinoType} mid: ${mid}`);
+    
+    // Import settlement service dynamically
+    const { getCasinoSettlementService } = await import("../services/casino/CasinoSettlementService");
+    const casinoSettlementService = getCasinoSettlementService(dataSource);
+    
+    // Settle the specific match
+    const result = await casinoSettlementService.settleCasinoMatch(casinoType, mid);
+    
+    logInfo(`Settlement result for ${casinoType} mid: ${mid}`, {
+      success: result.success,
+      settledCount: result.settledCount,
+      message: result.message
+    });
+    
+    return result;
+    
+  } catch (error: any) {
+    logError(`Error triggering settlement for ${casinoType} mid: ${mid}`, { error: error.message, stack: error.stack });
+    return { success: false, error: error.message };
+  }
+};
+
 // Function to check for Redis key changes and broadcast updates
 const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
   try {
@@ -55,10 +254,7 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
     const redisClient = getRedisClient();
 
     const casinoTypes = await discoverCasinoTypesFromRedis();
-    console.log(
-      `[SOCKET] Checking ${casinoTypes.length} casino types for changes:`,
-      casinoTypes
-    );
+    logDebug(`Checking ${casinoTypes.length} casino types for changes`, { casinoTypes });
 
     for (const casinoType of casinoTypes) {
       // Check if room has any subscribers before proceeding
@@ -83,23 +279,47 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
       const hasResultsChanged = resultsRedisData !== cachedData.results;
 
       if (hasCurrentChanged || hasResultsChanged) {
+        logInfo(`Data change detected for ${casinoType}`, {
+          hasCurrentChanged,
+          hasResultsChanged,
+          currentDataExists: !!currentRedisData,
+          resultsDataExists: !!resultsRedisData
+        });
+        
         // Update cache
         redisKeyCache[casinoType] = {
           current: currentRedisData,
           results: resultsRedisData,
         };
 
-        // Parse and broadcast data
+        // Parse and analyze current data for time-based handling
         let currentData = null;
+        let gameState = null;
+        let shouldBroadcast = false;
+        let shouldSettle = false;
+
         if (currentRedisData) {
           try {
             const parsedCurrentData = JSON.parse(currentRedisData);
             currentData = parsedCurrentData?.data;
-          } catch (error) {
-            console.error(
-              `[SOCKET] Failed to parse current data for ${casinoType}:`,
-              error
-            );
+            
+            // Analyze game timing and state
+            if (currentData) {
+              gameState = analyzeGameTiming(casinoType, currentData);
+              shouldBroadcast = gameState.shouldBroadcast;
+              shouldSettle = gameState.shouldSettle;
+              
+              logInfo(`Game state for ${casinoType}`, {
+                mid: currentData.mid,
+                lt: currentData.lt,
+                ft: currentData.ft,
+                gamePhase: gameState.phase,
+                shouldBroadcast,
+                shouldSettle
+              });
+            }
+          } catch (error: any) {
+            logError(`Failed to parse current data for ${casinoType}`, { error: error.message });
           }
         }
 
@@ -108,16 +328,13 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
           try {
             const parsedResultsData = JSON.parse(resultsRedisData);
             resultsData = parsedResultsData?.data?.res || [];
-          } catch (error) {
-            console.error(
-              `[SOCKET] Failed to parse results data for ${casinoType}:`,
-              error
-            );
+          } catch (error: any) {
+            logError(`Failed to parse results data for ${casinoType}`, { error: error.message });
           }
         }
 
-        // Only broadcast if there's actual data
-        if (currentData || resultsData.length > 0) {
+        // Broadcast based on game state and timing
+        if (shouldBroadcast && (currentData || resultsData.length > 0)) {
           io.to(`casino:${casinoType}`).emit("casinoOddsUpdate", {
             casinoType,
             data: {
@@ -127,8 +344,11 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
               timestamp: Date.now(),
               source: "change_detection",
               hasData: true,
+              gameState: gameState
             },
           });
+
+          logInfo(`Broadcasted ${casinoType} update`, { phase: gameState?.phase, hasCurrent: !!currentData, hasResults: resultsData.length > 0 });
 
           // Publish notification to Redis for casino match service to pick up
           try {
@@ -143,24 +363,25 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
                 hasResults: resultsData.length > 0,
                 timestamp: Date.now(),
                 source: "socket_change_detection",
+                gameState: gameState,
+                shouldSettle: shouldSettle
               })
             );
 
-            console.log(
-              `[SOCKET] Published casino data update notification for: ${casinoType}`
-            );
-          } catch (pubError) {
-            console.error(
-              `[SOCKET] Error publishing casino data update notification for ${casinoType}:`,
-              pubError
-            );
+            logInfo(`Published casino data update notification for ${casinoType}`, { gameState, shouldSettle });
+          } catch (pubError: any) {
+            logError(`Error publishing casino data update notification for ${casinoType}`, { error: pubError.message });
+          }
+
+          // Trigger settlement if game is finished
+          if (shouldSettle && currentData?.mid) {
+            logInfo(`Game finished - triggering settlement for ${casinoType} mid: ${currentData.mid}`);
+            await triggerCasinoSettlement(casinoType, currentData.mid, dataSource);
           }
 
           // Also update casino match database directly
           try {
-            console.log(
-              `[SOCKET] Attempting to update casino match database for: ${casinoType}`
-            );
+            logDebug(`Attempting to update casino match database for ${casinoType}`);
             const { getCasinoMatchService } = await import(
               "../services/casino/CasinoMatchService"
             );
@@ -168,25 +389,17 @@ const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
             const result = await casinoMatchService.updateCasinoMatchFromRedis(
               casinoType
             );
-            console.log(
-              `[SOCKET] Successfully updated casino match database for: ${casinoType}`,
-              result
-            );
-          } catch (dbError) {
-            console.error(
-              `[SOCKET] Error updating casino match database for ${casinoType}:`,
-              dbError
-            );
+            logInfo(`Successfully updated casino match database for ${casinoType}`, result);
+          } catch (dbError: any) {
+            logError(`Error updating casino match database for ${casinoType}`, { error: dbError.message });
           }
 
-          console.log(
-            `[SOCKET] Broadcasted change detection update for: ${casinoType} to ${room.size} users`
-          );
+          logInfo(`Broadcasted change detection update for ${casinoType} to ${room.size} users`);
         }
       }
     }
-  } catch (error) {
-    console.error("[SOCKET] Error in checkAndBroadcastChanges:", error);
+  } catch (error: any) {
+    logError("Error in checkAndBroadcastChanges", { error: error.message, stack: error.stack });
   }
 };
 
@@ -648,7 +861,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       if (userType === "admin") socket.join("admins");
       if (userType === "techAdmin") socket.join("techAdmins");
 
-      console.log(`${userType} ${userId} connected`);
+      logInfo(`${userType} ${userId} connected`);
 
       // Broadcast all casino data to newly connected user
       await broadcastAllCasinoData(io);
@@ -676,7 +889,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         delete activeConnections[userId];
         socket.leave(`user_${userId}`);
         socket.leave("techAdmins");
-        console.log(`${userId} logged out`);
+        logInfo(`${userId} logged out`);
       }
     });
 
@@ -687,7 +900,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       );
       if (userId) {
         delete activeConnections[userId];
-        console.log(`${userId} disconnected`);
+        logInfo(`${userId} disconnected`);
       }
     });
   });
@@ -695,15 +908,15 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
   // Casino Odds listener - Listen to both old and new pub/sub patterns
   redisSubscriber.psubscribe("casino_odds_updates:*", (err) => {
     if (err)
-      console.error("Failed to subscribe to casino_odds_updates:*:", err);
-    else console.log("Subscribed to casino_odds_updates:* pattern");
+      logError("Failed to subscribe to casino_odds_updates:*", { error: err.message });
+    else logInfo("Subscribed to casino_odds_updates:* pattern");
   });
 
   // Also subscribe to provider-specific channels if they exist
   redisSubscriber.psubscribe("casino_data_updates:*", (err) => {
     if (err)
-      console.error("Failed to subscribe to casino_data_updates:*:", err);
-    else console.log("Subscribed to casino_data_updates:* pattern");
+      logError("Failed to subscribe to casino_data_updates:*", { error: err.message });
+    else logInfo("Subscribed to casino_data_updates:* pattern");
   });
 
   redisSubscriber.on("pmessage", async (pattern, channel, message) => {
@@ -766,8 +979,8 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
           //   `[SOCKET] No data to broadcast for: ${casinoType} (room has ${room.size} users)`
           // );
         }
-      } catch (error) {
-        console.error("Error processing casino odds update:", error);
+      } catch (error: any) {
+        logError("Error processing casino odds update", { error: error.message, stack: error.stack });
       }
     } else if (pattern === "casino_data_updates:*") {
       // Handle provider-specific updates
@@ -820,16 +1033,16 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
             `[SOCKET] Broadcasted provider casino update for: ${casinoType} to ${room.size} users`
           );
         }
-      } catch (error) {
-        console.error("Error processing provider casino update:", error);
+      } catch (error: any) {
+        logError("Error processing provider casino update", { error: error.message, stack: error.stack });
       }
     }
   });
 
   // Sports Odds listener - OPTIMIZED VERSION
   redisSubscriber.subscribe("sports_odds_updates", (err) => {
-    if (err) console.error("Failed to subscribe to sports_odds_updates:", err);
-    else console.log("Subscribed to sports_odds_updates channel");
+    if (err) logError("Failed to subscribe to sports_odds_updates", { error: err.message });
+    else logInfo("Subscribed to sports_odds_updates channel");
   });
 
   redisSubscriber.on("message", async (channel, message) => {
@@ -864,8 +1077,8 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         // console.log(
         //   `[SOCKET] Broadcasted odds update for sport ${sport_id}, event ${event_id} (from Redis)`
         // );
-      } catch (error) {
-        console.error("Error processing sports odds update:", error);
+      } catch (error: any) {
+        logError("Error processing sports odds update", { error: error.message, stack: error.stack });
       }
     }
   });
@@ -885,7 +1098,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
    * Performance: Single batch operation reduces DB load by 95%
    */
   setInterval(async () => {
-    console.log("[SOCKET] Database update triggered - single batch update");
+    logInfo("Database update triggered - single batch update");
 
     try {
       // Import service dynamically to avoid circular dependencies
@@ -896,9 +1109,9 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
 
       // Execute optimized batch update for all casino types
       const result = await casinoMatchService.updateAllCasinoMatchesFromRedis();
-      console.log("[SOCKET] Completed single batch update:", result);
-    } catch (error) {
-      console.error("[SOCKET] Error in single batch update:", error);
+      logInfo("Completed single batch update", result);
+    } catch (error: any) {
+      logError("Error in single batch update", { error: error.message, stack: error.stack });
       // Continue execution - database errors shouldn't crash the socket service
     }
   }, 60 * 1000); // 60 seconds
@@ -906,25 +1119,34 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
   /**
    * CHANGE DETECTION INTERVAL - 10 seconds
    *
-   * Purpose: Real-time broadcasting of casino data changes to connected clients
+   * Purpose: Real-time broadcasting of casino data changes with time-based game state analysis
    * Frequency: Every 10 seconds (optimized for fast real-time updates)
    *
    * What it does:
    * - Monitors Redis keys for casino data changes using cache comparison
-   * - Broadcasts updates only when actual changes are detected (efficient)
+   * - Analyzes game timing fields (lt, ft, mid) to determine game phase
+   * - Broadcasts updates based on game state (RUNNING, FINISHING, FINISHED)
+   * - Triggers immediate settlement when games finish (lt = 0)
    * - Sends updates to subscribed casino rooms only (smart filtering)
-   * - Publishes notifications to Redis pub/sub channels
+   * - Publishes notifications to Redis pub/sub channels with game state
    * - Updates casino match database with latest data
-   * - Provides comprehensive change detection logging
+   * - Provides comprehensive change detection and settlement logging
+   *
+   * Game Phases:
+   * - RUNNING: Game is active (lt > 5 seconds)
+   * - FINISHING: Game is about to end (lt <= 5 seconds)
+   * - FINISHED: Game has ended (lt = 0) → Triggers settlement
+   * - SUSPENDED: Game is paused
    *
    * Performance: 
    * - Smart filtering prevents unnecessary broadcasts
    * - Only broadcasts to rooms with active subscribers
    * - Fast response time for casino data changes
+   * - Immediate settlement when games finish
    * - Optimized for real-time user experience
    */
   setInterval(async () => {
-    console.log("[SOCKET] Change detection triggered");
+    logDebug("Change detection triggered");
     await checkAndBroadcastChanges(io, dataSource);
   }, 10 * 1000); // 10 seconds
 
@@ -943,7 +1165,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
    * Performance: Only broadcasts when subscribers are present
    */
   setInterval(async () => {
-    console.log("[SOCKET] Fallback broadcast triggered");
+    logDebug("Fallback broadcast triggered");
 
     // Check if any casino rooms have active subscribers
     let hasSubscribers = false;
@@ -958,12 +1180,10 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     }
     
     if (hasSubscribers) {
-      console.log("[SOCKET] Fallback broadcast - active subscribers found");
+      logInfo("Fallback broadcast - active subscribers found");
       await broadcastAllCasinoData(io);
     } else {
-      console.log(
-        "[SOCKET] Fallback broadcast - no active subscribers, skipping"
-      );
+      logDebug("Fallback broadcast - no active subscribers, skipping");
     }
   }, 30 * 1000); // 30 seconds
 
@@ -983,7 +1203,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
    * Performance: Batch settlement operations with smart filtering
    */
   setInterval(async () => {
-    console.log("[SOCKET] Automatic settlement triggered");
+    logDebug("Automatic settlement triggered");
 
     try {
       // Import settlement service dynamically to avoid circular dependencies
@@ -1046,22 +1266,15 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
               }
             }
           }
-        } catch (error) {
-          console.error(
-            `[SOCKET] Error collecting potential matches for ${casinoType}:`,
-            error
-          );
+        } catch (error: any) {
+          logError(`Error collecting potential matches for ${casinoType}`, { error: error.message, stack: error.stack });
         }
       }
 
-      console.log(
-        `[SOCKET] Found ${potentialMatches.length} potential matches from Redis`
-      );
+      logInfo(`Found ${potentialMatches.length} potential matches from Redis`);
 
       if (potentialMatches.length === 0) {
-        console.log(
-          "[SOCKET] No potential matches found - skipping settlement check"
-        );
+        logInfo("No potential matches found - skipping settlement check");
         return;
       }
 
@@ -1077,9 +1290,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
         },
       });
 
-      console.log(
-        `[SOCKET] Found ${allPendingBets.length} total pending bets across all potential matches`
-      );
+      logInfo(`Found ${allPendingBets.length} total pending bets across all potential matches`);
 
       // Group bets by match ID
       const betsByMatch = new Map<string, any[]>();
@@ -1094,27 +1305,18 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       const matchesToSettle = potentialMatches.filter((match) => {
         const hasBets = betsByMatch.has(match.mid);
         if (hasBets) {
-          console.log(
-            `[SOCKET] Match ${match.mid} has ${
-              betsByMatch.get(match.mid)!.length
-            } pending bets - added to settlement queue`
-          );
+          logDebug(`Match ${match.mid} has ${betsByMatch.get(match.mid)!.length} pending bets - added to settlement queue`);
         }
         return hasBets;
       });
 
       if (matchesToSettle.length > 0) {
-        console.log(
-          `[SOCKET] Found ${matchesToSettle.length} matches requiring settlement`
-        );
+        logInfo(`Found ${matchesToSettle.length} matches requiring settlement`);
 
         // Execute batch settlement
         const settlementResult =
           await casinoSettlementService.batchSettleMatches(matchesToSettle);
-        console.log(
-          "[SOCKET] Automatic settlement completed:",
-          settlementResult
-        );
+        logInfo("Automatic settlement completed", settlementResult);
 
         // Publish settlement notification for other services
         const { getRedisClient: getRedisClientForPublish } = await import(
@@ -1132,10 +1334,10 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
           })
         );
       } else {
-        console.log("[SOCKET] No matches requiring settlement found");
+        logInfo("No matches requiring settlement found");
       }
-    } catch (error) {
-      console.error("[SOCKET] Error in automatic settlement:", error);
+    } catch (error: any) {
+      logError("Error in automatic settlement", { error: error.message, stack: error.stack });
       // Continue execution - settlement errors shouldn't crash the socket service
     }
   }, 60 * 1000); // 60 seconds
@@ -1156,12 +1358,12 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
    * Performance: Batch settlement operations with smart filtering
    */
   setInterval(async () => {
-    console.log("[SOCKET] Automatic sport settlement triggered");
+    logDebug("Automatic sport settlement triggered");
 
     try {
       // Check database connection
       if (!dataSource.isInitialized) {
-        console.log("[SOCKET] Database not initialized, skipping sport settlement");
+        logWarn("Database not initialized, skipping sport settlement");
         return;
       }
 
@@ -1197,11 +1399,11 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       const allEventIds = [...new Set([...pendingBetEventIds, ...nullResultEventIds])];
 
       if (allEventIds.length === 0) {
-        console.log("[SOCKET] No sport events found - skipping settlement");
+        logInfo("No sport events found - skipping settlement");
         return;
       }
 
-      console.log(`[SOCKET] Found ${allEventIds.length} sport events to process:`, {
+      logInfo(`Found ${allEventIds.length} sport events to process`, {
         pendingBets: pendingBetEventIds.length,
         nullResults: nullResultEventIds.length,
         total: allEventIds.length
@@ -1209,7 +1411,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
 
       // Execute batch settlement
       const settlementResult = await sportSettlementService.batchSettleMatches(allEventIds);
-      console.log("[SOCKET] Automatic sport settlement completed:", settlementResult);
+      logInfo("Automatic sport settlement completed", settlementResult);
 
       // Publish settlement notification for other services
       const { getRedisClient: getRedisClientForPublish } = await import(
@@ -1228,18 +1430,18 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       );
 
     } catch (error: any) {
-      console.error("[SOCKET] Error in automatic sport settlement:", error);
+      logError("Error in automatic sport settlement", { error: error.message, stack: error.stack });
       
       // If it's a database connection error, try to reinitialize
       if (error.message && error.message.includes("Driver not Connected")) {
-        console.log("[SOCKET] Database connection lost, attempting to reconnect...");
+        logWarn("Database connection lost, attempting to reconnect");
         try {
           if (!dataSource.isInitialized) {
             await dataSource.initialize();
-            console.log("[SOCKET] Database reconnected successfully");
+            logInfo("Database reconnected successfully");
           }
-        } catch (reconnectError) {
-          console.error("[SOCKET] Failed to reconnect to database:", reconnectError);
+        } catch (reconnectError: any) {
+          logError("Failed to reconnect to database", { error: reconnectError.message });
         }
       }
       
