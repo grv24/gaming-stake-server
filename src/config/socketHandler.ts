@@ -907,15 +907,21 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
    * CHANGE DETECTION INTERVAL - 10 seconds
    *
    * Purpose: Real-time broadcasting of casino data changes to connected clients
-   * Frequency: Every 10 seconds (optimized for user experience)
+   * Frequency: Every 10 seconds (optimized for fast real-time updates)
    *
    * What it does:
-   * - Monitors Redis keys for data changes using cache comparison
-   * - Broadcasts only when actual changes are detected (efficient)
-   * - Sends updates to subscribed casino rooms only
-   * - Publishes notifications for other services to consume
+   * - Monitors Redis keys for casino data changes using cache comparison
+   * - Broadcasts updates only when actual changes are detected (efficient)
+   * - Sends updates to subscribed casino rooms only (smart filtering)
+   * - Publishes notifications to Redis pub/sub channels
+   * - Updates casino match database with latest data
+   * - Provides comprehensive change detection logging
    *
-   * Performance: Change detection prevents unnecessary broadcasts
+   * Performance: 
+   * - Smart filtering prevents unnecessary broadcasts
+   * - Only broadcasts to rooms with active subscribers
+   * - Fast response time for casino data changes
+   * - Optimized for real-time user experience
    */
   setInterval(async () => {
     console.log("[SOCKET] Change detection triggered");
