@@ -573,10 +573,27 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
       });
     }
 
+    // Get query parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const userType = req.query.type as string;
+
+    // Validate user type if provided
+    if (userType && !USER_TABLES[userType]) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid user type. Valid types are: ${Object.keys(USER_TABLES).join(', ')}`,
+      });
+    }
+
     const allUsers: any[] = [];
+    let totalCount = 0;
 
     const fetchChildren = async (parentId: string) => {
-      for (const [type, entity] of Object.entries(USER_TABLES)) {
+      // If specific user type is requested, only fetch that type
+      const tablesToQuery = userType ? { [userType]: USER_TABLES[userType] } : USER_TABLES;
+
+      for (const [type, entity] of Object.entries(tablesToQuery)) {
         const repo = AppDataSource.getRepository(entity);
 
         const children = await repo.find({
@@ -644,11 +661,23 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
     };
 
     await fetchChildren(currentUserId);
+    totalCount = allUsers.length;
+
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    const paginatedUsers = allUsers.slice(skip, skip + limit);
 
     return res.status(200).json({
       success: true,
-      count: allUsers.length,
-      users: allUsers,
+      data: {
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+        users: paginatedUsers,
+      },
     });
   } catch (error) {
     console.error("Error fetching downline users:", error);
