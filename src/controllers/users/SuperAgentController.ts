@@ -96,11 +96,11 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         } = req.body;
 
         // Basic validation
-        if (!loginId || !user_password || !whiteListId) {
+        if (!loginId || !user_password || !whiteListId || !transactionPassword) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'loginId, password, and whiteListId are required'
+                error: 'loginId, password, whiteListId, and transactionPassword are required'
             });
         }
 
@@ -118,6 +118,16 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid commission values. Must be between 0 and 100%'
+            });
+        }
+
+        // Validate transaction password
+        const uplineTransactionPassword = req.user?.transactionPassword;
+        if (transactionPassword !== uplineTransactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: 'Transaction password does not match'
             });
         }
 
