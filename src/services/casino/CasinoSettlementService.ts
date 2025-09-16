@@ -2,6 +2,7 @@ import { DataSource, In } from "typeorm";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 import { USER_TABLES } from "../../Helpers/users/Roles";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import axios from "axios";
 
 // Import all settlement functions
@@ -371,6 +372,17 @@ export class CasinoSettlementService {
               },
             }
           );
+
+          // Create account transaction record for settlement
+          const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const accountTransaction = accountTransactionRepo.create({
+            uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
+            downlineUserId: userId,
+            remarks: `[CASINO-BET-SETTLED] ${betData.gameSlug || 'Unknown'} (Match: ${bet.matchId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+            type: profitLoss > 0 ? "deposit" : "withdraw", // Use deposit for wins, withdraw for losses
+            amount: Math.abs(profitLoss),
+          });
+          await accountTransactionRepo.save(accountTransaction);
 
           await transactionalEntityManager.save(user);
           settledCount++;
