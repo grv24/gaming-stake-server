@@ -1054,7 +1054,8 @@ export const adminLogin = async (req: Request, res: Response) => {
             canDeleteUsers: user.canDeleteUsers,
             canDeleteBets: user.canDeleteBets,
             specialPermissions: user.specialPermissions,
-            depositWithdrawlAccess: user.depositWithdrawlAccess
+            depositWithdrawlAccess: user.depositWithdrawlAccess,
+            adminPanels: user.availableAdminPanels || ['MiniAdmin', 'SuperMaster', 'Master', 'SuperAgent', 'Agent', 'Client']
         };
 
         const token = jwt.sign(
