@@ -11,7 +11,8 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
 export const createSuperAgent = async (req: Request, res: Response) => {
@@ -22,8 +23,9 @@ export const createSuperAgent = async (req: Request, res: Response) => {
     try {
         const uplineId = req.user?.userId;
         const whiteListId = req.user?.whiteListId;
-        
-        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+
+        // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
         const superAgentRepo = queryRunner.manager.getRepository(SuperAgent);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -33,7 +35,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
         const internationalCasinoSettingsRepo = queryRunner.manager.getRepository(InternationalCasinoSettings);
 
         // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId }});
+        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId } });
         if (!whiteListData) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
@@ -371,7 +373,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
 //     try {
 //         const uplineId = req.user?.userId;
 //         const whiteListId = req.user?.whiteListId;
-        
+
 //         const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
 //         const superAgentRepo = queryRunner.manager.getRepository(SuperAgent);
 //         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
@@ -775,7 +777,7 @@ export const getAllSuperAgent = async (req: Request, res: Response) => {
                     page,
                     limit,
                     totalPages: Math.ceil(total / limit)
-                }, 
+                },
                 superAgents
             },
 

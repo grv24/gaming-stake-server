@@ -9,7 +9,8 @@ import { InternationalCasinoSettings } from '../../entities/users/utils/Internat
 import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
 import { TennisSettings } from '../../entities/users/utils/TennisSetting';
 import { Between, Like, Transaction } from 'typeorm';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from "../../entities/whitelist/WhitelistNew"; // girraj
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
@@ -21,9 +22,10 @@ export const createTechAdmin = async (req: Request, res: Response) => {
     try {
         const uplineId = req.user?.userId;
 
-        console.log("******************************************************************" , uplineId);
+        console.log("******************************************************************", uplineId);
 
-        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
         const techAdminRepo = queryRunner.manager.getRepository(TechAdmin);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -573,7 +575,9 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             });
         }
 
-        const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        // const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        const whiteListRepo = AppDataSource.getRepository(WhitelistNew);
+
         const whiteList = await whiteListRepo.findOne({
             where: { TechAdminUrl: hostUrl }
         });

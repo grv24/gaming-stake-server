@@ -3,7 +3,7 @@ import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
-import { Whitelist } from "../../entities/whitelist/Whitelist";
+// import { Whitelist } from "../../entities/whitelist/Whitelist";
 import { TechAdmin } from "../../entities/users/TechAdminUser";
 import { format } from "date-fns";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
@@ -30,15 +30,15 @@ export const getPendingBet = async (req: Request, res: Response) => {
   try {
     const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
     const sportsBetRepo = AppDataSource.getRepository(SportBet);
-let pendingBets
-    if(type === "casino") {
-     pendingBets = await casinoBetRepo.find({
-      where: { userId, status: "pending" },
-    });
-    } else if(type === "sports") {
-     pendingBets = await sportsBetRepo.find({
-      where: { userId, status: "pending" },
-    });
+    let pendingBets
+    if (type === "casino") {
+      pendingBets = await casinoBetRepo.find({
+        where: { userId, status: "pending" },
+      });
+    } else if (type === "sports") {
+      pendingBets = await sportsBetRepo.find({
+        where: { userId, status: "pending" },
+      });
     }
 
     // return res.status(200).json({
@@ -1163,8 +1163,8 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
         const matches =
           matchIds.length > 0
             ? await CasinoMatchRepo.find({
-                where: { mid: In(matchIds) },
-              })
+              where: { mid: In(matchIds) },
+            })
             : [];
 
         const matchMap = new Map();

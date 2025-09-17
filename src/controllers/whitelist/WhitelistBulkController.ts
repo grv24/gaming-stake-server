@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../../server';
 import { DefaultCasino } from '../../entities/casino/DefaultCasino';
 import { WhitelistCasinoMapping } from '../../entities/whitelist/WhitelistCasinoMapping';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
 
 /**
  * Configure all casinos for a specific whitelist panel
@@ -15,11 +16,11 @@ export const configureAllCasinosForWhitelist = async (req: Request, res: Respons
     await queryRunner.startTransaction();
 
     const { whitelistId } = req.params;
-    const { 
-      isActive = true, 
+    const {
+      isActive = true,
       startDisplayOrder = 1,
       featuredCasinos = [], // Array of casino slugs to mark as featured
-      customSettings = null 
+      customSettings = null
     } = req.body;
 
     if (!whitelistId) {
@@ -30,7 +31,8 @@ export const configureAllCasinosForWhitelist = async (req: Request, res: Respons
       });
     }
 
-    const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+    // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+    const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
     const casinoRepo = queryRunner.manager.getRepository(DefaultCasino);
     const mappingRepo = queryRunner.manager.getRepository(WhitelistCasinoMapping);
 
@@ -63,7 +65,7 @@ export const configureAllCasinosForWhitelist = async (req: Request, res: Respons
     // Create mappings for all casinos
     const newMappings = allCasinos.map((casino, index) => {
       const isFeatured = featuredCasinos.includes(casino.slug);
-      
+
       return mappingRepo.create({
         whitelistId,
         casinoId: casino.id,
@@ -114,7 +116,7 @@ export const configureAllCasinosForWhitelist = async (req: Request, res: Respons
 export const getWhitelistByName = async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
-    
+
     if (!name) {
       return res.status(400).json({
         success: false,
@@ -122,8 +124,9 @@ export const getWhitelistByName = async (req: Request, res: Response) => {
       });
     }
 
-    const whitelistRepo = AppDataSource.getRepository(Whitelist);
-    
+    // const whitelistRepo = AppDataSource.getRepository(Whitelist);
+    const whitelistRepo = AppDataSource.getRepository(WhitelistNew);
+
     const whitelist = await whitelistRepo.findOne({
       where: { CommonName: name }
     });

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../../server';
 import { WhitelistCasinoMapping } from '../../entities/whitelist/WhitelistCasinoMapping';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
 import { DefaultCasino } from '../../entities/casino/DefaultCasino';
 import { developerAuth } from '../../middlewares/RoleAuth';
 
@@ -11,7 +12,7 @@ import { developerAuth } from '../../middlewares/RoleAuth';
 export const getWhitelistCasinoMappings = async (req: Request, res: Response) => {
   try {
     const { whitelistId } = req.params;
-    
+
     if (!whitelistId) {
       return res.status(400).json({
         success: false,
@@ -20,7 +21,7 @@ export const getWhitelistCasinoMappings = async (req: Request, res: Response) =>
     }
 
     const mappingRepo = AppDataSource.getRepository(WhitelistCasinoMapping);
-    
+
     const mappings = await mappingRepo.find({
       where: { whitelistId },
       relations: ['casino'],
@@ -47,7 +48,7 @@ export const getWhitelistCasinoMappings = async (req: Request, res: Response) =>
 export const getActiveCasinosForWhitelist = async (req: Request, res: Response) => {
   try {
     const { whitelistId } = req.params;
-    
+
     if (!whitelistId) {
       return res.status(400).json({
         success: false,
@@ -56,11 +57,11 @@ export const getActiveCasinosForWhitelist = async (req: Request, res: Response) 
     }
 
     const mappingRepo = AppDataSource.getRepository(WhitelistCasinoMapping);
-    
+
     const activeMappings = await mappingRepo.find({
-      where: { 
+      where: {
         whitelistId,
-        isActive: true 
+        isActive: true
       },
       relations: ['casino'],
       order: { displayOrder: 'ASC', createdAt: 'ASC' }
@@ -109,7 +110,8 @@ export const addCasinoToWhitelist = async (req: Request, res: Response) => {
     }
 
     const mappingRepo = queryRunner.manager.getRepository(WhitelistCasinoMapping);
-    const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+    // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+    const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
     const casinoRepo = queryRunner.manager.getRepository(DefaultCasino);
 
     // Verify whitelist exists
@@ -200,7 +202,7 @@ export const updateCasinoMapping = async (req: Request, res: Response) => {
 
     const mappingRepo = queryRunner.manager.getRepository(WhitelistCasinoMapping);
 
-    const mapping = await mappingRepo.findOne({ 
+    const mapping = await mappingRepo.findOne({
       where: { id: mappingId },
       relations: ['casino', 'whitelist']
     });
@@ -263,7 +265,7 @@ export const removeCasinoFromWhitelist = async (req: Request, res: Response) => 
 
     const mappingRepo = queryRunner.manager.getRepository(WhitelistCasinoMapping);
 
-    const mapping = await mappingRepo.findOne({ 
+    const mapping = await mappingRepo.findOne({
       where: { id: mappingId },
       relations: ['casino', 'whitelist']
     });
@@ -327,7 +329,7 @@ export const bulkUpdateCasinoMappings = async (req: Request, res: Response) => {
     await mappingRepo.delete({ whitelistId });
 
     // Create new mappings
-    const newMappings = casinoMappings.map((mapping: any) => 
+    const newMappings = casinoMappings.map((mapping: any) =>
       mappingRepo.create({
         whitelistId,
         casinoId: mapping.casinoId,

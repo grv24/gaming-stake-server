@@ -4,12 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity({ name: 'whitelists' })
+@Entity({ name: "whitelists" })
 export class Whitelist {
-
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id!: string;
 
   // Domain Whitelisting
@@ -26,75 +25,78 @@ export class Whitelist {
   isDomainWhiteListedForIntCasinoGames!: boolean;
 
   // URLs
-  @Column({ default: '' })
+  @Column({ default: "" })
   TechAdminUrl!: string;
 
-  @Column({ default: '' })
+  @Column({ default: "" })
   AdminUrl!: string;
 
-  @Column({ default: '' })
+  @Column({ default: "" })
   ClientUrl!: string;
 
   // @Column("text", { array: true, default: () => "ARRAY[]::text[]" })
   // ClientUrls!: string[];
 
-  @Column({ default: '' })
+  // @Column("text", { array: true, default: () => "ARRAY[]::text[]" })
+  // ClientUrl!: string[];
+
+  @Column({ default: "" })
   CommonName!: string;
 
-  @Column({ default: '' })
+  @Column({ default: "" })
   websiteTitle!: string;
 
   // Meta Tags (stored as JSON)
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: "json", nullable: true })
   websiteMetaTags!: Record<string, any> | null;
 
   // Website Theme (client)
-  @Column({ default: '#0D7A8E' })
+  @Column({ default: "#0D7A8E" })
   primaryBackground!: string;
 
-  @Column({ default: '#0D7A8E' })
+  @Column({ default: "#0D7A8E" })
   primaryBackground90!: string;
 
-  @Column({ default: '#04303e' })
+  @Column({ default: "#04303e" })
   secondaryBackground!: string;
 
-  @Column({ default: '#AE4600B3' })
+  @Column({ default: "#AE4600B3" })
   secondaryBackground70!: string;
 
-  @Column({ default: '#AE4600E6' })
+  @Column({ default: "#AE4600E6" })
   secondaryBackground85!: string;
 
-  @Column({ default: '#FFFFFF' })
+  @Column({ default: "#FFFFFF" })
   textPrimary!: string;
 
-  @Column({ default: '#CCCCCC' })
+  @Column({ default: "#CCCCCC" })
   textSecondary!: string;
 
   // Sports Settings
-  @Column("text", { array: true, default: ['Back', 'Lay'] })
+  @Column("text", { array: true, default: ["Back", "Lay"] })
   matchOdd!: string[];
 
   // Changed to JSON to support 2D arrays
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: "json", nullable: true })
   matchOddOptions!: string[][];
 
-  @Column("text", { array: true, default: ['Back', 'Lay'] })
+  @Column("text", { array: true, default: ["Back", "Lay"] })
   bookMakerOdd!: string[];
 
-  @Column("text", { array: true, default: ['No', 'Yes'] })
+  @Column("text", { array: true, default: ["No", "Yes"] })
   normalOdd!: string[];
 
   // Refund Options
   @Column({ type: "boolean", default: false })
   refundOptionIsActive!: boolean;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   refundPercentage!: number;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   refundLimit!: number;
 
-  @Column({ type: 'float', default: 100 })
+  @Column({ type: "float", default: 100 })
   minDeposit!: number;
 
   // Website Access Settings
@@ -107,7 +109,7 @@ export class Whitelist {
   @Column({ type: "boolean", default: false })
   whatsappNumber!: boolean;
 
-  @Column({ type: "text", default: '' })
+  @Column({ type: "text", default: "" })
   googleAnalyticsTrackingId!: string;
 
   @Column({ type: "boolean", default: false })

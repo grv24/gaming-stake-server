@@ -11,7 +11,8 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
 
 export const createSuperMaster = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -22,7 +23,8 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         const uplineId = req.user?.userId;
         const whiteListId = req.user?.whiteListId;
 
-        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
         const superMasterRepo = queryRunner.manager.getRepository(SuperMaster);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);

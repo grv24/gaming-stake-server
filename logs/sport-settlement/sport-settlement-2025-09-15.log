@@ -11216,3 +11216,94 @@
   ]
 }
 ================================================================================
+[2025-09-15T18:03:06.105Z] [INFO] [SPORT-SETTLE] Starting batch settlement for 1 events
+{
+  "eventIds": [
+    "778162788"
+  ]
+}
+================================================================================
+[2025-09-15T18:03:06.145Z] [INFO] [SPORT-SETTLE] Found 1 pending bets across 1 events
+{
+  "totalBets": 1,
+  "totalEvents": 1,
+  "eventIds": [
+    "778162788"
+  ]
+}
+================================================================================
+[2025-09-15T18:03:06.146Z] [INFO] [SPORT-SETTLE] Grouped bets by event
+{
+  "eventsWithBets": 1,
+  "betsPerEvent": [
+    {
+      "eventId": "778162788",
+      "betCount": 1
+    }
+  ]
+}
+================================================================================
+[2025-09-15T18:03:06.147Z] [INFO] [SPORT-SETTLE] Processing event 778162788 with 1 pending bets
+================================================================================
+[2025-09-15T18:03:06.198Z] [INFO] [SPORT-SETTLE] OTHER MARKETS: Trying Fancy API ONLY for event 778162788, market type: Normal
+{
+  "eventId": "778162788",
+  "marketType": "Normal"
+}
+================================================================================
+[2025-09-15T18:03:06.199Z] [INFO] [SPORT-SETTLE] Trying Fancy API for event 778162788, market type: Normal
+{
+  "eventId": "778162788",
+  "marketType": "Normal",
+  "apiType": "fancy"
+}
+================================================================================
+[2025-09-15T18:03:06.200Z] [DEBUG] [SPORT-SETTLE] Fancy API URL: http://172.105.54.97:8085/api/new/fancyResultData?eventId=778162788
+{
+  "url": "http://172.105.54.97:8085/api/new/fancyResultData?eventId=778162788"
+}
+================================================================================
+[2025-09-15T18:03:06.264Z] [ERROR] [SPORT-SETTLE] Fancy API failed for event 778162788
+{
+  "eventId": "778162788",
+  "marketType": "Normal",
+  "error": {
+    "message": "Request failed with status code 401",
+    "code": "ERR_BAD_REQUEST",
+    "status": 401,
+    "statusText": "Unauthorized"
+  }
+}
+================================================================================
+[2025-09-15T18:03:06.266Z] [ERROR] [SPORT-SETTLE] OTHER MARKETS: Fancy API failed for event 778162788, market type Normal - bet will remain pending (no fallback)
+{
+  "eventId": "778162788",
+  "marketType": "Normal"
+}
+================================================================================
+[2025-09-15T18:03:06.267Z] [INFO] [SPORT-SETTLE] Event 778162788 settlement completed
+{
+  "eventId": "778162788",
+  "settledCount": 0,
+  "errorCount": 1,
+  "errors": [
+    {
+      "eventId": "778162788",
+      "error": "No result data available for settlement - both APIs failed"
+    }
+  ]
+}
+================================================================================
+[2025-09-15T18:03:06.267Z] [INFO] [SPORT-SETTLE] Batch settlement completed
+{
+  "totalSettled": 0,
+  "totalErrors": 1,
+  "totalEvents": 1,
+  "errors": [
+    {
+      "eventId": "778162788",
+      "error": "No result data available for settlement - both APIs failed"
+    }
+  ]
+}
+================================================================================

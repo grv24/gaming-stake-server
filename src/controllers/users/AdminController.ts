@@ -12,7 +12,8 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
 import { MiniAdmin } from '../../entities/users/MiniAdminUser';
 import { SuperMaster } from '../../entities/users/SuperMasterUser';
 import { Master } from '../../entities/users/MasterUser';
@@ -31,7 +32,8 @@ export const createAdmin = async (req: Request, res: Response) => {
         const uplineId = req.user?.userId;
         const whiteListId = req.user?.whiteListId;
 
-        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+        const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
         const adminRepo = queryRunner.manager.getRepository(Admin);
         const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
         const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
@@ -962,7 +964,8 @@ export const adminLogin = async (req: Request, res: Response) => {
             });
         }
 
-        const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        // const whiteListRepo = AppDataSource.getRepository(Whitelist);
+        const whiteListRepo = AppDataSource.getRepository(WhitelistNew);
         const whiteList = await whiteListRepo.findOne({
             where: { AdminUrl: hostUrl }
         });

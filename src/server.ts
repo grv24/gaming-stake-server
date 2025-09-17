@@ -7,6 +7,7 @@ import { DataSource } from "typeorm";
 import app from "./app";
 import { Developer } from "./entities/users/DeveloperUser";
 import { Whitelist } from "./entities/whitelist/Whitelist";
+import { WhitelistNew } from "./entities/whitelist/WhitelistNew" // girraj
 import { TechAdmin } from "./entities/users/TechAdminUser";
 import { SoccerSettings } from "./entities/users/utils/SoccerSetting";
 import { TennisSettings } from "./entities/users/utils/TennisSetting";
@@ -45,6 +46,7 @@ export const AppDataSource = new DataSource({
   entities: [
     Developer,
     Whitelist,
+    WhitelistNew,
     TechAdmin,
     SuperMaster,
     Master,
@@ -83,10 +85,10 @@ const startServer = async () => {
     initRedisPubSub();
 
     const PORT = process.env.PORT || 4000;
-    
+
     // Set trust proxy BEFORE creating server
     app.set("trust proxy", true);
-    
+
     const server = http.createServer(app);
 
     // Setup Socket.IO

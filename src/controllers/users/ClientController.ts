@@ -1,365 +1,412 @@
-import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { AppDataSource } from '../../server';
+import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import { AppDataSource } from "../../server";
 import { Client } from "../../entities/users/ClientUser";
-import { SoccerSettings } from '../../entities/users/utils/SoccerSetting';
-import { CricketSettings } from '../../entities/users/utils/CricketSetting';
-import { CasinoSettings } from '../../entities/users/utils/CasinoSetting';
-import { InternationalCasinoSettings } from '../../entities/users/utils/InternationalCasino';
-import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
-import { TennisSettings } from '../../entities/users/utils/TennisSetting';
-import { validate } from 'class-validator';
-import { plainToInstance } from 'class-transformer';
-import { isUUID } from 'class-validator';
-import { Between, Like } from 'typeorm';
-import { Whitelist } from '../../entities/whitelist/Whitelist';
-import { getUserSocket } from '../../config/socketHandler';
-import { generateTransactionCode } from '../../Helpers/Request/Validation';
-import { Buttons } from '../../entities/games/Buttons';
-import { getRedisClient } from '../../config/redisConfig';
+import { SoccerSettings } from "../../entities/users/utils/SoccerSetting";
+import { CricketSettings } from "../../entities/users/utils/CricketSetting";
+import { CasinoSettings } from "../../entities/users/utils/CasinoSetting";
+import { InternationalCasinoSettings } from "../../entities/users/utils/InternationalCasino";
+import { MatkaSettings } from "../../entities/users/utils/MatkaSetting";
+import { TennisSettings } from "../../entities/users/utils/TennisSetting";
+import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
+import { isUUID } from "class-validator";
+import { Between, Like } from "typeorm";
+// import { Whitelist } from "../../entities/whitelist/Whitelist";
+import { WhitelistNew } from "../../entities/whitelist/WhitelistNew"; // girraj
+import { getUserSocket } from "../../config/socketHandler";
+import { generateTransactionCode } from "../../Helpers/Request/Validation";
+import { Buttons } from "../../entities/games/Buttons";
+import { getRedisClient } from "../../config/redisConfig";
+import { relative } from "path";
+import { Raw } from "typeorm";
 
 export const createClient = async (req: Request, res: Response) => {
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
-    try {
-        const uplineId = req.user?.userId;
-        const whiteListId = req.user?.whiteListId;
+  try {
+    const uplineId = req.user?.userId;
+    const whiteListId = req.user?.whiteListId;
 
-        const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
-        const clientRepo = queryRunner.manager.getRepository(Client);
-        const soccerSettingsRepo = queryRunner.manager.getRepository(SoccerSettings);
-        const cricketSettingsRepo = queryRunner.manager.getRepository(CricketSettings);
-        const tennisSettingsRepo = queryRunner.manager.getRepository(TennisSettings);
-        const matkaSettingsRepo = queryRunner.manager.getRepository(MatkaSettings);
-        const casinoSettingsRepo = queryRunner.manager.getRepository(CasinoSettings);
-        const internationalCasinoSettingsRepo = queryRunner.manager.getRepository(InternationalCasinoSettings);
+    // const whitelistRepo = queryRunner.manager.getRepository(Whitelist);
+    const whitelistRepo = queryRunner.manager.getRepository(WhitelistNew);
+    const clientRepo = queryRunner.manager.getRepository(Client);
+    const soccerSettingsRepo =
+      queryRunner.manager.getRepository(SoccerSettings);
+    const cricketSettingsRepo =
+      queryRunner.manager.getRepository(CricketSettings);
+    const tennisSettingsRepo =
+      queryRunner.manager.getRepository(TennisSettings);
+    const matkaSettingsRepo = queryRunner.manager.getRepository(MatkaSettings);
+    const casinoSettingsRepo =
+      queryRunner.manager.getRepository(CasinoSettings);
+    const internationalCasinoSettingsRepo = queryRunner.manager.getRepository(
+      InternationalCasinoSettings
+    );
 
-        // Validate whiteListId
-        const whiteListData = await whitelistRepo.findOne({ where: { id: whiteListId } });
-        if (!whiteListData) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'Valid whiteListId UUID is required'
-            });
-        }
-
-        const {
-            loginId,
-            user_password,
-            groupID,
-            referallCode,
-            userName,
-            countryCode,
-            mobile,
-            isAutoRegisteredUser = false,
-            IpAddress,
-            remarks,
-            fancyLocked = false,
-            bettingLocked = false,
-            userLocked = false,
-            whatsappNumber,
-            topBarRunningMessage,
-            liability = 0,
-            balance = 0,
-            profitLoss = 0,
-            freeChips = 0,
-            totalSettledAmount = 0,
-            creditRef = 0,
-            uplineSettlement = 0,
-            exposure = 0,
-            exposureLimit = 1000000,
-            bonusAmount = 0,
-            isPanelCommission,
-            bonusWageringRequired = 0,
-            bonusWageringProgress = 0,
-            bonusExpiresAt = null,
-            bonusActive = false,
-            depositWithdrawlAccess = false,
-            canBypassCasinoBet = false,
-            canBypassSportBet = false,
-            casinoButtons = {},
-            gameButtons = {},
-            percentageWiseCommission = true,
-            partnerShipWiseCommission = false,
-            commissionLena = true,
-            commissionDena = false,
-            commissionUpline = 0,    // Your commission as upline
-            partnershipUpline = 0,    // Your percentage as upline
-            soccerSettings = {},
-            cricketSettings = {},
-            tennisSettings = {},
-            matkaSettings = {},
-            casinoSettings = {},
-            internationalCasinoSettings = {}
-        } = req.body;
-
-        // Basic validation
-        if (!loginId || !user_password || !whiteListId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'loginId, password, and whiteListId are required'
-            });
-        }
-
-        // Validate percentage and commission values
-        if (partnershipUpline < 0 || partnershipUpline > 100) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid partnership values. Must be between 0 and 100%'
-            });
-        }
-
-        if (commissionUpline < 0 || commissionUpline > 100) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid commission values. Must be between 0 and 100%'
-            });
-        }
-
-        // Check for existing client
-        const existingClient = await clientRepo.findOne({ where: { loginId, whiteListId } });
-        if (existingClient) {
-            await queryRunner.rollbackTransaction();
-            return res.status(409).json({
-                success: false,
-                error: 'loginId already exists'
-            });
-        }
-
-        // Create Client entity with percentage and commission fields
-        const clientData = {
-            loginId,
-            user_password,
-            whiteListId,
-            uplineId: uplineId || null,
-            groupID: groupID || null,
-            transactionPassword: generateTransactionCode(12) || "V274HF21",
-            referallCode: referallCode || null,
-            userName: userName || null,
-            countryCode: countryCode || null,
-            mobile: mobile || null,
-            isAutoRegisteredUser,
-            IpAddress: IpAddress || null,
-            remarks: remarks || null,
-            fancyLocked,
-            bettingLocked,
-            userLocked,
-            isActive: false,
-            whatsappNumber: whatsappNumber || null,
-            topBarRunningMessage: topBarRunningMessage || null,
-            __type: 'client',
-            isPanelCommission,
-            liability,
-            balance,
-            profitLoss,
-            freeChips,
-            totalSettledAmount,
-            creditRef,
-            uplineSettlement,
-            exposure,
-            exposureLimit,
-            bonusAmount,
-            bonusWageringRequired,
-            bonusWageringProgress,
-            bonusExpiresAt,
-            bonusActive,
-            depositWithdrawlAccess,
-            canBypassCasinoBet,
-            canBypassSportBet,
-            casinoButtons,
-            gameButtons,
-            percentageWiseCommission,
-            partnerShipWiseCommission,
-            commissionLena,
-            commissionDena,
-            // NEW PERCENTAGE AND COMMISSION FIELDS
-            commissionUplineType: req.__type,
-            commissionUplineUserId: uplineId,
-            commissionUpline,
-            commissionOwn: 100 - commissionUpline,
-            partnershipUplineType: req.__type,
-            partnershipUplineUserId: uplineId,
-            partnershipUpline,
-            partnershipOwn: 100 - partnershipUpline,
-        };
-
-        const savedClient = await clientRepo.save(clientData);
-
-        // Helper function to create settings with proper commission distribution
-        const createSettings = async (repo: any, settingsData: any, sportType: string) => {
-            // Calculate commission distribution based on global settings
-            const commissionDistribution = {
-                commissionUplineType: settingsData.commissionUplineType || 'client',
-                commissionUplineUserId: settingsData.commissionUplineUserId || uplineId,
-                commissionUpline: settingsData.commissionUpline || commissionUpline || 0,
-                commissionOwn: settingsData.commissionOwn || 100 - commissionUpline || 0,
-                partnershipUplineType: settingsData.partnershipUplineType || 'client',
-                partnershipUplineUserId: settingsData.partnershipUplineUserId || uplineId,
-                partnershipUpline: settingsData.partnershipUpline || partnershipUpline || 0,
-                partnershipOwn: settingsData.partnershipOwn || 100 - partnershipUpline || 0,
-            };
-
-            return repo.save({
-                userId: savedClient.id,
-                user__type: 'client',
-                ...settingsData,
-                ...commissionDistribution
-            });
-        };
-
-        // Create all settings in parallel
-        const [
-            savedSoccerSettings,
-            savedCricketSettings,
-            savedTennisSettings,
-            savedMatkaSettings,
-            savedCasinoSettings,
-            savedInternationalCasinoSettings
-        ] = await Promise.all([
-            createSettings(soccerSettingsRepo, {
-                isWhiteListed: soccerSettings.isWhiteListed || false,
-                minOddsToBet: soccerSettings.minOddsToBet || 1.01,
-                maxOddsToBet: soccerSettings.maxOddsToBet || 24,
-                sportId: soccerSettings.sportId || null,
-                betDelay: soccerSettings.betDelay || 1,
-                bookMakerDelay: soccerSettings.bookMakerDelay || 1,
-                minMatchStake: soccerSettings.minMatchStake || 100,
-                maxMatchStake: soccerSettings.maxMatchStake || 100,
-                minBookMakerStake: soccerSettings.minBookMakerStake || 100,
-                maxBookMakerStake: soccerSettings.maxBookMakerStake || 1,
-                maxProfit: soccerSettings.maxProfit || 0,
-                maxLoss: soccerSettings.maxLoss || 0,
-                minExposure: soccerSettings.minExposure || 0,
-                maxExposure: soccerSettings.maxExposure || 0,
-                winningLimit: soccerSettings.winningLimit || 0
-            }, 'soccer'),
-            createSettings(cricketSettingsRepo, {
-                isWhiteListed: cricketSettings.isWhiteListed || false,
-                min_Odds_To_Bet: cricketSettings.min_Odds_To_Bet || 1.01,
-                max_Odds_To_Bet: cricketSettings.max_Odds_To_Bet || 24,
-                sportId: cricketSettings.sportId || null,
-                betDelay: cricketSettings.betDelay || 1,
-                bookMakerDelay: cricketSettings.bookMakerDelay || 1,
-                sessionDelay: cricketSettings.sessionDelay || 1,
-                minMatchStake: cricketSettings.minMatchStake || 100,
-                maxMatchStake: cricketSettings.maxMatchStake || 1,
-                minBookMakerStake: cricketSettings.minBookMakerStake || 100,
-                maxBookMakerStake: cricketSettings.maxBookMakerStake || 1,
-                minSessionStake: cricketSettings.minSessionStake || 100,
-                maxSessionStake: cricketSettings.maxSessionStake || 1,
-                maxProfit: cricketSettings.maxProfit || 0,
-                maxLoss: cricketSettings.maxLoss || 0,
-                sessionMaxProfit: cricketSettings.sessionMaxProfit || 0,
-                sessionMaxLoss: cricketSettings.sessionMaxLoss || 0,
-                minExposure: cricketSettings.minExposure || 0,
-                maxExposure: cricketSettings.maxExposure || 0,
-                winningLimit: cricketSettings.winningLimit || 0
-            }, 'cricket'),
-            createSettings(tennisSettingsRepo, {
-                isWhiteListed: tennisSettings.isWhiteListed || false,
-                minOddsToBet: tennisSettings.minOddsToBet || 1.01,
-                maxOddsToBet: tennisSettings.maxOddsToBet || 24,
-                sportId: tennisSettings.sportId || null,
-                betDelay: tennisSettings.betDelay || 1,
-                bookMakerDelay: tennisSettings.bookMakerDelay || 1,
-                minMatchStake: tennisSettings.minMatchStake || 100,
-                maxMatchStake: tennisSettings.maxMatchStake || 100,
-                minBookMakerStake: tennisSettings.minBookMakerStake || 100,
-                maxBookMakerStake: tennisSettings.maxBookMakerStake || 1,
-                maxProfit: tennisSettings.maxProfit || 0,
-                maxLoss: tennisSettings.maxLoss || 0,
-                minExposure: tennisSettings.minExposure || 0,
-                maxExposure: tennisSettings.maxExposure || 0,
-                winningLimit: tennisSettings.winningLimit || 0
-            }, 'tennis'),
-            createSettings(matkaSettingsRepo, {
-                isWhiteListed: matkaSettings.isWhiteListed || false,
-                minOddsToBet: matkaSettings.minOddsToBet || 1.01,
-                maxOddsToBet: matkaSettings.maxOddsToBet || 24,
-                betDelay: matkaSettings.betDelay || 1,
-                minMatchStake: matkaSettings.minMatchStake || 100,
-                maxMatchStake: matkaSettings.maxMatchStake || 100,
-                maxProfit: matkaSettings.maxProfit || 0,
-                maxLoss: matkaSettings.maxLoss || 0,
-                minExposure: matkaSettings.minExposure || 0,
-                maxExposure: matkaSettings.maxExposure || 0,
-                winningLimit: matkaSettings.winningLimit || 0
-            }, 'matka'),
-            createSettings(casinoSettingsRepo, {
-                isWhiteListed: casinoSettings.isWhiteListed || false,
-                minOddsToBet: casinoSettings.minOddsToBet || 1.01,
-                maxOddsToBet: casinoSettings.maxOddsToBet || 24,
-                betDelay: casinoSettings.betDelay || 1,
-                minMatchStake: casinoSettings.minMatchStake || 100,
-                maxMatchStake: casinoSettings.maxMatchStake || 100,
-                maxProfit: casinoSettings.maxProfit || 0,
-                maxLoss: casinoSettings.maxLoss || 0,
-                minExposure: casinoSettings.minExposure || 0,
-                maxExposure: casinoSettings.maxExposure || 0,
-                winningLimit: casinoSettings.winningLimit || 0
-            }, 'casino'),
-            createSettings(internationalCasinoSettingsRepo, {
-                isWhiteListed: internationalCasinoSettings.isWhiteListed || false,
-                minOddsToBet: internationalCasinoSettings.minOddsToBet || 1.01,
-                maxOddsToBet: internationalCasinoSettings.maxOddsToBet || 24,
-                betDelay: internationalCasinoSettings.betDelay || 1,
-                minMatchStake: internationalCasinoSettings.minMatchStake || 100,
-                maxMatchStake: internationalCasinoSettings.maxMatchStake || 100,
-                maxProfit: internationalCasinoSettings.maxProfit || 0,
-                maxLoss: internationalCasinoSettings.maxLoss || 0,
-                minExposure: internationalCasinoSettings.minExposure || 0,
-                maxExposure: internationalCasinoSettings.maxExposure || 0,
-                winningLimit: internationalCasinoSettings.winningLimit || 0
-            }, 'internationalCasino')
-        ]);
-
-        // Update Client with settings IDs
-        await clientRepo.update(savedClient.id, {
-            soccerSettingId: savedSoccerSettings.id,
-            cricketSettingId: savedCricketSettings.id,
-            tennisSettingId: savedTennisSettings.id,
-            matkaSettingId: savedMatkaSettings.id,
-            casinoSettingId: savedCasinoSettings.id,
-            internationalCasinoSettingId: savedInternationalCasinoSettings.id
-        });
-
-        await queryRunner.commitTransaction();
-
-        const { user_password: _, ...clientWithoutPassword } = savedClient;
-        const responseData = {
-            ...clientWithoutPassword,
-            soccerSettings: savedSoccerSettings,
-            cricketSettings: savedCricketSettings,
-            tennisSettings: savedTennisSettings,
-            matkaSettings: savedMatkaSettings,
-            casinoSettings: savedCasinoSettings,
-            internationalCasinoSettings: savedInternationalCasinoSettings
-        };
-
-        return res.status(201).json({
-            success: true,
-            message: 'Client created successfully with all settings',
-            data: responseData
-        });
-
-    } catch (error: any) {
-        await queryRunner.rollbackTransaction();
-        console.error('Error creating Client:', error);
-
-        return res.status(500).json({
-            success: false,
-            error: 'Internal server error',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    } finally {
-        await queryRunner.release();
+    // Validate whiteListId
+    const whiteListData = await whitelistRepo.findOne({
+      where: { id: whiteListId },
+    });
+    if (!whiteListData) {
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        success: false,
+        error: "Valid whiteListId UUID is required",
+      });
     }
+
+    const {
+      loginId,
+      user_password,
+      groupID,
+      referallCode,
+      userName,
+      countryCode,
+      mobile,
+      isAutoRegisteredUser = false,
+      IpAddress,
+      remarks,
+      fancyLocked = false,
+      bettingLocked = false,
+      userLocked = false,
+      whatsappNumber,
+      topBarRunningMessage,
+      liability = 0,
+      balance = 0,
+      profitLoss = 0,
+      freeChips = 0,
+      totalSettledAmount = 0,
+      creditRef = 0,
+      uplineSettlement = 0,
+      exposure = 0,
+      exposureLimit = 1000000,
+      bonusAmount = 0,
+      isPanelCommission,
+      bonusWageringRequired = 0,
+      bonusWageringProgress = 0,
+      bonusExpiresAt = null,
+      bonusActive = false,
+      depositWithdrawlAccess = false,
+      canBypassCasinoBet = false,
+      canBypassSportBet = false,
+      casinoButtons = {},
+      gameButtons = {},
+      percentageWiseCommission = true,
+      partnerShipWiseCommission = false,
+      commissionLena = true,
+      commissionDena = false,
+      commissionUpline = 0, // Your commission as upline
+      partnershipUpline = 0, // Your percentage as upline
+      soccerSettings = {},
+      cricketSettings = {},
+      tennisSettings = {},
+      matkaSettings = {},
+      casinoSettings = {},
+      internationalCasinoSettings = {},
+    } = req.body;
+
+    // Basic validation
+    if (!loginId || !user_password || !whiteListId) {
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        success: false,
+        error: "loginId, password, and whiteListId are required",
+      });
+    }
+
+    // Validate percentage and commission values
+    if (partnershipUpline < 0 || partnershipUpline > 100) {
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        success: false,
+        error: "Invalid partnership values. Must be between 0 and 100%",
+      });
+    }
+
+    if (commissionUpline < 0 || commissionUpline > 100) {
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        success: false,
+        error: "Invalid commission values. Must be between 0 and 100%",
+      });
+    }
+
+    // Check for existing client
+    const existingClient = await clientRepo.findOne({
+      where: { loginId, whiteListId },
+    });
+    if (existingClient) {
+      await queryRunner.rollbackTransaction();
+      return res.status(409).json({
+        success: false,
+        error: "loginId already exists",
+      });
+    }
+
+    // Create Client entity with percentage and commission fields
+    const clientData = {
+      loginId,
+      user_password,
+      whiteListId,
+      uplineId: uplineId || null,
+      groupID: groupID || null,
+      transactionPassword: generateTransactionCode(12) || "V274HF21",
+      referallCode: referallCode || null,
+      userName: userName || null,
+      countryCode: countryCode || null,
+      mobile: mobile || null,
+      isAutoRegisteredUser,
+      IpAddress: IpAddress || null,
+      remarks: remarks || null,
+      fancyLocked,
+      bettingLocked,
+      userLocked,
+      isActive: false,
+      whatsappNumber: whatsappNumber || null,
+      topBarRunningMessage: topBarRunningMessage || null,
+      __type: "client",
+      isPanelCommission,
+      liability,
+      balance,
+      profitLoss,
+      freeChips,
+      totalSettledAmount,
+      creditRef,
+      uplineSettlement,
+      exposure,
+      exposureLimit,
+      bonusAmount,
+      bonusWageringRequired,
+      bonusWageringProgress,
+      bonusExpiresAt,
+      bonusActive,
+      depositWithdrawlAccess,
+      canBypassCasinoBet,
+      canBypassSportBet,
+      casinoButtons,
+      gameButtons,
+      percentageWiseCommission,
+      partnerShipWiseCommission,
+      commissionLena,
+      commissionDena,
+      // NEW PERCENTAGE AND COMMISSION FIELDS
+      commissionUplineType: req.__type,
+      commissionUplineUserId: uplineId,
+      commissionUpline,
+      commissionOwn: 100 - commissionUpline,
+      partnershipUplineType: req.__type,
+      partnershipUplineUserId: uplineId,
+      partnershipUpline,
+      partnershipOwn: 100 - partnershipUpline,
+    };
+
+    const savedClient = await clientRepo.save(clientData);
+
+    // Helper function to create settings with proper commission distribution
+    const createSettings = async (
+      repo: any,
+      settingsData: any,
+      sportType: string
+    ) => {
+      // Calculate commission distribution based on global settings
+      const commissionDistribution = {
+        commissionUplineType: settingsData.commissionUplineType || "client",
+        commissionUplineUserId: settingsData.commissionUplineUserId || uplineId,
+        commissionUpline:
+          settingsData.commissionUpline || commissionUpline || 0,
+        commissionOwn:
+          settingsData.commissionOwn || 100 - commissionUpline || 0,
+        partnershipUplineType: settingsData.partnershipUplineType || "client",
+        partnershipUplineUserId:
+          settingsData.partnershipUplineUserId || uplineId,
+        partnershipUpline:
+          settingsData.partnershipUpline || partnershipUpline || 0,
+        partnershipOwn:
+          settingsData.partnershipOwn || 100 - partnershipUpline || 0,
+      };
+
+      return repo.save({
+        userId: savedClient.id,
+        user__type: "client",
+        ...settingsData,
+        ...commissionDistribution,
+      });
+    };
+
+    // Create all settings in parallel
+    const [
+      savedSoccerSettings,
+      savedCricketSettings,
+      savedTennisSettings,
+      savedMatkaSettings,
+      savedCasinoSettings,
+      savedInternationalCasinoSettings,
+    ] = await Promise.all([
+      createSettings(
+        soccerSettingsRepo,
+        {
+          isWhiteListed: soccerSettings.isWhiteListed || false,
+          minOddsToBet: soccerSettings.minOddsToBet || 1.01,
+          maxOddsToBet: soccerSettings.maxOddsToBet || 24,
+          sportId: soccerSettings.sportId || null,
+          betDelay: soccerSettings.betDelay || 1,
+          bookMakerDelay: soccerSettings.bookMakerDelay || 1,
+          minMatchStake: soccerSettings.minMatchStake || 100,
+          maxMatchStake: soccerSettings.maxMatchStake || 100,
+          minBookMakerStake: soccerSettings.minBookMakerStake || 100,
+          maxBookMakerStake: soccerSettings.maxBookMakerStake || 1,
+          maxProfit: soccerSettings.maxProfit || 0,
+          maxLoss: soccerSettings.maxLoss || 0,
+          minExposure: soccerSettings.minExposure || 0,
+          maxExposure: soccerSettings.maxExposure || 0,
+          winningLimit: soccerSettings.winningLimit || 0,
+        },
+        "soccer"
+      ),
+      createSettings(
+        cricketSettingsRepo,
+        {
+          isWhiteListed: cricketSettings.isWhiteListed || false,
+          min_Odds_To_Bet: cricketSettings.min_Odds_To_Bet || 1.01,
+          max_Odds_To_Bet: cricketSettings.max_Odds_To_Bet || 24,
+          sportId: cricketSettings.sportId || null,
+          betDelay: cricketSettings.betDelay || 1,
+          bookMakerDelay: cricketSettings.bookMakerDelay || 1,
+          sessionDelay: cricketSettings.sessionDelay || 1,
+          minMatchStake: cricketSettings.minMatchStake || 100,
+          maxMatchStake: cricketSettings.maxMatchStake || 1,
+          minBookMakerStake: cricketSettings.minBookMakerStake || 100,
+          maxBookMakerStake: cricketSettings.maxBookMakerStake || 1,
+          minSessionStake: cricketSettings.minSessionStake || 100,
+          maxSessionStake: cricketSettings.maxSessionStake || 1,
+          maxProfit: cricketSettings.maxProfit || 0,
+          maxLoss: cricketSettings.maxLoss || 0,
+          sessionMaxProfit: cricketSettings.sessionMaxProfit || 0,
+          sessionMaxLoss: cricketSettings.sessionMaxLoss || 0,
+          minExposure: cricketSettings.minExposure || 0,
+          maxExposure: cricketSettings.maxExposure || 0,
+          winningLimit: cricketSettings.winningLimit || 0,
+        },
+        "cricket"
+      ),
+      createSettings(
+        tennisSettingsRepo,
+        {
+          isWhiteListed: tennisSettings.isWhiteListed || false,
+          minOddsToBet: tennisSettings.minOddsToBet || 1.01,
+          maxOddsToBet: tennisSettings.maxOddsToBet || 24,
+          sportId: tennisSettings.sportId || null,
+          betDelay: tennisSettings.betDelay || 1,
+          bookMakerDelay: tennisSettings.bookMakerDelay || 1,
+          minMatchStake: tennisSettings.minMatchStake || 100,
+          maxMatchStake: tennisSettings.maxMatchStake || 100,
+          minBookMakerStake: tennisSettings.minBookMakerStake || 100,
+          maxBookMakerStake: tennisSettings.maxBookMakerStake || 1,
+          maxProfit: tennisSettings.maxProfit || 0,
+          maxLoss: tennisSettings.maxLoss || 0,
+          minExposure: tennisSettings.minExposure || 0,
+          maxExposure: tennisSettings.maxExposure || 0,
+          winningLimit: tennisSettings.winningLimit || 0,
+        },
+        "tennis"
+      ),
+      createSettings(
+        matkaSettingsRepo,
+        {
+          isWhiteListed: matkaSettings.isWhiteListed || false,
+          minOddsToBet: matkaSettings.minOddsToBet || 1.01,
+          maxOddsToBet: matkaSettings.maxOddsToBet || 24,
+          betDelay: matkaSettings.betDelay || 1,
+          minMatchStake: matkaSettings.minMatchStake || 100,
+          maxMatchStake: matkaSettings.maxMatchStake || 100,
+          maxProfit: matkaSettings.maxProfit || 0,
+          maxLoss: matkaSettings.maxLoss || 0,
+          minExposure: matkaSettings.minExposure || 0,
+          maxExposure: matkaSettings.maxExposure || 0,
+          winningLimit: matkaSettings.winningLimit || 0,
+        },
+        "matka"
+      ),
+      createSettings(
+        casinoSettingsRepo,
+        {
+          isWhiteListed: casinoSettings.isWhiteListed || false,
+          minOddsToBet: casinoSettings.minOddsToBet || 1.01,
+          maxOddsToBet: casinoSettings.maxOddsToBet || 24,
+          betDelay: casinoSettings.betDelay || 1,
+          minMatchStake: casinoSettings.minMatchStake || 100,
+          maxMatchStake: casinoSettings.maxMatchStake || 100,
+          maxProfit: casinoSettings.maxProfit || 0,
+          maxLoss: casinoSettings.maxLoss || 0,
+          minExposure: casinoSettings.minExposure || 0,
+          maxExposure: casinoSettings.maxExposure || 0,
+          winningLimit: casinoSettings.winningLimit || 0,
+        },
+        "casino"
+      ),
+      createSettings(
+        internationalCasinoSettingsRepo,
+        {
+          isWhiteListed: internationalCasinoSettings.isWhiteListed || false,
+          minOddsToBet: internationalCasinoSettings.minOddsToBet || 1.01,
+          maxOddsToBet: internationalCasinoSettings.maxOddsToBet || 24,
+          betDelay: internationalCasinoSettings.betDelay || 1,
+          minMatchStake: internationalCasinoSettings.minMatchStake || 100,
+          maxMatchStake: internationalCasinoSettings.maxMatchStake || 100,
+          maxProfit: internationalCasinoSettings.maxProfit || 0,
+          maxLoss: internationalCasinoSettings.maxLoss || 0,
+          minExposure: internationalCasinoSettings.minExposure || 0,
+          maxExposure: internationalCasinoSettings.maxExposure || 0,
+          winningLimit: internationalCasinoSettings.winningLimit || 0,
+        },
+        "internationalCasino"
+      ),
+    ]);
+
+    // Update Client with settings IDs
+    await clientRepo.update(savedClient.id, {
+      soccerSettingId: savedSoccerSettings.id,
+      cricketSettingId: savedCricketSettings.id,
+      tennisSettingId: savedTennisSettings.id,
+      matkaSettingId: savedMatkaSettings.id,
+      casinoSettingId: savedCasinoSettings.id,
+      internationalCasinoSettingId: savedInternationalCasinoSettings.id,
+    });
+
+    await queryRunner.commitTransaction();
+
+    const { user_password: _, ...clientWithoutPassword } = savedClient;
+    const responseData = {
+      ...clientWithoutPassword,
+      soccerSettings: savedSoccerSettings,
+      cricketSettings: savedCricketSettings,
+      tennisSettings: savedTennisSettings,
+      matkaSettings: savedMatkaSettings,
+      casinoSettings: savedCasinoSettings,
+      internationalCasinoSettings: savedInternationalCasinoSettings,
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: "Client created successfully with all settings",
+      data: responseData,
+    });
+  } catch (error: any) {
+    await queryRunner.rollbackTransaction();
+    console.error("Error creating Client:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    await queryRunner.release();
+  }
 };
 
 // export const createClient = async (req: Request, res: Response) => {
@@ -523,7 +570,6 @@ export const createClient = async (req: Request, res: Response) => {
 
 //         // Helper function to create settings
 //         const createSettings = async (repo: any, settingsData: any) => {
-
 
 //             return repo.save({
 //                 userId: savedClient.id,
@@ -718,554 +764,622 @@ export const createClient = async (req: Request, res: Response) => {
 // };
 
 export const getAllClient = async (req: Request, res: Response) => {
-    try {
-        const clientRepo = AppDataSource.getRepository(Client);
+  try {
+    const clientRepo = AppDataSource.getRepository(Client);
 
+    // const cacheKey = `casino:ab4:current`;
 
-        // const cacheKey = `casino:ab4:current`;
+    // // 1. Check Redis for current match
+    // const redisClient = getRedisClient();
+    // const cachedData = await redisClient.get(cacheKey);
 
-        // // 1. Check Redis for current match
-        // const redisClient = getRedisClient();
-        // const cachedData = await redisClient.get(cacheKey);
+    // console.log("************************************************************************");
 
-        // console.log("************************************************************************");
+    // console.log(cachedData);
 
-        // console.log(cachedData);
+    // console.log("****************************************************************");
 
-        // console.log("****************************************************************");
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
 
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 10;
-        const skip = (page - 1) * limit;
+    const { search, isActive, fromDate, toDate } = req.query;
 
-        const { search, isActive, fromDate, toDate } = req.query;
+    const where: any = {};
 
-        const where: any = {};
-
-        if (search) {
-            where.userName = Like(`%${search}%`);
-        }
-
-        if (isActive !== undefined) {
-            where.isActive = isActive === 'true';
-        }
-
-        if (fromDate && toDate) {
-            where.createdAt = Between(
-                new Date(fromDate as string),
-                new Date(toDate as string)
-            );
-        }
-
-        const [clients, total] = await clientRepo.findAndCount({
-            where,
-            select: [
-                'id', 'userName', 'loginId', 'countryCode', 'mobile',
-                'isActive', 'whiteListId',
-                'balance', 'exposure', 'exposureLimit', 'freeChips',
-                'fancyLocked', 'userLocked', 'bettingLocked',
-                'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
-                'topBarRunningMessage', 'liability', 'profitLoss',
-                'totalSettledAmount', 'depositWithdrawlAccess',
-                'percentageWiseCommission',
-                'partnerShipWiseCommission', 'commissionLena', 'commissionDena',
-                'createdAt', 'updatedAt'
-            ],
-            order: { createdAt: 'DESC' },
-            skip,
-            take: limit
-        });
-
-        return res.json({
-            success: true,
-            data: clients,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        });
-
-    } catch (error: any) {
-        console.error('Error fetching clients:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Internal server error',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+    if (search) {
+      where.userName = Like(`%${search}%`);
     }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive === "true";
+    }
+
+    if (fromDate && toDate) {
+      where.createdAt = Between(
+        new Date(fromDate as string),
+        new Date(toDate as string)
+      );
+    }
+
+    const [clients, total] = await clientRepo.findAndCount({
+      where,
+      select: [
+        "id",
+        "userName",
+        "loginId",
+        "countryCode",
+        "mobile",
+        "isActive",
+        "whiteListId",
+        "balance",
+        "exposure",
+        "exposureLimit",
+        "freeChips",
+        "fancyLocked",
+        "userLocked",
+        "bettingLocked",
+        "uplineId",
+        "groupID",
+        "referallCode",
+        "whatsappNumber",
+        "topBarRunningMessage",
+        "liability",
+        "profitLoss",
+        "totalSettledAmount",
+        "depositWithdrawlAccess",
+        "percentageWiseCommission",
+        "partnerShipWiseCommission",
+        "commissionLena",
+        "commissionDena",
+        "createdAt",
+        "updatedAt",
+      ],
+      order: { createdAt: "DESC" },
+      skip,
+      take: limit,
+    });
+
+    return res.json({
+      success: true,
+      data: clients,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching clients:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
 
 export const getClientById = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const clientRepo = AppDataSource.getRepository(Client);
+  try {
+    const { id } = req.params;
+    const clientRepo = AppDataSource.getRepository(Client);
 
-        if (!id) {
-            return res.status(400).json({
-                success: false,
-                error: 'client ID is required'
-            });
-        }
-
-        const client = await clientRepo.findOne({
-            where: { id },
-            select: [
-                'id', 'userName', 'loginId', 'countryCode', 'mobile',
-                'isActive', 'createdAt', 'updatedAt', 'whiteListId',
-                'fancyLocked', 'userLocked', 'bettingLocked',
-                'balance', 'exposure', 'exposureLimit', 'freeChips',
-                'soccerSettingId', 'cricketSettingId', 'tennisSettingId',
-                'matkaSettingId', 'casinoSettingId', 'internationalCasinoSettingId',
-                'uplineId', 'groupID', 'referallCode', 'whatsappNumber',
-                'topBarRunningMessage', 'liability', 'profitLoss',
-                'totalSettledAmount', 'depositWithdrawlAccess',
-                'percentageWiseCommission',
-                'partnerShipWiseCommission', 'commissionLena', 'commissionDena'
-            ]
-        });
-
-        if (!client) {
-            return res.status(404).json({
-                success: false,
-                error: 'client not found'
-            });
-        }
-
-        const [
-            soccerSettings,
-            cricketSettings,
-            tennisSettings,
-            matkaSettings,
-            casinoSettings,
-            internationalCasinoSettings
-        ] = await Promise.all([
-            client.soccerSettingId
-                ? AppDataSource.getRepository(SoccerSettings).findOne({
-                    where: { id: client.soccerSettingId }
-                })
-                : Promise.resolve(null),
-
-            client.cricketSettingId
-                ? AppDataSource.getRepository(CricketSettings).findOne({
-                    where: { id: client.cricketSettingId }
-                })
-                : Promise.resolve(null),
-
-            client.tennisSettingId
-                ? AppDataSource.getRepository(TennisSettings).findOne({
-                    where: { id: client.tennisSettingId }
-                })
-                : Promise.resolve(null),
-
-            client.matkaSettingId
-                ? AppDataSource.getRepository(MatkaSettings).findOne({
-                    where: { id: client.matkaSettingId }
-                })
-                : Promise.resolve(null),
-
-            client.casinoSettingId
-                ? AppDataSource.getRepository(CasinoSettings).findOne({
-                    where: { id: client.casinoSettingId }
-                })
-                : Promise.resolve(null),
-
-            client.internationalCasinoSettingId
-                ? AppDataSource.getRepository(InternationalCasinoSettings).findOne({
-                    where: { id: client.internationalCasinoSettingId }
-                })
-                : Promise.resolve(null)
-        ]);
-
-        const responseData = {
-            ...client,
-            soccerSettings,
-            cricketSettings,
-            tennisSettings,
-            matkaSettings,
-            casinoSettings,
-            internationalCasinoSettings
-        };
-
-        return res.json({
-            success: true,
-            data: responseData
-        });
-
-    } catch (error: any) {
-        console.error('Error fetching client:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Internal server error',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: "client ID is required",
+      });
     }
+
+    const client = await clientRepo.findOne({
+      where: { id },
+      select: [
+        "id",
+        "userName",
+        "loginId",
+        "countryCode",
+        "mobile",
+        "isActive",
+        "createdAt",
+        "updatedAt",
+        "whiteListId",
+        "fancyLocked",
+        "userLocked",
+        "bettingLocked",
+        "balance",
+        "exposure",
+        "exposureLimit",
+        "freeChips",
+        "soccerSettingId",
+        "cricketSettingId",
+        "tennisSettingId",
+        "matkaSettingId",
+        "casinoSettingId",
+        "internationalCasinoSettingId",
+        "uplineId",
+        "groupID",
+        "referallCode",
+        "whatsappNumber",
+        "topBarRunningMessage",
+        "liability",
+        "profitLoss",
+        "totalSettledAmount",
+        "depositWithdrawlAccess",
+        "percentageWiseCommission",
+        "partnerShipWiseCommission",
+        "commissionLena",
+        "commissionDena",
+      ],
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: "client not found",
+      });
+    }
+
+    const [
+      soccerSettings,
+      cricketSettings,
+      tennisSettings,
+      matkaSettings,
+      casinoSettings,
+      internationalCasinoSettings,
+    ] = await Promise.all([
+      client.soccerSettingId
+        ? AppDataSource.getRepository(SoccerSettings).findOne({
+          where: { id: client.soccerSettingId },
+        })
+        : Promise.resolve(null),
+
+      client.cricketSettingId
+        ? AppDataSource.getRepository(CricketSettings).findOne({
+          where: { id: client.cricketSettingId },
+        })
+        : Promise.resolve(null),
+
+      client.tennisSettingId
+        ? AppDataSource.getRepository(TennisSettings).findOne({
+          where: { id: client.tennisSettingId },
+        })
+        : Promise.resolve(null),
+
+      client.matkaSettingId
+        ? AppDataSource.getRepository(MatkaSettings).findOne({
+          where: { id: client.matkaSettingId },
+        })
+        : Promise.resolve(null),
+
+      client.casinoSettingId
+        ? AppDataSource.getRepository(CasinoSettings).findOne({
+          where: { id: client.casinoSettingId },
+        })
+        : Promise.resolve(null),
+
+      client.internationalCasinoSettingId
+        ? AppDataSource.getRepository(InternationalCasinoSettings).findOne({
+          where: { id: client.internationalCasinoSettingId },
+        })
+        : Promise.resolve(null),
+    ]);
+
+    const responseData = {
+      ...client,
+      soccerSettings,
+      cricketSettings,
+      tennisSettings,
+      matkaSettings,
+      casinoSettings,
+      internationalCasinoSettings,
+    };
+
+    return res.json({
+      success: true,
+      data: responseData,
+    });
+  } catch (error: any) {
+    console.error("Error fetching client:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
 
 export const clientLogin = async (req: Request, res: Response) => {
-    const { IpAddress, loginId, password, hostUrl } = req.body;
-    const io = req.app.get('socketio');
-    const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const { IpAddress, loginId, password, hostUrl } = req.body;
+  const io = req.app.get("socketio");
+  const userIp =
+    req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-    try {
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) throw new Error('JWT_SECRET is not configured');
+  try {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) throw new Error("JWT_SECRET is not configured");
 
-        if (!loginId || !password || !hostUrl || !IpAddress) {
-            return res.status(400).json({
-                success: false,
-                error: 'loginId, password, hostUrl and IpAddress are required'
-            });
-        }
+    if (!loginId || !password || !hostUrl || !IpAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "loginId, password, hostUrl and IpAddress are required",
+      });
+    }
 
-        // Retry logic for database operations to handle deadlocks
-        const maxRetries = 3;
-        let retryCount = 0;
-        let client: Client | null = null;
-        let whiteList: Whitelist | null = null;
+    // Retry logic for database operations to handle deadlocks
+    const maxRetries = 3;
+    let retryCount = 0;
+    let client: Client | null = null;
+    // let whiteList: Whitelist | null = null;
+    let whiteList: WhitelistNew | null = null;
 
-        while (retryCount < maxRetries) {
-            try {
-                // Add timeout to prevent hanging operations
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Database operation timeout')), 10000);
-                });
+    while (retryCount < maxRetries) {
+      try {
+        // Add timeout to prevent hanging operations
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(
+            () => reject(new Error("Database operation timeout")),
+            10000
+          );
+        });
 
-                const dbOperationPromise = (async () => {
-                    const whiteListRepo = AppDataSource.getRepository(Whitelist);
-                    whiteList = await whiteListRepo.findOne({
-                        where: { ClientUrl: hostUrl }
-                    });
+        const dbOperationPromise = (async () => {
+          // const whiteListRepo = AppDataSource.getRepository(Whitelist);
+          const whiteListRepo = AppDataSource.getRepository(WhitelistNew);
 
-                    if (!whiteList) {
-                        return { error: 'Access denied - URL not authorized for Client access', status: 403 };
-                    }
+          // whiteList = await whiteListRepo.findOne({
+          //   where: { ClientUrl: hostUrl },
+          // });
 
-                    const clientRepo = AppDataSource.getRepository(Client);
-                    
-                    // First, find the client without relations to avoid deadlock
-                    client = await clientRepo.findOne({
-                        where: {
-                            loginId,
-                            whiteListId: whiteList.id
-                        }
-                    });
+          whiteList = await whiteListRepo
+            .createQueryBuilder("whitelist")
+            .where(":url = ANY(whitelist.\"ClientUrl\")", { url: hostUrl })
+            .getOne();
 
-                    if (!client) {
-                        return { error: 'Invalid Client credentials', status: 401 };
-                    }
+          if (!whiteList) {
+            return {
+              error: "Access denied - URL not authorized for Client access",
+              status: 403,
+            };
+          }
 
-                    // Load relations separately to avoid complex joins that can cause deadlocks
-                    const [
-                        soccerSettings,
-                        cricketSettings,
-                        tennisSettings,
-                        matkaSettings,
-                        casinoSettings,
-                        internationalCasinoSettings
-                    ] = await Promise.all([
-                        client.soccerSettingId
-                            ? AppDataSource.getRepository(SoccerSettings).findOne({
-                                where: { id: client.soccerSettingId }
-                            })
-                            : Promise.resolve(null),
+          const clientRepo = AppDataSource.getRepository(Client);
 
-                        client.cricketSettingId
-                            ? AppDataSource.getRepository(CricketSettings).findOne({
-                                where: { id: client.cricketSettingId }
-                            })
-                            : Promise.resolve(null),
-
-                        client.tennisSettingId
-                            ? AppDataSource.getRepository(TennisSettings).findOne({
-                                where: { id: client.tennisSettingId }
-                            })
-                            : Promise.resolve(null),
-
-                        client.matkaSettingId
-                            ? AppDataSource.getRepository(MatkaSettings).findOne({
-                                where: { id: client.matkaSettingId }
-                            })
-                            : Promise.resolve(null),
-
-                        client.casinoSettingId
-                            ? AppDataSource.getRepository(CasinoSettings).findOne({
-                                where: { id: client.casinoSettingId }
-                            })
-                            : Promise.resolve(null),
-
-                        client.internationalCasinoSettingId
-                            ? AppDataSource.getRepository(InternationalCasinoSettings).findOne({
-                                where: { id: client.internationalCasinoSettingId }
-                            })
-                            : Promise.resolve(null)
-                    ]);
-
-                    // Attach the relations to the client object
-                    (client as any).soccerSettings = soccerSettings;
-                    (client as any).cricketSettings = cricketSettings;
-                    (client as any).tennisSettings = tennisSettings;
-                    (client as any).matkaSettings = matkaSettings;
-                    (client as any).casinoSettings = casinoSettings;
-                    (client as any).internationalCasinoSettings = internationalCasinoSettings;
-
-                    return { success: true };
-                })();
-
-                const result = await Promise.race([dbOperationPromise, timeoutPromise]) as any;
-
-                if (result.error) {
-                    return res.status(result.status).json({
-                        success: false,
-                        error: result.error
-                    });
-                }
-
-                // If we get here, the database operations succeeded
-                break;
-
-            } catch (dbError: any) {
-                retryCount++;
-                console.warn(`Database operation failed (attempt ${retryCount}/${maxRetries}):`, dbError.message);
-                
-                if (retryCount >= maxRetries) {
-                    throw dbError; // Re-throw the error if max retries reached
-                }
-                
-                // Wait before retrying (exponential backoff)
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
-            }
-        }
-
-        // Ensure client is not null after successful database operations
-        if (!client) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid Client credentials'
-            });
-        }
-
-        // Type assertion to help TypeScript understand the client is not null
-        const authenticatedClient = client as Client;
-
-        if (authenticatedClient.__type !== 'client') {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid Client account'
-            });
-        }
-
-
-        if (authenticatedClient.userLocked) {
-            return res.status(403).json({
-                success: false,
-                error: 'Client account is not active'
-            });
-        }
-
-        if (password !== authenticatedClient.user_password) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid Client credentials'
-            });
-        }
-
-        const { user_password, ...safeUserData } = authenticatedClient;
-
-        const token = jwt.sign(
-            {
-                user: {
-                    userId: authenticatedClient.id,
-                    PersonalDetails: {
-                        userName: authenticatedClient.userName,
-                        loginId: authenticatedClient.loginId,
-                        user_password: authenticatedClient.user_password,
-                        countryCode: authenticatedClient.countryCode,
-                        mobile: authenticatedClient.mobile,
-                        idIsActive: authenticatedClient.isActive,
-                        isAutoRegisteredUser: authenticatedClient.isAutoRegisteredUser
-                    },
-                    IpAddress: authenticatedClient.IpAddress,
-                    transactionPassword: authenticatedClient.transactionPassword,
-                    uplineId: authenticatedClient.uplineId,
-                    whiteListId: authenticatedClient.whiteListId,
-                    fancyLocked: authenticatedClient.fancyLocked,
-                    bettingLocked: authenticatedClient.bettingLocked,
-                    userLocked: authenticatedClient.userLocked,
-                    // closedAccounts: user,
-                    __type: authenticatedClient.__type,
-                    remarks: authenticatedClient.remarks,
-                    // featureAccessPermissions: user,
-                    AccountDetails: {
-                        liability: authenticatedClient.liability,
-                        Balance: authenticatedClient.balance,
-                        profitLoss: authenticatedClient.profitLoss,
-                        freeChips: authenticatedClient.freeChips,
-                        totalSettledAmount: authenticatedClient.totalSettledAmount,
-                        Exposure: authenticatedClient.exposure,
-                        ExposureLimit: authenticatedClient.exposureLimit,
-                        uplineSettlement: authenticatedClient.uplineSettlement
-                    },
-                    allowedNoOfUsers: null,
-                    createdUsersCount: null,
-                    commissionSettings: {
-                        commissionUplineType: authenticatedClient.commissionUplineType,
-                        commissionUplineUserId: authenticatedClient.commissionUplineUserId,
-                        commissionUpline: authenticatedClient.commissionUpline,
-                        commissionOwn: authenticatedClient.commissionOwn,
-                        partnershipUplineType: authenticatedClient.partnershipUplineType,
-                        partnershipUplineUserId: authenticatedClient.partnershipUplineUserId,
-                        partnershipUpline: authenticatedClient.partnershipUpline,
-                        partnershipOwn: authenticatedClient.partnershipOwn,
-                    },
-                    commissionLenaYaDena: {
-                        commissionLena: authenticatedClient.commissionLena,
-                        commissionDena: authenticatedClient.commissionDena,
-                    },
-                    groupID: authenticatedClient.groupID,
-                    createdAt: authenticatedClient.createdAt,
-                    updatedAt: authenticatedClient.updatedAt,
-
-                },
-                permissions: {
-                    canBet: !authenticatedClient.bettingLocked,
-                    canWithdraw: authenticatedClient.depositWithdrawlAccess,
-                    bypassRestrictions: authenticatedClient.canBypassCasinoBet || authenticatedClient.canBypassSportBet
-                },
-                sessionData: {
-                    ip: userIp,
-                    userAgent: req.headers['user-agent']
-                }
+          // First, find the client without relations to avoid deadlock
+          client = await clientRepo.findOne({
+            where: {
+              loginId,
+              whiteListId: whiteList.id,
             },
-            jwtSecret,
-            {
-                expiresIn: process.env.JWT_EXPIRES_IN || '12h',
-                issuer: process.env.JWT_ISSUER || 'your-issuer',
-                algorithm: 'HS256'
-            } as jwt.SignOptions
+          });
+
+          if (!client) {
+            return { error: "Invalid Client credentials", status: 401 };
+          }
+
+          // Load relations separately to avoid complex joins that can cause deadlocks
+          const [
+            soccerSettings,
+            cricketSettings,
+            tennisSettings,
+            matkaSettings,
+            casinoSettings,
+            internationalCasinoSettings,
+          ] = await Promise.all([
+            client.soccerSettingId
+              ? AppDataSource.getRepository(SoccerSettings).findOne({
+                where: { id: client.soccerSettingId },
+              })
+              : Promise.resolve(null),
+
+            client.cricketSettingId
+              ? AppDataSource.getRepository(CricketSettings).findOne({
+                where: { id: client.cricketSettingId },
+              })
+              : Promise.resolve(null),
+
+            client.tennisSettingId
+              ? AppDataSource.getRepository(TennisSettings).findOne({
+                where: { id: client.tennisSettingId },
+              })
+              : Promise.resolve(null),
+
+            client.matkaSettingId
+              ? AppDataSource.getRepository(MatkaSettings).findOne({
+                where: { id: client.matkaSettingId },
+              })
+              : Promise.resolve(null),
+
+            client.casinoSettingId
+              ? AppDataSource.getRepository(CasinoSettings).findOne({
+                where: { id: client.casinoSettingId },
+              })
+              : Promise.resolve(null),
+
+            client.internationalCasinoSettingId
+              ? AppDataSource.getRepository(
+                InternationalCasinoSettings
+              ).findOne({
+                where: { id: client.internationalCasinoSettingId },
+              })
+              : Promise.resolve(null),
+          ]);
+
+          // Attach the relations to the client object
+          (client as any).soccerSettings = soccerSettings;
+          (client as any).cricketSettings = cricketSettings;
+          (client as any).tennisSettings = tennisSettings;
+          (client as any).matkaSettings = matkaSettings;
+          (client as any).casinoSettings = casinoSettings;
+          (client as any).internationalCasinoSettings =
+            internationalCasinoSettings;
+
+          return { success: true };
+        })();
+
+        const result = (await Promise.race([
+          dbOperationPromise,
+          timeoutPromise,
+        ])) as any;
+
+        if (result.error) {
+          return res.status(result.status).json({
+            success: false,
+            error: result.error,
+          });
+        }
+
+        // If we get here, the database operations succeeded
+        break;
+      } catch (dbError: any) {
+        retryCount++;
+        console.warn(
+          `Database operation failed (attempt ${retryCount}/${maxRetries}):`,
+          dbError.message
         );
 
-        if (io) {
-            const existingSocket = getUserSocket(io, authenticatedClient.id);
-
-            if (existingSocket) {
-                existingSocket.emit('forceLogout', {
-                    reason: 'DUPLICATE_LOGIN',
-                    message: 'Logged in from new device',
-                    timestamp: new Date().toISOString()
-                });
-                existingSocket.disconnect(true);
-            }
-
-            io.to('clients').emit('clientLogin', {
-                clientId: authenticatedClient.id,
-                username: authenticatedClient.loginId,
-                ip: userIp,
-                timestamp: new Date().toISOString()
-            });
+        if (retryCount >= maxRetries) {
+          throw dbError; // Re-throw the error if max retries reached
         }
 
-        res.cookie('clientToken', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 12 * 60 * 60 * 1000
-        });
-
-        res.status(200).json({
-            status: true,
-            message: "Client login successful",
-            data: {
-                token,
-                isActive: authenticatedClient.isActive,
-                // user: safeUserData,
-                socketRequired: true
-            }
-        });
-
-    } catch (error) {
-        console.error('Client login error:', error);
-
-        const errorMessage = process.env.NODE_ENV === 'development'
-            ? error instanceof Error ? error.message : 'Unknown error'
-            : 'Internal server error';
-
-        res.status(500).json({
-            status: false,
-            message: errorMessage
-        });
+        // Wait before retrying (exponential backoff)
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, retryCount) * 100)
+        );
+      }
     }
+
+    // Ensure client is not null after successful database operations
+    if (!client) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid Client credentials",
+      });
+    }
+
+    // Type assertion to help TypeScript understand the client is not null
+    const authenticatedClient = client as Client;
+
+    if (authenticatedClient.__type !== "client") {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid Client account",
+      });
+    }
+
+    if (authenticatedClient.userLocked) {
+      return res.status(403).json({
+        success: false,
+        error: "Client account is not active",
+      });
+    }
+
+    if (password !== authenticatedClient.user_password) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid Client credentials",
+      });
+    }
+
+    const { user_password, ...safeUserData } = authenticatedClient;
+
+    const token = jwt.sign(
+      {
+        user: {
+          userId: authenticatedClient.id,
+          PersonalDetails: {
+            userName: authenticatedClient.userName,
+            loginId: authenticatedClient.loginId,
+            user_password: authenticatedClient.user_password,
+            countryCode: authenticatedClient.countryCode,
+            mobile: authenticatedClient.mobile,
+            idIsActive: authenticatedClient.isActive,
+            isAutoRegisteredUser: authenticatedClient.isAutoRegisteredUser,
+          },
+          IpAddress: authenticatedClient.IpAddress,
+          transactionPassword: authenticatedClient.transactionPassword,
+          uplineId: authenticatedClient.uplineId,
+          whiteListId: authenticatedClient.whiteListId,
+          fancyLocked: authenticatedClient.fancyLocked,
+          bettingLocked: authenticatedClient.bettingLocked,
+          userLocked: authenticatedClient.userLocked,
+          // closedAccounts: user,
+          __type: authenticatedClient.__type,
+          remarks: authenticatedClient.remarks,
+          // featureAccessPermissions: user,
+          AccountDetails: {
+            liability: authenticatedClient.liability,
+            Balance: authenticatedClient.balance,
+            profitLoss: authenticatedClient.profitLoss,
+            freeChips: authenticatedClient.freeChips,
+            totalSettledAmount: authenticatedClient.totalSettledAmount,
+            Exposure: authenticatedClient.exposure,
+            ExposureLimit: authenticatedClient.exposureLimit,
+            uplineSettlement: authenticatedClient.uplineSettlement,
+          },
+          allowedNoOfUsers: null,
+          createdUsersCount: null,
+          commissionSettings: {
+            commissionUplineType: authenticatedClient.commissionUplineType,
+            commissionUplineUserId: authenticatedClient.commissionUplineUserId,
+            commissionUpline: authenticatedClient.commissionUpline,
+            commissionOwn: authenticatedClient.commissionOwn,
+            partnershipUplineType: authenticatedClient.partnershipUplineType,
+            partnershipUplineUserId:
+              authenticatedClient.partnershipUplineUserId,
+            partnershipUpline: authenticatedClient.partnershipUpline,
+            partnershipOwn: authenticatedClient.partnershipOwn,
+          },
+          commissionLenaYaDena: {
+            commissionLena: authenticatedClient.commissionLena,
+            commissionDena: authenticatedClient.commissionDena,
+          },
+          groupID: authenticatedClient.groupID,
+          createdAt: authenticatedClient.createdAt,
+          updatedAt: authenticatedClient.updatedAt,
+        },
+        permissions: {
+          canBet: !authenticatedClient.bettingLocked,
+          canWithdraw: authenticatedClient.depositWithdrawlAccess,
+          bypassRestrictions:
+            authenticatedClient.canBypassCasinoBet ||
+            authenticatedClient.canBypassSportBet,
+        },
+        sessionData: {
+          ip: userIp,
+          userAgent: req.headers["user-agent"],
+        },
+      },
+      jwtSecret,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN || "12h",
+        issuer: process.env.JWT_ISSUER || "your-issuer",
+        algorithm: "HS256",
+      } as jwt.SignOptions
+    );
+
+    if (io) {
+      const existingSocket = getUserSocket(io, authenticatedClient.id);
+
+      if (existingSocket) {
+        existingSocket.emit("forceLogout", {
+          reason: "DUPLICATE_LOGIN",
+          message: "Logged in from new device",
+          timestamp: new Date().toISOString(),
+        });
+        existingSocket.disconnect(true);
+      }
+
+      io.to("clients").emit("clientLogin", {
+        clientId: authenticatedClient.id,
+        username: authenticatedClient.loginId,
+        ip: userIp,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    res.cookie("clientToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 12 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      status: true,
+      message: "Client login successful",
+      data: {
+        token,
+        isActive: authenticatedClient.isActive,
+        // user: safeUserData,
+        socketRequired: true,
+      },
+    });
+  } catch (error) {
+    console.error("Client login error:", error);
+
+    const errorMessage =
+      process.env.NODE_ENV === "development"
+        ? error instanceof Error
+          ? error.message
+          : "Unknown error"
+        : "Internal server error";
+
+    res.status(500).json({
+      status: false,
+      message: errorMessage,
+    });
+  }
 };
 
-
 export const changeOwnPassword = async (req: Request, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
 
-    try {
+    const clientRepo = AppDataSource.getRepository(Client);
+    const buttonsRepo = AppDataSource.getRepository(Buttons);
 
-        const { currentPassword, newPassword } = req.body;
+    const clientUser = await clientRepo.findOne({
+      where: { id: req.user?.userId },
+    });
 
-        const clientRepo = AppDataSource.getRepository(Client);
-        const buttonsRepo = AppDataSource.getRepository(Buttons);
-
-        const clientUser = await clientRepo.findOne({ where: { id: req.user?.userId } });
-
-        if (!clientUser) {
-            return res.status(400).json({
-                success: false,
-                error: 'User not found'
-            })
-        }
-
-        if (clientUser?.user_password !== currentPassword) {
-            return res.status(400).json({
-                success: false,
-                error: 'Current password does not match'
-            })
-        }
-
-
-        // const transactionCode = generateTransactionCode(8);
-        // clientUser.transactionPassword = transactionCode;
-
-        clientUser.isActive = true;
-        clientUser.user_password = newPassword;
-
-        await clientRepo.save(clientUser);
-
-        const b1 = buttonsRepo.create({
-            userId: req.user?.userId,
-            gameType: "casino"
-        });
-
-        const b2 = buttonsRepo.create({
-            userId: req.user?.userId,
-            gameType: "sports"
-        });
-
-        await buttonsRepo.save(b1);
-        await buttonsRepo.save(b2);
-
-
-        return res.status(200).json({
-            success: true,
-            message: 'User is now active',
-            data: {
-                transactionPassword: clientUser.transactionPassword
-            }
-        });
-
-    } catch (error: any) {
-        console.error('Error changing own password:', error);
-
-        const errorMessage = process.env.NODE_ENV === 'development'
-            ? error instanceof Error ? error.message : 'Unknown error'
-            : 'Internal server error';
-
-        res.status(500).json({
-            status: false,
-            message: "something went wrong"
-        });
+    if (!clientUser) {
+      return res.status(400).json({
+        success: false,
+        error: "User not found",
+      });
     }
 
-}
+    if (clientUser?.user_password !== currentPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Current password does not match",
+      });
+    }
+
+    // const transactionCode = generateTransactionCode(8);
+    // clientUser.transactionPassword = transactionCode;
+
+    clientUser.isActive = true;
+    clientUser.user_password = newPassword;
+
+    await clientRepo.save(clientUser);
+
+    const b1 = buttonsRepo.create({
+      userId: req.user?.userId,
+      gameType: "casino",
+    });
+
+    const b2 = buttonsRepo.create({
+      userId: req.user?.userId,
+      gameType: "sports",
+    });
+
+    await buttonsRepo.save(b1);
+    await buttonsRepo.save(b2);
+
+    return res.status(200).json({
+      success: true,
+      message: "User is now active",
+      data: {
+        transactionPassword: clientUser.transactionPassword,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error changing own password:", error);
+
+    const errorMessage =
+      process.env.NODE_ENV === "development"
+        ? error instanceof Error
+          ? error.message
+          : "Unknown error"
+        : "Internal server error";
+
+    res.status(500).json({
+      status: false,
+      message: "something went wrong",
+    });
+  }
+};
