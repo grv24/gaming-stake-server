@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { USER_TABLES } from '../../Helpers/users/Roles';
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
 import { Buttons } from '../../entities/games/Buttons';
@@ -201,6 +202,12 @@ export const createClient = async (req: Request, res: Response) => {
         };
 
         const savedClient = await clientRepo.save(clientData);
+
+        // Increment upline's createdUsersCount
+        if (uplineId) {
+            const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+            await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+        }
 
         // Helper function to create settings with proper commission distribution
         const createSettings = async (repo: any, settingsData: any, sportType: string) => {

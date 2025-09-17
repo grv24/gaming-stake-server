@@ -12,6 +12,7 @@ import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { USER_TABLES } from '../../Helpers/users/Roles';
 
 export const createSuperMaster = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -202,6 +203,12 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         };
 
         const savedSuperMaster = await superMasterRepo.save(superMasterData);
+
+        // Increment upline's createdUsersCount
+        if (uplineId) {
+            const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+            await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+        }
 
         // Helper function to create settings with proper commission distribution
         const createSettings = async (repo: any, settingsData: any, sportType: string) => {

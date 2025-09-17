@@ -13,12 +13,12 @@ import { plainToInstance } from 'class-transformer';
 import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
+import { USER_TABLES } from '../../Helpers/users/Roles';
 import { MiniAdmin } from '../../entities/users/MiniAdminUser';
 import { SuperMaster } from '../../entities/users/SuperMasterUser';
 import { Master } from '../../entities/users/MasterUser';
 import { SuperAgent } from '../../entities/users/SuperAgentUser';
 import { Agent } from '../../entities/users/AgentUser';
-import { USER_TABLES } from '../../Helpers/users/Roles';
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
@@ -209,6 +209,12 @@ export const createAdmin = async (req: Request, res: Response) => {
         };
 
         const savedAdmin = await adminRepo.save(adminData);
+
+        // Increment upline's createdUsersCount
+        if (uplineId) {
+            const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+            await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+        }
 
         // Helper function to create settings with proper commission distribution
         const createSettings = async (repo: any, settingsData: any, sportType: string) => {
