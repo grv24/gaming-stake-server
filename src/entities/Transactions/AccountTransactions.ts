@@ -20,8 +20,8 @@ export class AccountTrasaction {
     @Column({ type: "text" })
     remarks!: String;
 
-    @Column({ type: "enum", enum: ["deposit", "withdraw"] })
-    type!: "deposit" | "withdraw";
+    @Column({ type: "enum", enum: ["deposit", "withdraw","place-bet","settle-bet"] })
+    type!: "deposit" | "withdraw" | "place-bet" | "settle-bet";
 
     @Column({ type: 'float' })
     amount!: number;

@@ -13,6 +13,7 @@ import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 // import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
+import { USER_TABLES } from '../../Helpers/users/Roles';
 
 export const createSuperMaster = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -99,11 +100,11 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         } = req.body;
 
         // Basic validation
-        if (!loginId || !user_password || !whiteListId) {
+        if (!loginId || !user_password || !whiteListId || !transactionPassword) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'loginId, password, and whiteListId are required'
+                error: 'loginId, password, whiteListId, and transactionPassword are required'
             });
         }
 
@@ -121,6 +122,16 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid commission values. Must be positive and sum cannot exceed 100%'
+            });
+        }
+
+        // Validate transaction password
+        const uplineTransactionPassword = req.user?.transactionPassword;
+        if (transactionPassword !== uplineTransactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: 'Transaction password does not match'
             });
         }
 
@@ -194,6 +205,12 @@ export const createSuperMaster = async (req: Request, res: Response) => {
         };
 
         const savedSuperMaster = await superMasterRepo.save(superMasterData);
+
+        // Increment upline's createdUsersCount
+        if (uplineId) {
+            const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+            await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+        }
 
         // Helper function to create settings with proper commission distribution
         const createSettings = async (repo: any, settingsData: any, sportType: string) => {

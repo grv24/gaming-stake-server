@@ -14,12 +14,12 @@ import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 // import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { WhitelistNew } from '../../entities/whitelist/WhitelistNew'; // girraj
+import { USER_TABLES } from '../../Helpers/users/Roles';
 import { MiniAdmin } from '../../entities/users/MiniAdminUser';
 import { SuperMaster } from '../../entities/users/SuperMasterUser';
 import { Master } from '../../entities/users/MasterUser';
 import { SuperAgent } from '../../entities/users/SuperAgentUser';
 import { Agent } from '../../entities/users/AgentUser';
-import { USER_TABLES } from '../../Helpers/users/Roles';
 import { getUserSocket } from '../../config/socketHandler';
 import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
@@ -96,6 +96,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             commissionDena = false,
             commissionUpline = 0,    // Your commission as upline
             partnershipUpline = 0,    // Your percentage as upline
+            transactionPassword,     // Tech admin transaction password
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -105,11 +106,11 @@ export const createAdmin = async (req: Request, res: Response) => {
         } = req.body;
 
         // Basic validation
-        if (!loginId || !user_password || !whiteListId) {
+        if (!loginId || !user_password || !whiteListId || !transactionPassword) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
                 success: false,
-                error: 'loginId, password, and whiteListId are required'
+                error: 'loginId, password, whiteListId, and transactionPassword are required'
             });
         }
 
@@ -127,6 +128,16 @@ export const createAdmin = async (req: Request, res: Response) => {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid commission values. Must be between 0 and 100%'
+            });
+        }
+
+        // Validate transaction password
+        const uplineTransactionPassword = req.user?.transactionPassword;
+        if (transactionPassword !== uplineTransactionPassword) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                success: false,
+                error: 'Invalid transaction password'
             });
         }
 
@@ -200,6 +211,12 @@ export const createAdmin = async (req: Request, res: Response) => {
         };
 
         const savedAdmin = await adminRepo.save(adminData);
+
+        // Increment upline's createdUsersCount
+        if (uplineId) {
+            const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+            await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+        }
 
         // Helper function to create settings with proper commission distribution
         const createSettings = async (repo: any, settingsData: any, sportType: string) => {
@@ -1040,7 +1057,8 @@ export const adminLogin = async (req: Request, res: Response) => {
             canDeleteUsers: user.canDeleteUsers,
             canDeleteBets: user.canDeleteBets,
             specialPermissions: user.specialPermissions,
-            depositWithdrawlAccess: user.depositWithdrawlAccess
+            depositWithdrawlAccess: user.depositWithdrawlAccess,
+            adminPanels: user.availableAdminPanels || ['MiniAdmin', 'SuperMaster', 'Master', 'SuperAgent', 'Agent', 'Client']
         };
 
         const token = jwt.sign(

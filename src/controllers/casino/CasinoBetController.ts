@@ -6,6 +6,7 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 import { CronDataSource } from "../../corn.server";
 import { getRedisClient } from "../../config/redisConfig";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import axios from "axios";
 
 export const createBet = async (req: Request, res: Response) => {
@@ -632,6 +633,17 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
               }
             }
           });
+
+          // Create account transaction record for settlement
+          const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const accountTransaction = accountTransactionRepo.create({
+            uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
+            downlineUserId: userId,
+            remarks: `[CASINO-BET-SETTLED] ${casinoType} (Match: ${mid}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+            type: profitLoss > 0 ? "deposit" : "withdraw", // Use deposit for wins, withdraw for losses
+            amount: Math.abs(profitLoss),
+          });
+          await accountTransactionRepo.save(accountTransaction);
 
           // Update user balance after bet is marked as settled
           await transactionalEntityManager.save(user);

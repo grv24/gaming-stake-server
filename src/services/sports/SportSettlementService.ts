@@ -1,6 +1,7 @@
 import { DataSource, In } from "typeorm";
 import { SportBet } from "../../entities/sports/SportBet";
 import { SportMatch } from "../../entities/sports/SportMatch";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import axios from "axios";
 import * as fs from "fs";
@@ -354,32 +355,100 @@ export class SportSettlementService {
       const updatedResults = [];
       let hasUpdatedResults = false;
 
-      for (const category of sportMatch.categories) {
-        const marketType = category.marketType;
+      // STEP 2: Fetch declared results from Diamond API first
+      console.log(`[SPORT-SETTLE] Fetching declared results from Diamond API for event ${eventId}`);
+      const declaredResults = await this.fetchDeclaredResults(eventId);
+      
+      if (declaredResults && declaredResults.length > 0) {
+        console.log(`[SPORT-SETTLE] Found ${declaredResults.length} declared results from Diamond API`);
         
-        // Check if this category has null result data
-        if (category.resultData === null) {
-          console.log(`[SPORT-SETTLE] Category ${category.marketName} (${marketType}) has null result data - fetching results`);
-
-          // Fetch result data from appropriate API based on market type
-          const resultData = await this.fetchResultFromAPI(eventId, marketType);
+        for (const category of sportMatch.categories) {
+          const marketType = category.marketType;
           
-          if (resultData && resultData.data) {
-            // Update this specific category with result data
-            await this.updateSportMatchCategoryResult(eventId, category, resultData);
-            updatedResults.push({ marketType, resultData: resultData.data, category });
+          // Find matching declared result for this category
+          const matchingDeclaredResult = declaredResults.find(result => 
+            this.isMarketNameMatch(result.market_name, category.marketName) &&
+            result.is_declared && 
+            !result.is_roleback &&
+            result.final_result
+          );
+          
+          if (matchingDeclaredResult) {
+            console.log(`[SPORT-SETTLE] Found matching declared result for category: ${category.marketName}`);
+            
+            // Create result data from declared result
+            const declaredResultData = {
+              apiUsed: "declared_result",
+              data: [{
+                market_id: matchingDeclaredResult.market_id || eventId,
+                sid: category.sid,
+                winner: matchingDeclaredResult.final_result,
+                selection_id: matchingDeclaredResult.selection_id || category.sid,
+                value: matchingDeclaredResult.final_result,
+                status: "finished",
+                final_result: matchingDeclaredResult.final_result,
+                market_name: matchingDeclaredResult.market_name,
+                is_declared: matchingDeclaredResult.is_declared,
+                is_roleback: matchingDeclaredResult.is_roleback
+              }]
+            };
+            
+            // Update this specific category with declared result data
+            await this.updateSportMatchCategoryResult(eventId, category, declaredResultData);
+            updatedResults.push({ marketType, resultData: declaredResultData.data, category });
             hasUpdatedResults = true;
-            console.log(`[SPORT-SETTLE] Successfully updated category ${category.marketName} with ${resultData.apiUsed} API data`);
-          } else {
-            console.log(`[SPORT-SETTLE] No result data available for event ${eventId}, market type ${marketType} - third party API has no data`);
-            // Continue with existing result data if available
-            if (category.resultData) {
-              updatedResults.push({ marketType, resultData: category.resultData, category });
+            console.log(`[SPORT-SETTLE] Successfully updated category ${category.marketName} with declared result: ${matchingDeclaredResult.final_result}`);
+          } else if (category.resultData === null) {
+            console.log(`[SPORT-SETTLE] Category ${category.marketName} doesn't match any declared result - fetching from API`);
+            
+            // Fetch result data from appropriate API based on market type
+            const resultData = await this.fetchResultFromAPI(eventId, marketType);
+            
+            if (resultData && resultData.data) {
+              // Update this specific category with result data
+              await this.updateSportMatchCategoryResult(eventId, category, resultData);
+              updatedResults.push({ marketType, resultData: resultData.data, category });
+              hasUpdatedResults = true;
+              console.log(`[SPORT-SETTLE] Successfully updated category ${category.marketName} with ${resultData.apiUsed} API data`);
+            } else {
+              console.log(`[SPORT-SETTLE] No result data available for event ${eventId}, market type ${marketType} - third party API has no data`);
             }
+          } else {
+            console.log(`[SPORT-SETTLE] Category ${category.marketName} already has result data - using existing data`);
+            updatedResults.push({ marketType, resultData: category.resultData, category });
           }
-        } else {
-          console.log(`[SPORT-SETTLE] Category ${category.marketName} already has result data`);
-          updatedResults.push({ marketType, resultData: category.resultData, category });
+        }
+      } else {
+        console.log(`[SPORT-SETTLE] No declared results found from Diamond API - using fallback API logic`);
+        
+        // Fallback to original API logic if no declared results
+        for (const category of sportMatch.categories) {
+          const marketType = category.marketType;
+          
+          // Check if this category has null result data
+          if (category.resultData === null) {
+            console.log(`[SPORT-SETTLE] Category ${category.marketName} (${marketType}) has null result data - fetching results`);
+
+            // Fetch result data from appropriate API based on market type
+            const resultData = await this.fetchResultFromAPI(eventId, marketType);
+            
+            if (resultData && resultData.data) {
+              // Update this specific category with result data
+              await this.updateSportMatchCategoryResult(eventId, category, resultData);
+              updatedResults.push({ marketType, resultData: resultData.data, category });
+              hasUpdatedResults = true;
+              console.log(`[SPORT-SETTLE] Successfully updated category ${category.marketName} with ${resultData.apiUsed} API data`);
+            } else {
+              console.log(`[SPORT-SETTLE] No result data available for event ${eventId}, market type ${marketType} - third party API has no data`);
+              // Continue with existing result data if available
+              if (category.resultData) {
+                updatedResults.push({ marketType, resultData: category.resultData, category });
+              }
+            }
+          } else {
+            console.log(`[SPORT-SETTLE] Category ${category.marketName} already has result data`);
+            updatedResults.push({ marketType, resultData: category.resultData, category });
+          }
         }
       }
 
@@ -401,6 +470,38 @@ export class SportSettlementService {
     } catch (error: any) {
       console.error(`[SPORT-SETTLE] Error settling event ${eventId}:`, error);
       return { settledCount: 0, errorCount: 1, errors: [{ eventId, error: error.message }] };
+    }
+  }
+
+  /**
+   * FETCH DECLARED RESULTS FROM DIAMOND API
+   * 
+   * Purpose: Get declared results from Diamond API for market name matching
+   */
+  private async fetchDeclaredResults(eventId: string): Promise<any[]> {
+    try {
+      const diamondUrl = `${process.env.THIRD_PARTY_URL}/api/v2/diamondResults?eventId=${eventId}`;
+      
+      const response = await axios.get(diamondUrl, { 
+        timeout: 10000,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'GameStake-Server/1.0'
+        }
+      });
+
+      if (response.data && Array.isArray(response.data)) {
+        return response.data.filter(result => 
+          result.is_declared && 
+          !result.is_roleback && 
+          result.final_result
+        );
+      }
+      
+      return [];
+    } catch (error: any) {
+      console.error(`[SPORT-SETTLE] Error fetching declared results for event ${eventId}:`, error);
+      return [];
     }
   }
 
@@ -648,6 +749,80 @@ export class SportSettlementService {
   }
 
   /**
+   * CHECK IF SID MATCHES
+   * 
+   * Purpose: Validate that the selection_id from declared result matches the category sid
+   * Logic: Compare selection_id with category.sid to ensure correct result assignment
+   */
+  private isSidMatch(selectionId: any, categorySid: any): boolean {
+    try {
+      const resultSid = String(selectionId || '').trim();
+      const catSid = String(categorySid || '').trim();
+      
+      const isMatch = resultSid === catSid;
+      
+      console.log(`[SPORT-SETTLE] SID comparison:`, {
+        resultSelectionId: selectionId,
+        categorySid: categorySid,
+        resultSid: resultSid,
+        catSid: catSid,
+        isMatch: isMatch
+      });
+      
+      return isMatch;
+    } catch (error: any) {
+      console.error(`[SPORT-SETTLE] Error comparing SIDs:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * CHECK IF MARKET NAMES MATCH
+   * 
+   * Purpose: Compare market names between SportMatch result and category
+   * Logic: Check if the declared result market name matches the category market name
+   */
+  private isMarketNameMatch(declaredMarketName: string, categoryMarketName: string): boolean {
+    try {
+      // Normalize both names for comparison
+      const declared = declaredMarketName.toLowerCase().trim();
+      const category = categoryMarketName.toLowerCase().trim();
+      
+      // Extract the core market name from category (remove the event name part in parentheses at the end)
+      // e.g., "20 over runs NAM(ZIM vs NAM)adv(Zimbabwe v Namibia)" -> "20 over runs NAM(ZIM vs NAM)adv"
+      const categoryCore = category.split('(').slice(0, -1).join('(').trim();
+      
+      // More precise matching: check if the declared market name matches the core part of category market name
+      // This prevents matching "Zimbabwe(Zimbabwe v Namibia)" with "20 over runs NAM(ZIM vs NAM)adv"
+      const isMatch = categoryCore.includes(declared) || declared.includes(categoryCore);
+      
+      // Additional validation: ensure we don't match completely different market types
+      // e.g., don't match "Zimbabwe" with "20 over runs NAM"
+      const declaredWords = declared.split(' ').filter(word => word.length > 2);
+      const categoryWords = categoryCore.split(' ').filter(word => word.length > 2);
+      const hasCommonWords = declaredWords.some(word => categoryWords.includes(word));
+      
+      const finalMatch = isMatch && hasCommonWords;
+      
+      console.log(`[SPORT-SETTLE] Market name comparison:`, {
+        declared: declaredMarketName,
+        category: categoryMarketName,
+        categoryCore: categoryCore,
+        declaredWords: declaredWords,
+        categoryWords: categoryWords,
+        hasCommonWords: hasCommonWords,
+        isMatch: isMatch,
+        finalMatch: finalMatch
+      });
+      
+      return finalMatch;
+    } catch (error: any) {
+      console.error(`[SPORT-SETTLE] Error comparing market names:`, error);
+      return false;
+    }
+  }
+
+  /**
    * UPDATE SPORT MATCH CATEGORY RESULT
    * 
    * Purpose: Update specific category result data in SportMatch
@@ -886,33 +1061,73 @@ export class SportSettlementService {
             // Update exposure: reduce by stake amount (regardless of win/loss)
             (user as any).exposure = Number((user as any).exposure) - stakeAmount;
 
-            // Update bet status
-            await transactionalEntityManager.update(
-              SportBet,
-              { id: bet.id },
-              {
-                status: finalStatus,
-                betData: {
-                  ...betData,
-                  result: {
-                    marketId: marketId,
-                    marketName: betData.marketName || "",
-                    marketType: marketType,
-                    finalResult: resultData,
-                    settledAt: new Date(),
-                    profitLoss: profitLoss,
-                    stake: stakeAmount,
-                    betRate: betRate,
-                    status: finalStatus,
-                    settled: true,
-                    isWinner: isWinner,
-                    originalStake: stakeAmount,
-                    calculatedProfit: isWinner ? profitLoss : 0,
-                    calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
-                  }
-                }
-              }
-            );
+            // Console log sports settlement (database update disabled due to issues)
+            console.log(`[SPORT-SETTLEMENT-LOG] Account Statement Entry:`, {
+              uplineUserId: (user as any).uplineId || userId,
+              downlineUserId: userId,
+              remarks: `[SPORT-BET-SETTLED] ${betData.marketName || 'Unknown'} (Event: ${betData.eventId || marketId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+              type: profitLoss > 0 ? "deposit" : "withdraw",
+              amount: Math.abs(profitLoss),
+              timestamp: new Date().toISOString()
+            });
+
+            // TODO: Re-enable database update when issues are resolved
+            // const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+            // const accountTransaction = accountTransactionRepo.create({
+            //   uplineUserId: (user as any).uplineId || userId,
+            //   downlineUserId: userId,
+            //   remarks: `[SPORT-BET-SETTLED] ${betData.marketName || 'Unknown'} (Event: ${betData.eventId || marketId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+            //   type: profitLoss > 0 ? "deposit" : "withdraw",
+            //   amount: Math.abs(profitLoss),
+            // });
+            // await accountTransactionRepo.save(accountTransaction);
+
+            // Console log bet status update (database update disabled due to issues)
+            console.log(`[SPORT-SETTLEMENT-LOG] Bet Status Update:`, {
+              betId: bet.id,
+              userId: userId,
+              status: finalStatus,
+              marketId: marketId,
+              marketName: betData.marketName || "",
+              marketType: marketType,
+              finalResult: resultData,
+              settledAt: new Date().toISOString(),
+              profitLoss: profitLoss,
+              stake: stakeAmount,
+              betRate: betRate,
+              isWinner: isWinner,
+              originalStake: stakeAmount,
+              calculatedProfit: isWinner ? profitLoss : 0,
+              calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
+            });
+
+            // TODO: Re-enable database update when issues are resolved
+            // await transactionalEntityManager.update(
+            //   SportBet,
+            //   { id: bet.id },
+            //   {
+            //     status: finalStatus,
+            //     betData: {
+            //       ...betData,
+            //       result: {
+            //         marketId: marketId,
+            //         marketName: betData.marketName || "",
+            //         marketType: marketType,
+            //         finalResult: resultData,
+            //         settledAt: new Date(),
+            //         profitLoss: profitLoss,
+            //         stake: stakeAmount,
+            //         betRate: betRate,
+            //         status: finalStatus,
+            //         settled: true,
+            //         isWinner: isWinner,
+            //         originalStake: stakeAmount,
+            //         calculatedProfit: isWinner ? profitLoss : 0,
+            //         calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
+            //       }
+            //     }
+            //   }
+            // );
 
             settledCount++;
 
@@ -921,8 +1136,17 @@ export class SportSettlementService {
           }
         }
 
-        // Save user
-        await transactionalEntityManager.save(user);
+        // Console log user balance update (database update disabled due to issues)
+        console.log(`[SPORT-SETTLEMENT-LOG] User Balance Update:`, {
+          userId: userId,
+          userType: userType,
+          newBalance: (user as any).balance,
+          newExposure: (user as any).exposure,
+          timestamp: new Date().toISOString()
+        });
+
+        // TODO: Re-enable database update when issues are resolved
+        // await transactionalEntityManager.save(user);
 
       });
 

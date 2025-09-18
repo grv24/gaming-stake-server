@@ -2,22 +2,23 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { AppDataSource } from "../../server";
 import { Client } from "../../entities/users/ClientUser";
-import { SoccerSettings } from "../../entities/users/utils/SoccerSetting";
-import { CricketSettings } from "../../entities/users/utils/CricketSetting";
-import { CasinoSettings } from "../../entities/users/utils/CasinoSetting";
-import { InternationalCasinoSettings } from "../../entities/users/utils/InternationalCasino";
-import { MatkaSettings } from "../../entities/users/utils/MatkaSetting";
-import { TennisSettings } from "../../entities/users/utils/TennisSetting";
-import { validate } from "class-validator";
-import { plainToInstance } from "class-transformer";
-import { isUUID } from "class-validator";
-import { Between, Like } from "typeorm";
-// import { Whitelist } from "../../entities/whitelist/Whitelist";
+import { SoccerSettings } from '../../entities/users/utils/SoccerSetting';
+import { CricketSettings } from '../../entities/users/utils/CricketSetting';
+import { CasinoSettings } from '../../entities/users/utils/CasinoSetting';
+import { InternationalCasinoSettings } from '../../entities/users/utils/InternationalCasino';
+import { MatkaSettings } from '../../entities/users/utils/MatkaSetting';
+import { TennisSettings } from '../../entities/users/utils/TennisSetting';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { isUUID } from 'class-validator';
+import { Between, Like } from 'typeorm';
+// import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { WhitelistNew } from "../../entities/whitelist/WhitelistNew"; // girraj
-import { getUserSocket } from "../../config/socketHandler";
-import { generateTransactionCode } from "../../Helpers/Request/Validation";
-import { Buttons } from "../../entities/games/Buttons";
-import { getRedisClient } from "../../config/redisConfig";
+import { USER_TABLES } from '../../Helpers/users/Roles';
+import { getUserSocket } from '../../config/socketHandler';
+import { generateTransactionCode } from '../../Helpers/Request/Validation';
+import { Buttons } from '../../entities/games/Buttons';
+import { getRedisClient } from '../../config/redisConfig';
 import { relative } from "path";
 import { Raw } from "typeorm";
 
@@ -98,22 +99,23 @@ export const createClient = async (req: Request, res: Response) => {
       partnerShipWiseCommission = false,
       commissionLena = true,
       commissionDena = false,
-      commissionUpline = 0, // Your commission as upline
-      partnershipUpline = 0, // Your percentage as upline
+      commissionUpline = 0,    // Your commission as upline
+      partnershipUpline = 0,    // Your percentage as upline
+      transactionPassword,     // Upline transaction password
       soccerSettings = {},
       cricketSettings = {},
       tennisSettings = {},
       matkaSettings = {},
       casinoSettings = {},
-      internationalCasinoSettings = {},
+      internationalCasinoSettings = {}
     } = req.body;
 
     // Basic validation
-    if (!loginId || !user_password || !whiteListId) {
+    if (!loginId || !user_password || !whiteListId || !transactionPassword) {
       await queryRunner.rollbackTransaction();
       return res.status(400).json({
         success: false,
-        error: "loginId, password, and whiteListId are required",
+        error: 'loginId, password, whiteListId, and transactionPassword are required'
       });
     }
 
@@ -130,7 +132,17 @@ export const createClient = async (req: Request, res: Response) => {
       await queryRunner.rollbackTransaction();
       return res.status(400).json({
         success: false,
-        error: "Invalid commission values. Must be between 0 and 100%",
+        error: 'Invalid commission values. Must be between 0 and 100%'
+      });
+    }
+
+    // Validate transaction password
+    const uplineTransactionPassword = req.user?.transactionPassword;
+    if (transactionPassword !== uplineTransactionPassword) {
+      await queryRunner.rollbackTransaction();
+      return res.status(403).json({
+        success: false,
+        error: 'Invalid transaction password'
       });
     }
 
@@ -204,6 +216,12 @@ export const createClient = async (req: Request, res: Response) => {
     };
 
     const savedClient = await clientRepo.save(clientData);
+
+    // Increment upline's createdUsersCount
+    if (uplineId) {
+      const uplineRepo = queryRunner.manager.getRepository(USER_TABLES[req.__type as keyof typeof USER_TABLES]);
+      await uplineRepo.increment({ id: uplineId }, 'createdUsersCount', 1);
+    }
 
     // Helper function to create settings with proper commission distribution
     const createSettings = async (

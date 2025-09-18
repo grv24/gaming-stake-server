@@ -489,14 +489,81 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
       console.log(`Using cached database result for matchId: ${matchId}`);
     }
 
-    // Fetch user bets for this match
+    // Fetch user bets for this match (include all statuses)
     const userBets = await CasinoBetRepo.find({
       where: {
         userId,
         matchId: casinoMatch?.mid as any,
-        status: In(["won", "lost"]),
+        status: In(["pending", "won", "lost"]),
       },
     });
+
+    // If we have result data and pending bets exist, trigger settlement
+    if (resultData && userBets.some(bet => bet.status === "pending")) {
+      try {
+        console.log(`Triggering settlement for matchId: ${matchId} with ${userBets.filter(bet => bet.status === "pending").length} pending bets`);
+        
+        // Use the public settlement method
+        const { CasinoSettlementService } = await import('../../services/casino/CasinoSettlementService');
+        const settlementService = new CasinoSettlementService(AppDataSource);
+        
+        // Trigger settlement for this match (this will settle all pending bets for this match)
+        const settlementResult = await settlementService.settleCasinoMatch(
+          casinoType as string || 'unknown', 
+          matchId as string
+        );
+        
+        if (settlementResult.settledCount > 0) {
+          console.log(`Settlement completed: ${settlementResult.settledCount} bets settled for match ${matchId}`);
+          
+          // Refetch user bets to get updated statuses
+          const updatedUserBets = await CasinoBetRepo.find({
+            where: {
+              userId,
+              matchId: casinoMatch?.mid as any,
+              status: In(["pending", "won", "lost"]),
+            },
+          });
+          
+          return res.json({
+            success: true,
+            data: {
+              matchData: resultData,
+              userBets: updatedUserBets,
+              source,
+              betSummary: {
+                total: updatedUserBets.length,
+                pending: updatedUserBets.filter(bet => bet.status === "pending").length,
+                won: updatedUserBets.filter(bet => bet.status === "won").length,
+                lost: updatedUserBets.filter(bet => bet.status === "lost").length,
+              },
+              hasResultData: !!resultData,
+              hasPendingBets: updatedUserBets.some(bet => bet.status === "pending"),
+              settlementInfo: {
+                settledCount: settlementResult.settledCount,
+                message: settlementResult.message
+              }
+            },
+          });
+        }
+      } catch (settlementError: any) {
+        console.error(`Error triggering settlement for match ${matchId}:`, {
+          message: settlementError.message,
+          stack: settlementError.stack,
+          userId,
+          matchId,
+          casinoType
+        });
+        
+        // Log warning about pending bets that couldn't be settled
+        const pendingBetsCount = userBets.filter(bet => bet.status === "pending").length;
+        if (pendingBetsCount > 0) {
+          console.warn(`Warning: ${pendingBetsCount} pending bets for user ${userId} in match ${matchId} could not be settled automatically`);
+        }
+        
+        // Continue with original response even if settlement fails
+      }
+    }
 
     return res.json({
       success: true,
@@ -504,6 +571,14 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
         matchData: resultData,
         userBets,
         source,
+        betSummary: {
+          total: userBets.length,
+          pending: userBets.filter(bet => bet.status === "pending").length,
+          won: userBets.filter(bet => bet.status === "won").length,
+          lost: userBets.filter(bet => bet.status === "lost").length,
+        },
+        hasResultData: !!resultData,
+        hasPendingBets: userBets.some(bet => bet.status === "pending"),
       },
     });
   } catch (err) {

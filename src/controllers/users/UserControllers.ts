@@ -7,9 +7,9 @@ import { AccountTrasaction } from "../../entities/Transactions/AccountTransactio
 import { TechAdmin } from "../../entities/users/TechAdminUser";
 import { format } from "date-fns";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
-import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { Between, In } from "typeorm";
 import { SportBet } from "../../entities/sports/SportBet";
+import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 
 export const getPendingBet = async (req: Request, res: Response) => {
   const { type } = req.query;
@@ -573,10 +573,27 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
       });
     }
 
+    // Get query parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const userType = req.query.type as string;
+
+    // Validate user type if provided
+    if (userType && !USER_TABLES[userType]) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid user type. Valid types are: ${Object.keys(USER_TABLES).join(', ')}`,
+      });
+    }
+
     const allUsers: any[] = [];
+    let totalCount = 0;
 
     const fetchChildren = async (parentId: string) => {
-      for (const [type, entity] of Object.entries(USER_TABLES)) {
+      // If specific user type is requested, only fetch that type
+      const tablesToQuery = userType ? { [userType]: USER_TABLES[userType] } : USER_TABLES;
+
+      for (const [type, entity] of Object.entries(tablesToQuery)) {
         const repo = AppDataSource.getRepository(entity);
 
         const children = await repo.find({
@@ -644,11 +661,23 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
     };
 
     await fetchChildren(currentUserId);
+    totalCount = allUsers.length;
+
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    const paginatedUsers = allUsers.slice(skip, skip + limit);
 
     return res.status(200).json({
       success: true,
-      count: allUsers.length,
-      users: allUsers,
+      data: {
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+        users: paginatedUsers,
+      },
     });
   } catch (error) {
     console.error("Error fetching downline users:", error);
@@ -1107,7 +1136,7 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
     } = req.query as {
       startDate?: string;
       endDate?: string;
-      type?: "all" | "deposit/withdraw" | "casino";
+      type?: "all" | "deposit/withdraw" | "casinos" | "casino-settlement" | "sports";
       slug?: string;
       page?: string;
       limit?: string;
@@ -1120,89 +1149,8 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
     let results: any[] = [];
     let total = 0;
 
-    // Handle casino and deposit/withdraw separately with proper pagination
-    if (type === "casino" || type === "all") {
-      if (!slug && type === "casino") {
-        return res.status(400).json({
-          status: false,
-          message: "casino slug is required for type=casino",
-        });
-      }
-
-      if (slug) {
-        const CasinoBetRepo = AppDataSource.getRepository(CasinoBet);
-        const CasinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
-
-        const betQuery: any = { userId };
-        if (startDate && endDate) {
-          // Add time to date ranges to include the entire day
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          betQuery.createdAt = Between(start, end);
-        }
-
-        // For type="all", we need to adjust pagination to get proper results
-        const casinoSkip = type === "all" ? 0 : skip;
-        const casinoLimit = type === "all" ? 1000 : limitNum; // Large limit for "all" to get all records
-
-        const placedBets = await CasinoBetRepo.find({
-          where: betQuery,
-          skip: casinoSkip,
-          take: casinoLimit,
-          order: { createdAt: "DESC" },
-        });
-
-        const casinoTotal = await CasinoBetRepo.count({ where: betQuery });
-
-        // Get all match IDs for efficient querying
-        const matchIds = placedBets
-          .map((bet) => bet.matchId)
-          .filter((id) => id);
-        const matches =
-          matchIds.length > 0
-            ? await CasinoMatchRepo.find({
-              where: { mid: In(matchIds) },
-            })
-            : [];
-
-        const matchMap = new Map();
-        matches.forEach((match) => matchMap.set(match.mid, match));
-
-        const casinoResults = placedBets
-          .map((bet) => {
-            const match = matchMap.get(bet.matchId);
-            if (!match) return null;
-
-            const createdAtIST = new Date(match.createdAt).toLocaleString(
-              "en-IN",
-              { timeZone: "Asia/Kolkata" }
-            );
-
-            return {
-              roundId: match.mid,
-              winner: match.winner,
-              result: match.result, // Use the stored result directly
-              dateAndTime: createdAtIST,
-              myBetDetails: bet.betData,
-              type: "casino",
-              // Add consistent fields for sorting
-              sortDate: new Date(match.createdAt),
-            };
-          })
-          .filter((m) => m !== null);
-
-        if (type === "all") {
-          results = results.concat(casinoResults);
-        } else {
-          results = casinoResults;
-          total = casinoTotal;
-        }
-      }
-    }
-
-    if (type === "deposit/withdraw" || type === "all") {
+    // Handle casino settlements from account transactions
+    if (type === "casinos" || type === "all") {
       const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
       const qb = accountTxRepo
         .createQueryBuilder("tx")
@@ -1224,7 +1172,93 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
         qb.andWhere("tx.createdAt <= :end", { end });
       }
 
-      qb.andWhere("tx.type IN (:...types)", { types: ["deposit", "withdraw"] });
+      // Filter for casino settlements only
+      qb.andWhere("(tx.remarks LIKE :casinoSettlement OR tx.remarks LIKE :casinoReversed)", {
+        casinoSettlement: "%[CASINO-BET-SETTLED]%",
+        casinoReversed: "%[CASINO-BET-REVERSED]%"
+      });
+
+      // Add slug filter if provided for specific casino game
+      if (slug) {
+        qb.andWhere("tx.remarks LIKE :gameSlug", { gameSlug: `%${slug}%` });
+      }
+
+      // For type="all", we need to adjust pagination
+      const casinoSkip = type === "all" ? 0 : skip;
+      const casinoLimit = type === "all" ? 1000 : limitNum;
+
+      qb.skip(casinoSkip).take(casinoLimit);
+      qb.orderBy("tx.createdAt", "DESC");
+
+      const [casinoTransactions, casinoTotal] = await qb.getManyAndCount();
+
+      // Calculate running balance for casino transactions
+      let runningBalance = 0;
+      const casinoResults = casinoTransactions.map((tx, index) => {
+        // Calculate balance based on transaction type
+        if (tx.type === "deposit") {
+          runningBalance += tx.amount;
+        } else if (tx.type === "withdraw") {
+          runningBalance -= tx.amount;
+        }
+
+        return {
+          sNo: casinoSkip + index + 1,
+          date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+          deposit: "", // Casino settlements don't show in deposit column
+          withdraw: "", // Casino settlements don't show in withdraw column
+          balance: runningBalance,
+          remark: tx.remarks,
+          type: "casino",
+          // Add consistent fields for sorting
+          sortDate: new Date(tx.createdAt),
+          dateAndTime: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+        };
+      });
+
+      if (type === "all") {
+        results = results.concat(casinoResults);
+      } else {
+        results = casinoResults;
+        total = casinoTotal;
+      }
+    }
+
+    if (type === "deposit/withdraw" || type === "casino-settlement" || type === "all") {
+      const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
+      const qb = accountTxRepo
+        .createQueryBuilder("tx")
+        .where("tx.downlineUserId = :userId", { userId });
+
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        qb.andWhere("tx.createdAt BETWEEN :start AND :end", { start, end });
+      } else if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        qb.andWhere("tx.createdAt >= :start", { start });
+      } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        qb.andWhere("tx.createdAt <= :end", { end });
+      }
+
+      // Handle different filter types
+      if (type === "casino-settlement") {
+        qb.andWhere("(tx.remarks LIKE :casinoSettlement OR tx.remarks LIKE :casinoReversed)", {
+          casinoSettlement: "%[CASINO-BET-SETTLED]%",
+          casinoReversed: "%[CASINO-BET-REVERSED]%"
+        });
+      } else if (type === "deposit/withdraw") {
+        qb.andWhere("tx.type IN (:...types)", { types: ["deposit", "withdraw"] });
+        qb.andWhere("tx.remarks NOT LIKE :casinoSettlement", { casinoSettlement: "%[CASINO-BET-SETTLED]%" });
+        qb.andWhere("tx.remarks NOT LIKE :casinoReversed", { casinoReversed: "%[CASINO-BET-REVERSED]%" });
+      } else if (type === "all") {
+        qb.andWhere("tx.type IN (:...types)", { types: ["deposit", "withdraw"] });
+      }
 
       // For type="all", we need to adjust pagination
       const txSkip = type === "all" ? 0 : skip;
@@ -1235,18 +1269,32 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
 
       const [transactions, txTotal] = await qb.getManyAndCount();
 
-      const txResults = transactions.map((tx, index) => ({
-        sNo: txSkip + index + 1,
-        date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
-        deposit: tx.type === "deposit" ? tx.amount : 0,
-        withdraw: tx.type === "withdraw" ? tx.amount : 0,
-        casino: "",
-        remarks: tx.remarks,
-        type: tx.type,
-        // Add consistent fields for sorting
-        sortDate: new Date(tx.createdAt),
-        dateAndTime: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
-      }));
+      // Calculate running balance for transactions
+      let runningBalance = 0;
+      const txResults = transactions.map((tx, index) => {
+        // Check if this is a casino bet settlement transaction
+        const isCasinoSettlement = tx.remarks.includes("[CASINO-BET-SETTLED]") || tx.remarks.includes("[CASINO-BET-REVERSED]");
+
+        // Calculate balance based on transaction type
+        if (tx.type === "deposit") {
+          runningBalance += tx.amount;
+        } else if (tx.type === "withdraw") {
+          runningBalance -= tx.amount;
+        }
+
+        return {
+          sNo: txSkip + index + 1,
+          date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+          deposit: isCasinoSettlement ? "" : (tx.type === "deposit" ? tx.amount : ""),
+          withdraw: isCasinoSettlement ? "" : (tx.type === "withdraw" ? tx.amount : ""),
+          balance: runningBalance,
+          remark: tx.remarks,
+          type: tx.type,
+          // Add consistent fields for sorting
+          sortDate: new Date(tx.createdAt),
+          dateAndTime: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+        };
+      });
 
       if (type === "all") {
         results = results.concat(txResults);
@@ -1255,6 +1303,76 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
         results = txResults;
         total = txTotal;
       }
+    }
+
+    // Handle sports transactions from account transactions
+    if (type === "sports") {
+      const accountTxRepo = AppDataSource.getRepository(AccountTrasaction);
+      const qb = accountTxRepo
+        .createQueryBuilder("tx")
+        .where("tx.downlineUserId = :userId", { userId });
+
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        qb.andWhere("tx.createdAt BETWEEN :start AND :end", { start, end });
+      } else if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        qb.andWhere("tx.createdAt >= :start", { start });
+      } else if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        qb.andWhere("tx.createdAt <= :end", { end });
+      }
+
+      // Filter for sports settlements only
+      qb.andWhere("tx.remarks LIKE :sportSettlement", {
+        sportSettlement: "%[SPORT-BET-SETTLED]%"
+      });
+
+      qb.skip(skip).take(limitNum);
+      qb.orderBy("tx.createdAt", "DESC");
+
+      const [sportsTransactions, sportsTotal] = await qb.getManyAndCount();
+
+      // Calculate running balance for sports transactions
+      let runningBalance = 0;
+      const sportsResults = sportsTransactions.map((tx, index) => {
+        // Calculate balance based on transaction type
+        if (tx.type === "deposit") {
+          runningBalance += tx.amount;
+        } else if (tx.type === "withdraw") {
+          runningBalance -= tx.amount;
+        }
+
+        return {
+          sNo: skip + index + 1,
+          date: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+          deposit: "", // Sports settlements don't show in deposit column
+          withdraw: "", // Sports settlements don't show in withdraw column
+          balance: runningBalance,
+          remark: tx.remarks,
+          type: "sports",
+          // Add consistent fields for sorting
+          sortDate: new Date(tx.createdAt),
+          dateAndTime: format(new Date(tx.createdAt), "dd-MM-yyyy HH:mm:ss"),
+        };
+      });
+
+      return res.status(200).json({
+        status: true,
+        message: "Sports transactions fetched successfully",
+        data: sportsResults,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: sportsTotal,
+          totalPages: Math.ceil(sportsTotal / limitNum),
+        },
+      });
     }
 
     // Sort all results by date descending

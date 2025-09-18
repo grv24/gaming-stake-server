@@ -3,6 +3,7 @@ import { AppDataSource } from "../../server";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { SportBet } from "../../entities/sports/SportBet";
 import { SportMatch } from "../../entities/sports/SportMatch";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import { CronDataSource } from "../../corn.server";
 import axios from "axios";
 
@@ -499,29 +500,75 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
 
           user.exposure = Number(user.exposure) - stakeAmount;
 
-          // Update bet status
-          await transactionalEntityManager.update(SportBet, { id: bet.id }, {
-            status: newStatus,
-            betData: {
-              ...betData,
-              result: {
-                marketId: result.market_id,
-                marketName: marketName,
-                marketType: marketType,
-                finalResult: finalResult,
-                settledAt: new Date(),
-                profitLoss: profitLoss,
-                stake: stakeAmount,
-                betRate: betData.betRate || betData.matchOdd || 1,
-                status: newStatus,
-                settled: true,
-                isWinner: isWinner
-              }
-            }
+          // Console log sports settlement (database update disabled due to issues)
+          console.log(`[SPORT-SETTLEMENT-LOG] Manual Settlement Account Statement Entry:`, {
+            uplineUserId: user.uplineId || userId,
+            downlineUserId: userId,
+            remarks: `[SPORT-BET-SETTLED] ${marketName || 'Unknown'} (Event: ${eventId}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+            type: profitLoss > 0 ? "deposit" : "withdraw",
+            amount: Math.abs(profitLoss),
+            timestamp: new Date().toISOString()
           });
+
+          // TODO: Re-enable database update when issues are resolved
+          // const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          // const accountTransaction = accountTransactionRepo.create({
+          //   uplineUserId: user.uplineId || userId,
+          //   downlineUserId: userId,
+          //   remarks: `[SPORT-BET-SETTLED] ${marketName || 'Unknown'} (Event: ${eventId}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+          //   type: profitLoss > 0 ? "deposit" : "withdraw",
+          //   amount: Math.abs(profitLoss),
+          // });
+          // await accountTransactionRepo.save(accountTransaction);
+
+          // Console log bet status update (database update disabled due to issues)
+          console.log(`[SPORT-SETTLEMENT-LOG] Manual Bet Status Update:`, {
+            betId: bet.id,
+            userId: userId,
+            status: newStatus,
+            marketId: result.market_id,
+            marketName: marketName,
+            marketType: marketType,
+            finalResult: finalResult,
+            settledAt: new Date().toISOString(),
+            profitLoss: profitLoss,
+            stake: stakeAmount,
+            betRate: betData.betRate || betData.matchOdd || 1,
+            isWinner: isWinner
+          });
+
+          // TODO: Re-enable database update when issues are resolved
+          // await transactionalEntityManager.update(SportBet, { id: bet.id }, {
+          //   status: newStatus,
+          //   betData: {
+          //     ...betData,
+          //     result: {
+          //       marketId: result.market_id,
+          //       marketName: marketName,
+          //       marketType: marketType,
+          //       finalResult: finalResult,
+          //       settledAt: new Date(),
+          //       profitLoss: profitLoss,
+          //       stake: stakeAmount,
+          //       betRate: betData.betRate || betData.matchOdd || 1,
+          //       status: newStatus,
+          //       settled: true,
+          //       isWinner: isWinner
+          //     }
+          //   }
+          // });
           
-          // Update user balance
-          await transactionalEntityManager.save(user);
+          // Console log user balance update (database update disabled due to issues)
+          console.log(`[SPORT-SETTLEMENT-LOG] Manual User Balance Update:`, {
+            userId: userId,
+            userType: bet.userType,
+            newBalance: user.balance,
+            newExposure: user.exposure,
+            timestamp: new Date().toISOString()
+          });
+
+          // TODO: Re-enable database update when issues are resolved
+          // await transactionalEntityManager.save(user);
 
           settledCount++;
         });
