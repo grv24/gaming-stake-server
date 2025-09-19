@@ -66,6 +66,60 @@ export class CasinoSettlementService {
   }
 
   /**
+   * CHECK PENDING CASINO BETS - Debug/Info Method
+   * 
+   * Purpose: Check and return statistics about pending casino bets
+   * 
+   * @param matchId - Optional specific match ID to check
+   * @param casinoType - Optional specific casino type to check
+   * @returns Promise with pending bets statistics
+   */
+  async checkPendingCasinoBets(matchId?: string, casinoType?: string): Promise<any> {
+    try {
+      const whereCondition: any = { status: "pending" };
+      
+      if (matchId) {
+        whereCondition.matchId = matchId;
+      }
+      
+      if (casinoType) {
+        whereCondition.casinoType = casinoType;
+      }
+
+      const pendingBets = await this.casinoBetRepo.find({
+        where: whereCondition,
+        select: ["id", "matchId", "casinoType", "userId", "userType", "amount", "status"]
+      });
+
+      // Group by match ID for statistics
+      const betsByMatch = new Map<string, any[]>();
+      for (const bet of pendingBets) {
+        if (!betsByMatch.has(bet.matchId)) {
+          betsByMatch.set(bet.matchId, []);
+        }
+        betsByMatch.get(bet.matchId)!.push(bet);
+      }
+
+      return {
+        success: true,
+        totalPendingBets: pendingBets.length,
+        totalPendingBetsAll: pendingBets.length,
+        betsByMatch: Object.fromEntries(betsByMatch),
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      console.error(`[CASINO_SETTLEMENT_SERVICE] Error checking pending casino bets:`, error);
+      return {
+        success: false,
+        error: error.message,
+        totalPendingBets: 0,
+        totalPendingBetsAll: 0,
+        betsByMatch: {}
+      };
+    }
+  }
+
+  /**
    * SETTLE CASINO MATCH - Automatic Settlement
    * 
    * Purpose: Automatically settle all bets for a completed casino match
@@ -318,7 +372,7 @@ export class CasinoSettlementService {
           const stakeAmount = Number(betData.stake) || 0;
           const isWinner = winners.includes(betSid);
 
-          // Lay / Back logic with correct profit/loss calculation
+          // Lay / Back logic with correct profit/loss calculation using pre-calculated values
           let finalStatus: "won" | "lost" = "lost";
           let profitLoss = 0;
 
@@ -326,23 +380,24 @@ export class CasinoSettlementService {
             // Back bet: Win if selected outcome happens
             finalStatus = isWinner ? "won" : "lost";
             if (isWinner) {
-              profitLoss = Number(betData.profit) || 0;  // Positive for win
+              // Use pre-calculated profit from betData
+              profitLoss = Number(betData.profit) // Positive for win
               user.balance = Number(user.balance) + profitLoss;
             } else {
-              // For lost Back bet: user loses the stake amount
-              profitLoss = -(Number(betData.stake) || 0);  // Negative for loss (stake amount)
+              // Use pre-calculated loss from betData (make it negative for subtraction)
+              profitLoss = -Number(betData.loss) ;  // Make loss negative
               user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
             }
           } else if (betData.oddCategory === "Lay") {
             // Lay bet: Win if selected outcome DOESN'T happen
             finalStatus = !isWinner ? "won" : "lost";
             if (!isWinner) {
-              // Lay bet wins when selected outcome doesn't happen
-              profitLoss = Number(betData.stake) || 0;  // Positive for win (stake amount)
+              // Lay bet wins when selected outcome doesn't happen - use pre-calculated profit
+              profitLoss = Number(betData.profit)  // Use profit or fallback to stake
               user.balance = Number(user.balance) + profitLoss;
             } else {
-              // Lay bet loses when selected outcome happens
-              profitLoss = -(Number(betData.stake) || 0);  // Negative for loss (stake amount)
+              // Lay bet loses when selected outcome happens - use pre-calculated loss (make it negative)
+              profitLoss = -Number(betData.loss);  // Make loss negative
               user.balance = Number(user.balance) + profitLoss;  // Add negative = subtract
             }
           }

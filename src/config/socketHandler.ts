@@ -247,6 +247,37 @@ const triggerCasinoSettlement = async (casinoType: string, mid: string, dataSour
   }
 };
 
+/**
+ * CHECK PENDING CASINO BETS
+ * 
+ * Purpose: Check and log all pending casino bets for debugging
+ */
+const checkPendingCasinoBets = async (dataSource: DataSource, matchId?: string, casinoType?: string) => {
+  try {
+    logInfo(`Checking pending casino bets${matchId ? ` for match ${matchId}` : casinoType ? ` for casino type ${casinoType}` : ''}`);
+    
+    // Import settlement service dynamically
+    const { getCasinoSettlementService } = await import("../services/casino/CasinoSettlementService");
+    const casinoSettlementService = getCasinoSettlementService(dataSource);
+    
+    // Check pending bets
+    const result = await casinoSettlementService.checkPendingCasinoBets(matchId, casinoType);
+    
+    logInfo(`Pending casino bets check result:`, {
+      success: result.success,
+      totalPendingBets: result.totalPendingBets,
+      totalPendingBetsAll: result.totalPendingBetsAll,
+      betsByMatch: result.betsByMatch
+    });
+    
+    return result;
+    
+  } catch (error: any) {
+    logError(`Error checking pending casino bets:`, { error: error.message, stack: error.stack });
+    return { success: false, error: error.message };
+  }
+};
+
 // Function to check for Redis key changes and broadcast updates
 const checkAndBroadcastChanges = async (io: Server, dataSource: DataSource) => {
   try {

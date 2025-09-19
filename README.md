@@ -111,6 +111,47 @@ The system dynamically discovers casino types from Redis, supporting any casino 
 - **Dynamic**: Adapts to any casino types in Redis
 - **Efficient**: Only broadcasts what's actually in Redis
 
+## 🎰 Casino Bet Settlement
+
+### Check Pending Casino Bets
+```bash
+# Check all pending casino bets
+npx ts-node src/debug/check-casino-bets.ts
+
+# Check pending bets for specific casino type
+npx ts-node src/debug/check-casino-bets.ts poker20
+```
+
+### Manual Settlement Commands
+```bash
+# Settle specific casino match manually
+npx ts-node src/debug/manual-settlement.ts <casinoType> <matchId>
+
+# Example: Settle Poker20 match
+npx ts-node src/debug/manual-settlement.ts poker20 109250919071557
+
+# Example: Settle Dragon Tiger 6 match
+npx ts-node src/debug/manual-settlement.ts dt6 118250919060021
+```
+
+### Debug and Monitoring
+```bash
+# Check recent settled bets
+npx ts-node src/debug/check-recent-settled-bets.ts
+
+# Check match results for specific casino type
+npx ts-node src/debug/check-poker20-results.ts
+
+# Fetch results from third-party API
+npx ts-node src/debug/fetch-poker20-results.ts
+```
+
+### Settlement Process
+1. **Automatic**: Casino bets are settled automatically when result data becomes available
+2. **Manual**: Use debug scripts to manually trigger settlement for specific matches
+3. **Monitoring**: Check pending bets and settlement status using debug commands
+4. **Troubleshooting**: Debug scripts help identify and resolve settlement issues
+
 ## 📝 License
 
 This project is proprietary and confidential.
