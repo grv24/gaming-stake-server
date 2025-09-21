@@ -4,7 +4,6 @@ import { USER_TABLES } from "../../Helpers/users/Roles";
 import { SportBet } from "../../entities/sports/SportBet";
 import { SportMatch } from "../../entities/sports/SportMatch";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
-import { CronDataSource } from "../../corn.server";
 import axios from "axios";
 
 export const createBet = async (req: Request, res: Response) => {
@@ -382,7 +381,7 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
       });
     }
 
-    const sportBetRepo = CronDataSource.getRepository(SportBet);
+    const sportBetRepo = AppDataSource.getRepository(SportBet);
     
     const results = await fetchThirdPartyResults(eventId);
     
@@ -462,7 +461,7 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
         }
 
         // Use transaction for each bet
-        await CronDataSource.transaction(async (transactionalEntityManager) => {
+        await AppDataSource.transaction(async (transactionalEntityManager) => {
           // Lock bet and user to prevent race conditions
           const currentBet = await transactionalEntityManager.findOne(SportBet, {
             where: { id: bet.id, status: "pending", userId: userId },

@@ -1,33 +1,35 @@
-# Casino Broadcast System
+# Gaming Stake Server
 
-A real-time casino odds broadcasting system with Redis caching and Socket.IO integration.
+A real-time gaming platform with casino odds, sports betting, and user management.
 
 ## 🎯 Features
 
 - **Real-time Casino Odds**: Live updates for all casino types
+- **Sports Betting**: Cricket, Soccer, Tennis betting with live odds
 - **Redis Caching**: Efficient data storage and retrieval
-- **Dynamic Discovery**: Automatically discovers casino types from Redis
 - **Socket.IO Integration**: Real-time client communication
-- **Cron Jobs**: Automated data fetching from third-party APIs
+- **User Management**: Multi-level user hierarchy (Admin, Agent, Client, etc.)
+- **On-demand Data Fetching**: Manual API calls for casino and sports data
 
 ## 🏗️ Architecture
 
 ```
-Third-party APIs → Cron Jobs → Redis Cache → Socket.IO → Clients
+Third-party APIs → Manual API Calls → Redis Cache → Socket.IO → Clients
 ```
 
 ### Data Flow:
-1. **Cron Jobs** fetch data from third-party APIs
-2. **Redis Cache** stores casino data with keys: `casino:{casinoType}:current` and `casino:{casinoType}:results`
-3. **Dynamic Discovery** finds all casino types in Redis
-4. **Socket.IO** broadcasts all casino data to connected clients
-5. **Clients** receive real-time updates
+1. **Manual API Calls** fetch data from third-party APIs when requested
+2. **Redis Cache** stores casino and sports data
+3. **Socket.IO** broadcasts real-time updates to connected clients
+4. **Clients** receive live updates and can place bets
+5. **Database** stores user data, bets, and transactions
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js
 - Redis
+- PostgreSQL
 - TypeScript
 
 ### Installation
@@ -43,7 +45,7 @@ npm run dev
 ### Production
 ```bash
 npm run build
-npm run serve
+npm start
 ```
 
 ## 📁 Project Structure

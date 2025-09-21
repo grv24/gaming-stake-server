@@ -8,7 +8,6 @@ import {
   getAllSportsData,
   getFilteredIPlayMatches,
 } from "../../services/sports/SportService";
-// import { addEventToMonitor, isEventMonitored, getMonitoredEvents, removeEventFromMonitor } from "../../cron/SportsCronJob";
 import {
   getOddsFromRedis,
   processOddsData,
@@ -151,11 +150,6 @@ export const getAllSportsDataController = async (
 export const getOddsData = async (req: Request, res: Response) => {
   try {
     const { sportId, eventId } = req.params;
-
-    // Add to monitoring if not already present
-    // if (!isEventMonitored(sportId, eventId)) {
-    //   addEventToMonitor(sportId, eventId);
-    // }
 
     let data = null;
     let source = "api";
