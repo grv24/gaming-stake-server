@@ -7,7 +7,19 @@ import { CronDataSource } from "../../corn.server";
 import { getRedisClient } from "../../config/redisConfig";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
+import { CommissionQueueService } from "../../services/CommissionQueueService";
+import { SportType } from "../../entities/CommissionTransaction";
 import axios from "axios";
+
+// Global commission queue instance
+let commissionQueue: CommissionQueueService | null = null;
+
+const getCommissionQueue = () => {
+  if (!commissionQueue) {
+    commissionQueue = new CommissionQueueService(AppDataSource);
+  }
+  return commissionQueue;
+};
 
 export const createBet = async (req: Request, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -104,6 +116,17 @@ export const createBet = async (req: Request, res: Response) => {
     });
 
     await casinoBetRepository.save(bet);
+
+    // Add commission task to queue (NON-BLOCKING)
+    getCommissionQueue().addCommissionTask({
+      type: 'bet',
+      betId: bet.id,
+      userId: userId,
+      userType: req.__type!,
+      betAmount: stakeAmount,
+      sportType: SportType.CASINO,
+      commissionType: 'panel'
+    });
 
     // Update user exposure
     user.exposure = userExposure + stakeAmount;
@@ -647,6 +670,19 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
           // Update user balance after bet is marked as settled
           await transactionalEntityManager.save(user);
+
+          // Add commission settlement task to queue (NON-BLOCKING)
+          getCommissionQueue().addCommissionTask({
+            type: 'settlement',
+            betId: bet.id,
+            userId: userId,
+            userType: bet.userType as string,
+            settlementData: {
+              isWinner: isWinner,
+              profitLoss: profitLoss,
+              settlementAmount: isWinner ? profitLoss : -profitLoss
+            }
+          });
 
           console.log(`[PATCH] Updated bet ${bet.id}: ${newStatus} with profit/loss: ${profitLoss}`);
           settledCount++;

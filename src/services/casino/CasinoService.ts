@@ -243,235 +243,235 @@ const shouldUpdateImmediately = (casinoType: string): boolean => {
   ) && (now - lastUpdate >= MIN_UPDATE_INTERVAL);
 };
 
-export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
-  try {
-    // Check circuit breaker first
-    if (isCircuitOpen(casinoType)) {
-      console.log(`[CIRCUIT] Skipping ${casinoType} - circuit breaker OPEN`);
-      return null;
-    }
+// export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {
+//   try {
+//     // Check circuit breaker first
+//     if (isCircuitOpen(casinoType)) {
+//       console.log(`[CIRCUIT] Skipping ${casinoType} - circuit breaker OPEN`);
+//       return null;
+//     }
 
-    const redisPublisher = getRedisPublisher();
-    const redisClient = getRedisClient();
-    const matchRepo = CronDataSource.getRepository(CasinoMatchNew);
-    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
+//     const redisPublisher = getRedisPublisher();
+//     const redisClient = getRedisClient();
+//     const matchRepo = CronDataSource.getRepository(CasinoMatchNew);
+//     const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
 
-    let apiUrl: string;
-    let params: any;
+//     let apiUrl: string;
+//     let params: any;
 
-    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-    apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
-    params = { type: casinoType };
-    // } else {
-    //   apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
-    //   params = { casinoType };
-    // }
+//     // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//     apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoData`;
+//     params = { type: casinoType };
+//     // } else {
+//     //   apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/casino`;
+//     //   params = { casinoType };
+//     // }
 
-    // Use rate limiting and retry logic
-    const response = await rateLimitedRequest(casinoType, () =>
-      retryWithBackoff(async () => {
-        return await axios.get(apiUrl, {
-          params,
-          timeout: 15000, // Reduced to 15 seconds for faster failure detection
-          headers: {
-            'User-Agent': 'GameStake-Server/1.0',
-            'Accept': 'application/json',
-            'Connection': 'keep-alive'
-          }
-        });
-      }, casinoType)
-    );
+//     // Use rate limiting and retry logic
+//     const response = await rateLimitedRequest(casinoType, () =>
+//       retryWithBackoff(async () => {
+//         return await axios.get(apiUrl, {
+//           params,
+//           timeout: 15000, // Reduced to 15 seconds for faster failure detection
+//           headers: {
+//             'User-Agent': 'GameStake-Server/1.0',
+//             'Accept': 'application/json',
+//             'Connection': 'keep-alive'
+//           }
+//         });
+//       }, casinoType)
+//     );
 
-    console.log("response.data", response.data,"casinoType",casinoType);
+//     console.log("response.data", response.data,"casinoType",casinoType);
 
-    let apiData = response.data;
-    // if(casinoType=="teen"){
-    //   apiData = response.data;
-    // }else{
-    //   apiData = response.data;
-    // }
-    // const apiData = response.data;
+//     let apiData = response.data;
+//     // if(casinoType=="teen"){
+//     //   apiData = response.data;
+//     // }else{
+//     //   apiData = response.data;
+//     // }
+//     // const apiData = response.data;
 
-    let currentMid: string | null = null;
-    let currentData: any = null;
+//     let currentMid: string | null = null;
+//     let currentData: any = null;
 
-    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-    if (apiData?.mid) {
-      currentMid = String(apiData.mid);
-      currentData = apiData;
-    }
-    // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-    //   if (apiData?.data?.mid) {
-    //     currentMid = String(apiData.data.mid);
-    //     currentData = apiData.data;
-    //   } else if (apiData?.data?.t1?.[0]?.mid) {
-    //     currentMid = String(apiData.data.t1[0].mid);
-    //     currentData = apiData.data;
-    //   }
-    // } else {
-    //   if (apiData?.data?.mid) {
-    //     currentMid = String(apiData.data.mid);
-    //     currentData = apiData?.data || apiData;
-    //   } else if (apiData?.data?.t1?.[0]?.mid) {
-    //     currentMid = String(apiData.data.t1[0].mid);
-    //     currentData = apiData.data;
-    //   }
-    // }
+//     // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//     if (apiData?.mid) {
+//       currentMid = String(apiData.mid);
+//       currentData = apiData;
+//     }
+//     // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+//     //   if (apiData?.data?.mid) {
+//     //     currentMid = String(apiData.data.mid);
+//     //     currentData = apiData.data;
+//     //   } else if (apiData?.data?.t1?.[0]?.mid) {
+//     //     currentMid = String(apiData.data.t1[0].mid);
+//     //     currentData = apiData.data;
+//     //   }
+//     // } else {
+//     //   if (apiData?.data?.mid) {
+//     //     currentMid = String(apiData.data.mid);
+//     //     currentData = apiData?.data || apiData;
+//     //   } else if (apiData?.data?.t1?.[0]?.mid) {
+//     //     currentMid = String(apiData.data.t1[0].mid);
+//     //     currentData = apiData.data;
+//     //   }
+//     // }
 
-    const pipeline = redisClient.pipeline();
-    if (currentMid && currentData) {
-      // Only upsert columns that exist in the database (excluding result column)
-      try {
-        await matchRepo.upsert(
-          {
-            mid: String(currentMid),
-            casinoType: casinoType,
-            winner: null,
-            data: currentData,
-            result: null as any,
-          },
-          ["mid"]
-        );
-      } catch (dbError: any) {
-        // Handle database schema mismatch gracefully
-        if (dbError.message.includes("column") && dbError.message.includes("does not exist")) {
-          console.log(`[CRON] Database schema mismatch for ${casinoType}, skipping database update but continuing with Redis`);
-        } else {
-          throw dbError; // Re-throw if it's not a schema issue
-        }
-      }
+//     const pipeline = redisClient.pipeline();
+//     if (currentMid && currentData) {
+//       // Only upsert columns that exist in the database (excluding result column)
+//       try {
+//         await matchRepo.upsert(
+//           {
+//             mid: String(currentMid),
+//             casinoType: casinoType,
+//             winner: null,
+//             data: currentData,
+//             result: null as any,
+//           },
+//           ["mid"]
+//         );
+//       } catch (dbError: any) {
+//         // Handle database schema mismatch gracefully
+//         if (dbError.message.includes("column") && dbError.message.includes("does not exist")) {
+//           console.log(`[CRON] Database schema mismatch for ${casinoType}, skipping database update but continuing with Redis`);
+//         } else {
+//           throw dbError; // Re-throw if it's not a schema issue
+//         }
+//       }
 
-      pipeline.set(
-        `casino:${casinoType}:current`,
-        JSON.stringify(currentData),
-        "EX",
-        600
-      );
-    } else {
-      console.log(`[CRON] already updated that match on the database for ${casinoType}`);
-    }
+//       pipeline.set(
+//         `casino:${casinoType}:current`,
+//         JSON.stringify(currentData),
+//         "EX",
+//         600
+//       );
+//     } else {
+//       console.log(`[CRON] already updated that match on the database for ${casinoType}`);
+//     }
 
-    let results = [];
+//     let results = [];
 
-    // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
-    //   results = [];
-    // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
-    //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-    //     results = apiData.result.res;
-    //   } else if (apiData?.result && Array.isArray(apiData.result)) {
-    //     results = apiData.result;
-    //   }
-    // } else {
-    //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
-    //     results = apiData.result.res;
-    //   } else if (apiData?.result && Array.isArray(apiData.result)) {
-    //     results = apiData.result;
-    //   }
-    // }
+//     // if (ALTERNATIVE_API_CASINO_TYPES.includes(casinoType)) {
+//     //   results = [];
+//     // } else if (DIFF_STRUCT_CASINO_TYPES.includes(casinoType)) {
+//     //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+//     //     results = apiData.result.res;
+//     //   } else if (apiData?.result && Array.isArray(apiData.result)) {
+//     //     results = apiData.result;
+//     //   }
+//     // } else {
+//     //   if (apiData?.result?.res && Array.isArray(apiData.result.res)) {
+//     //     results = apiData.result.res;
+//     //   } else if (apiData?.result && Array.isArray(apiData.result)) {
+//     //     results = apiData.result;
+//     //   }
+//     // }
 
-    if (results.length <= 0) {
-      try {
-        // console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
-        const resultsResponse = await retryWithBackoff(async () => {
-          return await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
-            params: { type: casinoType },
-            timeout: 10000, // Reduced timeout for faster processing
-            headers: {
-              'User-Agent': 'GameStake-Server/1.0',
-              'Accept': 'application/json',
-              'Connection': 'keep-alive'
-            }
-          });
-        }, casinoType, 1); // Single retry for alternative endpoint
+//     if (results.length <= 0) {
+//       try {
+//         // console.log(`[CRON] No results found, trying alternative endpoint for ${casinoType}`);
+//         const resultsResponse = await retryWithBackoff(async () => {
+//           return await axios.get(`${process.env.THIRD_PARTY_URL}/exchange/casino/CasinoResult`, {
+//             params: { type: casinoType },
+//             timeout: 10000, // Reduced timeout for faster processing
+//             headers: {
+//               'User-Agent': 'GameStake-Server/1.0',
+//               'Accept': 'application/json',
+//               'Connection': 'keep-alive'
+//             }
+//           });
+//         }, casinoType, 1); // Single retry for alternative endpoint
 
-        if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
-          results = resultsResponse.data;
-          console.log(`[CRON] Found ${results.length} results from third party api for ${casinoType}`);
-        } else if (resultsResponse.data?.res && Array.isArray(resultsResponse.data.res)) {
-          results = resultsResponse.data.res;
-          console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
-        }
-      } catch (altErr: any) {
-        console.log(`[CRON] Failed to fetch results from alternative endpoint for ${casinoType}:`, altErr.message);
-      }
-    }
+//         if (resultsResponse.data && Array.isArray(resultsResponse.data)) {
+//           results = resultsResponse.data;
+//           console.log(`[CRON] Found ${results.length} results from third party api for ${casinoType}`);
+//         } else if (resultsResponse.data?.res && Array.isArray(resultsResponse.data.res)) {
+//           results = resultsResponse.data.res;
+//           console.log(`[CRON] Found ${results.length} results from alternative endpoint for ${casinoType}`);
+//         }
+//       } catch (altErr: any) {
+//         console.log(`[CRON] Failed to fetch results from alternative endpoint for ${casinoType}:`, altErr.message);
+//       }
+//     }
 
-    if (results.length > 0) {
-      for (const r of results) {
-        const resultMid = String(r.mid || r.matchId);
-        const winner = r.win || r.result || r.winner;
+//     if (results.length > 0) {
+//       for (const r of results) {
+//         const resultMid = String(r.mid || r.matchId);
+//         const winner = r.win || r.result || r.winner;
 
-        if (!resultMid) {
-          console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
-          continue;
-        }
+//         if (!resultMid) {
+//           console.log(`[CRON] Skipping invalid result for ${casinoType}:`, r);
+//           continue;
+//         }
        
-          await matchRepo.update(
-            { mid: resultMid },
-            {
-              casinoType: casinoType,
-              winner: String(winner),
-              result: null as any,
-            }
-          );
-      }
+//           await matchRepo.update(
+//             { mid: resultMid },
+//             {
+//               casinoType: casinoType,
+//               winner: String(winner),
+//               result: null as any,
+//             }
+//           );
+//       }
 
-      pipeline.set(
-        `casino:${casinoType}:results`,
-        JSON.stringify(results),
-        "EX",
-        600
-      );
-    }
+//       pipeline.set(
+//         `casino:${casinoType}:results`,
+//         JSON.stringify(results),
+//         "EX",
+//         600
+//       );
+//     }
 
-    await pipeline.exec();
+//     await pipeline.exec();
 
-    await redisPublisher.publish(
-      `casino_odds_updates:${casinoType}`,
-      JSON.stringify({
-        casinoType,
-        hasCurrent: !!currentData,
-        hasResults: results.length > 0,
-        timestamp: Date.now(),
-      })
-    );
+//     await redisPublisher.publish(
+//       `casino_odds_updates:${casinoType}`,
+//       JSON.stringify({
+//         casinoType,
+//         hasCurrent: !!currentData,
+//         hasResults: results.length > 0,
+//         timestamp: Date.now(),
+//       })
+//     );
 
-    console.log(
-      `[CRON] Updated Redis & published notification for ${casinoType}`
-    );
+//     console.log(
+//       `[CRON] Updated Redis & published notification for ${casinoType}`
+//     );
 
-    // Track update time and remove from priority queue
-    lastUpdateTime.set(casinoType, Date.now());
-    priorityQueue.delete(casinoType);
+//     // Track update time and remove from priority queue
+//     lastUpdateTime.set(casinoType, Date.now());
+//     priorityQueue.delete(casinoType);
 
-    return apiData;
-  } catch (err: any) {
-    // Enhanced error handling with circuit breaker integration
-    if (err.message.includes("Circuit breaker OPEN")) {
-      console.log(`[CIRCUIT] ${casinoType} circuit breaker is OPEN, skipping request`);
-      return null;
-    }
+//     return apiData;
+//   } catch (err: any) {
+//     // Enhanced error handling with circuit breaker integration
+//     if (err.message.includes("Circuit breaker OPEN")) {
+//       console.log(`[CIRCUIT] ${casinoType} circuit breaker is OPEN, skipping request`);
+//       return null;
+//     }
     
-    if (
-      err.code === "ECONNRESET" ||
-      err.code === "ECONNABORTED" ||
-      err.code === "ETIMEDOUT" ||
-      err.message.includes("socket hang up") ||
-      err.message.includes("timeout")
-    ) {
-      console.log(
-        `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
-        err.message
-      );
-    } else {
-      console.error(
-        `[CRON] Failed to fetch odds for ${casinoType}:`,
-        err.message
-      );
-    }
-    return null;
-  }
-};
+//     if (
+//       err.code === "ECONNRESET" ||
+//       err.code === "ECONNABORTED" ||
+//       err.code === "ETIMEDOUT" ||
+//       err.message.includes("socket hang up") ||
+//       err.message.includes("timeout")
+//     ) {
+//       console.log(
+//         `[CRON] Network error for ${casinoType}, will retry on next cycle:`,
+//         err.message
+//       );
+//     } else {
+//       console.error(
+//         `[CRON] Failed to fetch odds for ${casinoType}:`,
+//         err.message
+//       );
+//     }
+//     return null;
+//   }
+// };
 
 
 // export const fetchAndUpdateCasinoOdds = async (casinoType: string) => {

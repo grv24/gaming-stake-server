@@ -5,6 +5,7 @@ import { CasinoMatchNew } from "../../../entities/casino/CasinoMatchNew";
 import { CASINO_TYPES } from "../../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../../entities/Transactions/AccountTransactions";
+import { CommissionQueueService } from "../../../services/CommissionQueueService";
 import { getRedisClient } from "../../../config/redisConfig";
 import { Between, MoreThanOrEqual, LessThanOrEqual, In } from "typeorm";
 // import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
@@ -31,6 +32,16 @@ import { settleLucky5Result } from "./game/lucky5";
 import { settleAB4Result } from "./game/ab4";
 import { settleTeenResult } from "./game/Teen";
 import { settlePoker6Result } from "./game/poker6";
+
+// Global commission queue instance
+let commissionQueue: CommissionQueueService | null = null;
+
+const getCommissionQueue = () => {
+  if (!commissionQueue) {
+    commissionQueue = new CommissionQueueService(AppDataSource);
+  }
+  return commissionQueue;
+};
 
 export const settleUserCasinoBets = async (req: Request, res: Response) => {
   try {
@@ -71,20 +82,21 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         try {
           // First attempt with roundresult_new
           response = await axios.get(
-            `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${mid}&gtype=${casinoType}`,
+            `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
             { timeout: 5000 }
           );
-
           console.log("******** roundresult_new ********");
           console.log(response.data);
 
           // If response is empty/null → fall back
           if (!response.data || Object.keys(response.data).length === 0) {
             console.log("Fallback to roundresult...");
+           
             response = await axios.get(
-              `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
+              `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${mid}&gtype=${casinoType}`,
               { timeout: 5000 }
             );
+  
           }
         } catch (err) {
           // If first API fails → directly fall back
@@ -308,6 +320,20 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
           await accountTransactionRepo.save(accountTransaction);
 
           await transactionalEntityManager.save(user);
+
+          // Add commission settlement task to queue (NON-BLOCKING) with lower priority
+          getCommissionQueue().addCommissionTask({
+            type: 'settlement',
+            betId: bet.id,
+            userId: userId,
+            userType: bet.userType as string,
+            settlementData: {
+              isWinner: finalStatus === "won",
+              profitLoss: profitLoss,
+              settlementAmount: finalStatus === "won" ? profitLoss : -profitLoss
+            }
+          }, 'normal'); // Lower priority for casino settlements
+
           settledCount++;
         });
       } catch (error: any) {

@@ -16,6 +16,8 @@ import whitelistRouter from './routes/whitelist/WhitelistRoutes';
 import CasinoRouter from './routes/casino/CasinoRoutes';
 import SportRouter from './routes/sports/SportRoutes';
 import GamesRouter from './routes/games/GamesRoutes';
+import CommissionRouter from './routes/CommissionRoutes';
+import BalanceManagementRouter from './routes/BalanceManagementRoutes';
 
 
 const app: Application = express();
@@ -47,5 +49,7 @@ app.use('/api/v1/whitelists', whitelistRouter);
 app.use('/api/v1/casinos', CasinoRouter);
 app.use('/api/v1/sports', SportRouter);
 app.use('/api/v1/games', GamesRouter);
+app.use('/api/v1/commission', CommissionRouter);
+app.use('/api/v1/balance', BalanceManagementRouter);
 
 export default app;

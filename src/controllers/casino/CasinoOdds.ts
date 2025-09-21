@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getRedisClient } from "../../config/redisConfig";
 import {
-  fetchAndUpdateCasinoOdds,
+  // fetchAndUpdateCasinoOdds,
   getCircuitBreakerHealth,
   resetCircuitBreaker,
   markCasinoAsActive,
@@ -377,17 +377,17 @@ export const getCasinoMatchDetails = async (req: Request, res: Response) => {
             message: "Service configuration error",
           });
         }
-
+       
         // Build API URL with proper parameter validation
-        const apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new`;
-        const params = new URLSearchParams({
-          roundId: String(matchId),
-          ...(casinoType && { gtype: String(casinoType) })
-        });
+        const apiUrl = `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${matchId}`;
+        // const params = new URLSearchParams({
+        //   roundId: String(matchId),
+        //   ...(casinoType && { gtype: String(casinoType) })
+        // });
 
         console.log(`Fetching casino result from API for matchId: ${matchId}, casinoType: ${casinoType || 'not provided'}`);
         
-        const response = await axios.get(`${apiUrl}?${params}`, {
+        const response = await axios.get(`${apiUrl}`, {
           timeout: 10000, // 10 second timeout
           headers: {
             'Content-Type': 'application/json',

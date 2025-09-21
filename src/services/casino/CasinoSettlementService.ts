@@ -3,6 +3,7 @@ import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
+import { CommissionQueueService } from "../CommissionQueueService";
 import axios from "axios";
 
 // Import all settlement functions
@@ -52,6 +53,7 @@ import { settlePoker6Result } from "../../controllers/casino/settlement/game/pok
  */
 export class CasinoSettlementService {
   private dataSource: DataSource;
+  private commissionQueue: CommissionQueueService;
   private casinoBetRepo: any;
   private casinoMatchRepo: any;
 
@@ -63,6 +65,7 @@ export class CasinoSettlementService {
     this.dataSource = dataSource;
     this.casinoBetRepo = dataSource.getRepository(CasinoBet);
     this.casinoMatchRepo = dataSource.getRepository(CasinoMatchNew);
+    this.commissionQueue = new CommissionQueueService(dataSource);
   }
 
   /**
@@ -120,7 +123,7 @@ export class CasinoSettlementService {
   }
 
   /**
-   * SETTLE CASINO MATCH - Automatic Settlement
+   * SETTLE CASINO MATCH - Automatic Settlement (ENHANCED)
    * 
    * Purpose: Automatically settle all bets for a completed casino match
    * 
@@ -130,6 +133,7 @@ export class CasinoSettlementService {
    * 3. Update casino_match_new with result data
    * 4. Determine winners using casino-specific logic
    * 5. Settle all bets in batch transactions
+   * 6. Handle edge cases and retry failed settlements
    * 
    * @param casinoType - The casino game type
    * @param mid - The match ID to settle
@@ -159,6 +163,48 @@ export class CasinoSettlementService {
       }
 
       console.log(`[CASINO_SETTLEMENT_SERVICE] Found ${pendingBets.length} pending bets for ${mid} - proceeding with settlement`);
+
+      // VALIDATE BETS BEFORE PROCESSING
+      const validBets = [];
+      const invalidBets = [];
+
+      for (const bet of pendingBets) {
+        const betData = bet.betData || {};
+        
+        // Check for critical issues
+        if (!betData.sid) {
+          console.log(`[CASINO_SETTLEMENT_SERVICE] Bet ${bet.id} has no SID - skipping`);
+          invalidBets.push({ betId: bet.id, reason: 'No SID' });
+          continue;
+        }
+
+        if (!betData.stake || betData.stake <= 0) {
+          console.log(`[CASINO_SETTLEMENT_SERVICE] Bet ${bet.id} has invalid stake - skipping`);
+          invalidBets.push({ betId: bet.id, reason: 'Invalid stake' });
+          continue;
+        }
+
+        // Check if bet is already settled
+        if (bet.betData?.result?.settled === true) {
+          console.log(`[CASINO_SETTLEMENT_SERVICE] Bet ${bet.id} already settled - skipping`);
+          continue;
+        }
+
+        validBets.push(bet);
+      }
+
+      console.log(`[CASINO_SETTLEMENT_SERVICE] Valid bets: ${validBets.length}, Invalid bets: ${invalidBets.length}`);
+
+      if (validBets.length === 0) {
+        return {
+          success: true,
+          message: "No valid bets to settle",
+          settledCount: 0,
+          invalidBets,
+          matchId: mid,
+          casinoType: casinoType,
+        };
+      }
 
       // Check if match already has result data
       let casinoMatch = await this.casinoMatchRepo.findOne({
@@ -219,10 +265,10 @@ export class CasinoSettlementService {
       console.log(`[CASINO_SETTLEMENT_SERVICE] Winners determined: ${winners.join(', ')}`);
 
       // Group bets by user for batch processing
-      const betsByUser = this.groupBetsByUser(pendingBets);
+      const betsByUser = this.groupBetsByUser(validBets);
 
       let totalSettledCount = 0;
-      let totalErrors = [];
+      let totalErrors: any[] = [];
 
       // Process settlement for each user
       for (const [userId, userBets] of betsByUser) {
@@ -243,6 +289,7 @@ export class CasinoSettlementService {
         message: `Settlement completed for match ${mid} (${casinoType})`,
         settledCount: totalSettledCount,
         errorCount: totalErrors.length,
+        invalidBets: invalidBets.length > 0 ? invalidBets : undefined,
         matchId: mid,
         casinoType: casinoType,
         winners: winners,
@@ -269,7 +316,7 @@ export class CasinoSettlementService {
     try {
       // Use only roundresult_new endpoint as specified
       const response = await axios.get(
-        `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult_new?roundId=${mid}&gtype=${casinoType}`,
+        `${process.env.THIRD_PARTY_URL}/exchange/casino/roundresult?roundId=${mid}`,
         { timeout: 5000 }
       );
 
@@ -321,7 +368,7 @@ export class CasinoSettlementService {
   }
 
   /**
-   * SETTLE USER BETS - Individual User Settlement
+   * SETTLE USER BETS - Individual User Settlement (OPTIMIZED)
    * 
    * Purpose: Settle all bets for a specific user in a single transaction
    * 
@@ -333,19 +380,19 @@ export class CasinoSettlementService {
    */
   private async settleUserBets(userId: string, userBets: any[], winners: string[], resultData: any): Promise<any> {
     let settledCount = 0;
-    let errors = [];
+    let errors: any[] = [];
 
-    for (const bet of userBets) {
-      try {
-        const betData = bet.betData || {};
-        const betSid: string = betData.sid;
+    // Process all bets for this user in a single transaction for better performance
+    await this.dataSource.transaction(async (transactionalEntityManager) => {
+      for (const bet of userBets) {
+        try {
+          const betData = bet.betData || {};
+          const betSid: string = betData.sid;
 
-        if (!betSid) {
-          errors.push({ betId: bet.id, error: "No SID found" });
-          continue;
-        }
-
-        await this.dataSource.transaction(async (transactionalEntityManager) => {
+          if (!betSid) {
+            errors.push({ betId: bet.id, error: "No SID found" });
+            continue;
+          }
           const currentBet = await transactionalEntityManager.findOne(
             CasinoBet,
             {
@@ -440,12 +487,26 @@ export class CasinoSettlementService {
           await accountTransactionRepo.save(accountTransaction);
 
           await transactionalEntityManager.save(user);
+
+          // Add commission settlement task to queue (NON-BLOCKING) with lower priority
+          this.commissionQueue.addCommissionTask({
+            type: 'settlement',
+            betId: bet.id,
+            userId: userId,
+            userType: bet.userType as string,
+            settlementData: {
+              isWinner: finalStatus === "won",
+              profitLoss: profitLoss,
+              settlementAmount: finalStatus === "won" ? profitLoss : -profitLoss
+            }
+          }, 'normal'); // Lower priority for casino settlements
+
           settledCount++;
-        });
-      } catch (error: any) {
-        errors.push({ betId: bet.id, error: error.message });
+        } catch (error: any) {
+          errors.push({ betId: bet.id, error: error.message });
+        }
       }
-    }
+    });
 
     return {
       settledCount,

@@ -6,17 +6,17 @@ import {
   UpdateDateColumn,
   OneToOne,
   JoinColumn,
-} from 'typeorm';
-import { SoccerSettings } from './utils/SoccerSetting';
-import { CricketSettings } from './utils/CricketSetting';
-import { TennisSettings } from './utils/TennisSetting';
-import { MatkaSettings } from './utils/MatkaSetting';
-import { CasinoSettings } from './utils/CasinoSetting';
-import { InternationalCasinoSettings } from './utils/InternationalCasino';
+} from "typeorm";
+import { SoccerSettings } from "./utils/SoccerSetting";
+import { CricketSettings } from "./utils/CricketSetting";
+import { TennisSettings } from "./utils/TennisSetting";
+import { MatkaSettings } from "./utils/MatkaSetting";
+import { CasinoSettings } from "./utils/CasinoSetting";
+import { InternationalCasinoSettings } from "./utils/InternationalCasino";
 
-@Entity({ name: 'tech_admins' })
+@Entity({ name: "tech_admins" })
 export class TechAdmin {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id!: string;
 
   @Column({ type: "uuid", nullable: true })
@@ -72,7 +72,7 @@ export class TechAdmin {
   @Column({ default: false })
   isActive!: boolean;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: "varchar", nullable: true })
   whatsappNumber!: string;
 
   @Column({ type: "text", nullable: true })
@@ -82,38 +82,38 @@ export class TechAdmin {
   __type!: string;
 
   // Account Details
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   liability!: number;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   balance!: number;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   profitLoss!: number;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   freeChips!: number;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   totalSettledAmount!: number;
 
   // account kitne ka bana tha
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   creditRef!: number;
 
   // upper wale se kitna lena h ya dena h
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   uplineSettlement!: number;
 
   // kitna amountt laga h betting mein
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   exposure!: number;
 
-  @Column({ type: 'float', default: 10000000 })
+  @Column({ type: "float", default: 10000000 })
   exposureLimit!: number;
 
   @Column({ type: "bool", default: "false" })
-  isPanelCommission !: boolean;
+  isPanelCommission!: boolean;
 
   // Feature Access Permissions
   @Column({ default: false })
@@ -147,12 +147,16 @@ export class TechAdmin {
   canDeclareResultAsOperator!: boolean;
 
   @Column({
-    default: false
+    default: false,
   })
   canChangeAvailableAdminPanels!: boolean;
 
   // Available Admin Panels
-  @Column('text', { array: true, default: () => `'{Admin,MiniAdmin,SuperMaster,Master,SuperAgent,Agent,Client}'` })
+  @Column("text", {
+    array: true,
+    default: () =>
+      `'{Admin,MiniAdmin,SuperMaster,Master,SuperAgent,Agent,Client}'`,
+  })
   availableAdminPanels!: string[];
 
   // User Limits
@@ -176,50 +180,50 @@ export class TechAdmin {
   commissionDena!: boolean;
 
   @Column({ type: "uuid", nullable: true })
-  soccerSettingId !: string;
+  soccerSettingId!: string;
 
   @Column({ type: "uuid", nullable: true })
-  tennisSettingId !: string;
+  tennisSettingId!: string;
 
   @Column({ type: "uuid", nullable: true })
-  cricketSettingId !: string;
+  cricketSettingId!: string;
 
   @Column({ type: "uuid", nullable: true })
-  matkaSettingId !: string;
+  matkaSettingId!: string;
 
   @Column({ type: "uuid", nullable: true })
-  casinoSettingId !: string;
+  casinoSettingId!: string;
 
   @Column({ type: "uuid", nullable: true })
-  internationalCasinoSettingId !: string;
+  internationalCasinoSettingId!: string;
 
   @CreateDateColumn()
-  createdAt !: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt !: Date;
+  updatedAt!: Date;
 
   @OneToOne(() => SoccerSettings)
-  @JoinColumn({ name: 'soccerSettingId' })
+  @JoinColumn({ name: "soccerSettingId" })
   soccerSettings!: SoccerSettings;
 
   @OneToOne(() => CricketSettings)
-  @JoinColumn({ name: 'cricketSettingId' })
+  @JoinColumn({ name: "cricketSettingId" })
   cricketSettings!: CricketSettings;
 
   @OneToOne(() => TennisSettings)
-  @JoinColumn({ name: 'tennisSettingId' })
+  @JoinColumn({ name: "tennisSettingId" })
   tennisSettings!: TennisSettings;
 
   @OneToOne(() => MatkaSettings)
-  @JoinColumn({ name: 'matkaSettingId' })
+  @JoinColumn({ name: "matkaSettingId" })
   matkaSettings!: MatkaSettings;
 
   @OneToOne(() => CasinoSettings)
-  @JoinColumn({ name: 'casinoSettingId' })
+  @JoinColumn({ name: "casinoSettingId" })
   casinoSettings!: CasinoSettings;
 
   @OneToOne(() => InternationalCasinoSettings)
-  @JoinColumn({ name: 'internationalCasinoSettingId' })
+  @JoinColumn({ name: "internationalCasinoSettingId" })
   internationalCasinoSettings!: InternationalCasinoSettings;
 }
