@@ -20,6 +20,7 @@ import CommissionRouter from './routes/CommissionRoutes';
 import BalanceManagementRouter from './routes/BalanceManagementRoutes';
 import PaymentGatewayRouter from './routes/payment/PaymentGatewayRoutes';
 import PaymentGatewayPermissionRouter from './routes/payment/PaymentGatewayPermissionRoutes';
+import ActivityRouter from './routes/activity/ActivityRoutes';
 
 
 const app: Application = express();
@@ -55,5 +56,6 @@ app.use('/api/v1/commission', CommissionRouter);
 app.use('/api/v1/balance', BalanceManagementRouter);
 app.use('/api/v1/payment', PaymentGatewayRouter);
 app.use('/api/v1/payment-permissions', PaymentGatewayPermissionRouter);
+app.use('/api/v1/activity', ActivityRouter);
 
 export default app;

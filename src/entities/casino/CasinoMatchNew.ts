@@ -14,7 +14,7 @@ export class CasinoMatchNew {
   @Column({ type: "varchar", unique: true })
   mid!: String;
 
-  @Column({ type: "varchar", length: 255 })
+  @Column({ type: "varchar", length: 255, name: "casinotype" })
   casinoType!: string;
 
   @Column({ type: "varchar", nullable: true })
@@ -24,9 +24,9 @@ export class CasinoMatchNew {
   data: any;
   @Column({ type: "jsonb", nullable: true, default: null })
   result: any;
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamp", name: "createdat" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamp", name: "updatedat" })
   updatedAt!: Date;
 }

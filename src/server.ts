@@ -30,6 +30,7 @@ import { Buttons } from "./entities/games/Buttons";
 import { SportBet } from "./entities/sports/SportBet";
 import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
+import { UserActivity, BetActivity, SessionActivity, PerformanceMetric } from "./entities/activity/ActivityEntities";
 import { SportMatch } from "./entities/sports/SportMatch";
 import { CommissionTransaction } from "./entities/CommissionTransaction";
 import { PaymentGateway } from "./entities/payment/PaymentGateway";
@@ -72,6 +73,10 @@ export const AppDataSource = new DataSource({
     SportBet,
     Buttons,
     WhitelistCasinoMapping,
+    UserActivity,
+    BetActivity,
+    SessionActivity,
+    PerformanceMetric,
     //sport 
     SportMatch,
     //commission
