@@ -1,26 +1,38 @@
-import express from 'express';
-import { addBalance, changePasswordOfDownline, getAllDownlineUsers, getUserIp, lockUserOrBetAndDownlineMultiTable, setCreditRefForDownline, setExposureLimitForDownline, getSportsAndCasinoSetting, getOwnBalance, getOwnExposure, getAccountTransactions, withdrawBalance,getPendingBet } from '../../controllers/users/UserControllers';
-import { clientAuth } from '../../middlewares/RoleAuth';
+import express from "express";
+import {
+  addBalance,
+  changePasswordOfDownline,
+  getAllDownlineUsers,
+  getUserIp,
+  lockUserOrBetAndDownlineMultiTable,
+  setCreditRefForDownline,
+  setExposureLimitForDownline,
+  getSportsAndCasinoSetting,
+  getOwnBalance,
+  getOwnExposure,
+  getAccountTransactions,
+  withdrawBalance,
+  getPendingBet,
+} from "../../controllers/users/UserControllers";
+import { clientAuth } from "../../middlewares/RoleAuth";
 
 const router = express.Router();
 
-router.get('/fetch-ip', getUserIp);
-router.get('/own-balance', clientAuth, getOwnBalance);
-router.get('/own-exposure', clientAuth, getOwnExposure);
-router.get('/my-downline-users', clientAuth, getAllDownlineUsers);
-router.get('/sports-casino-setting', clientAuth, getSportsAndCasinoSetting);
-router.post('/deposit', clientAuth, addBalance);
-router.post('/withdraw', clientAuth, withdrawBalance);
-router.patch('/lock', clientAuth, lockUserOrBetAndDownlineMultiTable);
-router.patch('/set-exposure-limit', clientAuth, setExposureLimitForDownline);
-router.patch('/set-credit-ref', clientAuth, setCreditRefForDownline);
-router.patch('/change-password-downline', clientAuth, changePasswordOfDownline);
+router.get("/fetch-ip", getUserIp);
+router.get("/own-balance", clientAuth, getOwnBalance);
+router.get("/own-exposure", clientAuth, getOwnExposure);
+router.get("/my-downline-users", clientAuth, getAllDownlineUsers);
+router.get("/sports-casino-setting", clientAuth, getSportsAndCasinoSetting);
+router.post("/deposit", clientAuth, addBalance);
+router.post("/withdraw", clientAuth, withdrawBalance);
+router.patch("/lock", clientAuth, lockUserOrBetAndDownlineMultiTable);
+router.patch("/set-exposure-limit", clientAuth, setExposureLimitForDownline);
+router.patch("/set-credit-ref", clientAuth, setCreditRefForDownline);
+router.patch("/change-password-downline", clientAuth, changePasswordOfDownline);
 
-router.get('/account-transactions', clientAuth, getAccountTransactions);
+router.get("/account-transactions", clientAuth, getAccountTransactions);
 
-
-
-    router.get('/pending-bets', clientAuth, getPendingBet);
+router.get("/pending-bets", clientAuth, getPendingBet);
 
 // need to create this to handle user and bet status
 // /api/v1/users/change-user-lock-and-bet-lock/${userId}`,

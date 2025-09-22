@@ -952,9 +952,14 @@ export const clientLogin = async (req: Request, res: Response) => {
 
                 const dbOperationPromise = (async () => {
                     const whiteListRepo = AppDataSource.getRepository(Whitelist);
-                    whiteList = await whiteListRepo.findOne({
-                        where: { ClientUrl: hostUrl }
-                    });
+                    // Use array overlap operator to check if hostUrl exists in ClientUrl array
+                    const whitelistResults = await whiteListRepo.query(`
+                        SELECT * FROM whitelist_updated 
+                        WHERE "ClientUrl" && ARRAY[$1]
+                        LIMIT 1
+                    `, [hostUrl]);
+                    
+                    whiteList = whitelistResults.length > 0 ? whitelistResults[0] : null;
 
                     if (!whiteList) {
                         return { error: 'Access denied - URL not authorized for Client access', status: 403 };
