@@ -8,7 +8,6 @@ import { AccountTrasaction } from "../../../entities/Transactions/AccountTransac
 import { CommissionQueueService } from "../../../services/CommissionQueueService";
 import { getRedisClient } from "../../../config/redisConfig";
 import { Between, MoreThanOrEqual, LessThanOrEqual, In } from "typeorm";
-// import { CasinoMatch } from "../../../entities/casino/CasinoMatch";
 import axios from "axios";
 import { settleCard32Result } from "./game/Card32";
 import { settlePokerResult } from "./game/Poker";
@@ -310,12 +309,18 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
           // Create account transaction record for settlement
           const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const balanceBefore = Number(user.balance) - (finalStatus === "won" ? profitLoss : 0) + (finalStatus === "lost" ? profitLoss : 0);
+          const balanceAfter = Number(user.balance);
+          
           const accountTransaction = accountTransactionRepo.create({
-            uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
+            uplineUserId: user.uplineId,
             downlineUserId: userId,
             remarks: `[CASINO-BET-SETTLED] ${casinoType} (Match: ${mid}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
-            type: profitLoss > 0 ? "deposit" : "withdraw", // Use deposit for wins, withdraw for losses
+            type: "settle-bet",
             amount: Math.abs(profitLoss),
+            balanceBefore: balanceBefore,
+            balanceAfter: balanceAfter,
+            groupId: user.groupId || null
           });
           await accountTransactionRepo.save(accountTransaction);
 
@@ -572,12 +577,18 @@ export const reverseCasinoBetSettlement = async (req: Request, res: Response) =>
 
       // Create account transaction record for reversal
       const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+      const balanceBefore = Number(user.balance) + profitLoss; // Reverse the balance change
+      const balanceAfter = Number(user.balance);
+      
       const accountTransaction = accountTransactionRepo.create({
         uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
         downlineUserId: bet.userId,
         remarks: `[CASINO-BET-REVERSED] ${betData.gameSlug || 'Unknown'} (Match: ${bet.matchId}) - Reason: ${reason.trim()} - Original P/L: ${profitLoss}`,
-        type: profitLoss > 0 ? "withdraw" : "deposit", // Reverse the original transaction type
+        type: "settle-bet", // Use settle-bet type for reversals
         amount: Math.abs(profitLoss),
+        balanceBefore: balanceBefore,
+        balanceAfter: balanceAfter,
+        groupId: user.groupId || null
       });
       await accountTransactionRepo.save(accountTransaction);
 

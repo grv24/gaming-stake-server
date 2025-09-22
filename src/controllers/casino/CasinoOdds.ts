@@ -10,11 +10,6 @@ import {
 import { getCasinoDataForWhitelist } from "../../services/casino/WhitelistCasinoService";
 import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
-// import { CasinoMatch } from "../../entities/casino/CasinoMatch";
-// import {
-//   ALTERNATIVE_API_CASINO_TYPES,
-//   DIFF_STRUCT_CASINO_TYPES,
-// } from "../../Helpers/Request/Validation";
 import { Between, In, JsonContains, Not, IsNull } from "typeorm";
 import axios from "axios";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";

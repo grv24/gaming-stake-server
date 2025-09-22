@@ -21,6 +21,7 @@ import BalanceManagementRouter from './routes/BalanceManagementRoutes';
 import PaymentGatewayRouter from './routes/payment/PaymentGatewayRoutes';
 import PaymentGatewayPermissionRouter from './routes/payment/PaymentGatewayPermissionRoutes';
 import ActivityRouter from './routes/activity/ActivityRoutes';
+import { trackApiPerformance } from './middlewares/ActivityTrackingMiddleware';
 
 
 const app: Application = express();
@@ -28,6 +29,9 @@ const app: Application = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
+
+// Global API performance tracking
+app.use(trackApiPerformance);
 
 // Root route handler
 app.get('/', (req, res) => {

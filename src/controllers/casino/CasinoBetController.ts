@@ -4,7 +4,7 @@ import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { getRedisClient } from "../../config/redisConfig";
-import { CasinoMatch } from "../../entities/casino/CasinoMatch";
+import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import { CommissionQueueService } from "../../services/CommissionQueueService";
 import { SportType } from "../../entities/CommissionTransaction";
@@ -130,6 +130,20 @@ export const createBet = async (req: Request, res: Response) => {
     // Update user exposure
     user.exposure = userExposure + stakeAmount;
     await userRepo.save(user);
+
+    // Create account transaction record for bet placement
+    const accountTransactionRepo = queryRunner.manager.getRepository(AccountTrasaction);
+    const accountTransaction = accountTransactionRepo.create({
+      uplineUserId: user.uplineId,
+      downlineUserId: userId,
+      remarks: `[CASINO-BET-PLACED] ${betData.gameSlug || 'Unknown'} (Match: ${betData.mid}) - Stake: ${stakeAmount}`,
+      type: "place-bet",
+      amount: stakeAmount,
+      balanceBefore: userBalance,
+      balanceAfter: userBalance, // Balance doesn't change on bet placement, only exposure
+      groupId: user.groupId || null
+    });
+    await accountTransactionRepo.save(accountTransaction);
 
     await queryRunner.commitTransaction();
 
@@ -415,7 +429,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
     }
 
     const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
-    const casinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
+    const casinoMatchRepo = AppDataSource.getRepository(CasinoMatchNew);
 
     // First check casinoMatch table for existing result
     let casinoMatch = await casinoMatchRepo.findOne({
@@ -658,12 +672,18 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
 
           // Create account transaction record for settlement
           const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const balanceBefore = Number(user.balance) - (newStatus === "won" ? profitLoss : 0) + (newStatus === "lost" ? profitLoss : 0);
+          const balanceAfter = Number(user.balance);
+          
           const accountTransaction = accountTransactionRepo.create({
-            uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
+            uplineUserId: user.uplineId,
             downlineUserId: userId,
             remarks: `[CASINO-BET-SETTLED] ${casinoType} (Match: ${mid}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
-            type: profitLoss > 0 ? "deposit" : "withdraw", // Use deposit for wins, withdraw for losses
+            type: "settle-bet",
             amount: Math.abs(profitLoss),
+            balanceBefore: balanceBefore,
+            balanceAfter: balanceAfter,
+            groupId: user.groupId || null
           });
           await accountTransactionRepo.save(accountTransaction);
 

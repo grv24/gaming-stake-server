@@ -4,14 +4,10 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
-    ManyToOne,
-    JoinColumn,
     Index,
 } from 'typeorm';
-import { PaymentGateway } from '../payment/PaymentGateway';
-import { DepositRequest } from '../payment/DepositRequest';
 
-@Entity('accountTrasaction')
+@Entity('account_transactions')
 @Index(['downlineUserId', 'createdAt'])
 @Index(['uplineUserId', 'createdAt'])
 @Index(['type', 'createdAt'])
@@ -60,14 +56,14 @@ export class AccountTrasaction {
     @UpdateDateColumn()
     updatedAt !: Date;
 
-    // Relations
-    @ManyToOne(() => DepositRequest, { nullable: true })
-    @JoinColumn({ name: 'depositRequestId' })
-    depositRequest!: DepositRequest;
+    // Relations (commented out to avoid metadata issues)
+    // @ManyToOne(() => DepositRequest, { nullable: true })
+    // @JoinColumn({ name: 'depositRequestId' })
+    // depositRequest!: DepositRequest;
 
-    @ManyToOne(() => PaymentGateway, { nullable: true })
-    @JoinColumn({ name: 'gatewayId' })
-    paymentGateway!: PaymentGateway;
+    // @ManyToOne(() => PaymentGateway, { nullable: true })
+    // @JoinColumn({ name: 'gatewayId' })
+    // paymentGateway!: PaymentGateway;
 
     // Helper methods
     public isPaymentGatewayDeposit(): boolean {

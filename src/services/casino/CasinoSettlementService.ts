@@ -477,12 +477,18 @@ export class CasinoSettlementService {
 
           // Create account transaction record for settlement
           const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const balanceBefore = Number(user.balance) - (finalStatus === "won" ? profitLoss : 0) + (finalStatus === "lost" ? profitLoss : 0);
+          const balanceAfter = Number(user.balance);
+          
           const accountTransaction = accountTransactionRepo.create({
-            uplineUserId: user.uplineId || userId, // Use uplineId if available, otherwise self
+            uplineUserId: user.uplineId,
             downlineUserId: userId,
             remarks: `[CASINO-BET-SETTLED] ${betData.gameSlug || 'Unknown'} (Match: ${bet.matchId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
-            type: profitLoss > 0 ? "deposit" : "withdraw", // Use deposit for wins, withdraw for losses
+            type: "settle-bet",
             amount: Math.abs(profitLoss),
+            balanceBefore: balanceBefore,
+            balanceAfter: balanceAfter,
+            groupId: user.groupId || null
           });
           await accountTransactionRepo.save(accountTransaction);
 

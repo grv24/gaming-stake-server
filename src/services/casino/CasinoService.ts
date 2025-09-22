@@ -2,11 +2,11 @@ import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
 import { getRedisPublisher } from "../../config/redisPubSub";
 import { AppDataSource } from "../../server";
-// import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DIFF_STRUCT_CASINO_TYPES, ALTERNATIVE_API_CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 
 // Circuit breaker state tracking
 interface CircuitBreakerState {
@@ -749,6 +749,23 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
             }
           }
         });
+
+        // Create account transaction record for settlement
+        const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+        const balanceBefore = Number(user.balance) - (newStatus === "won" ? profitLoss : 0) + (newStatus === "lost" ? profitLoss : 0);
+        const balanceAfter = Number(user.balance);
+        
+        const accountTransaction = accountTransactionRepo.create({
+          uplineUserId: user.uplineId,
+          downlineUserId: bet.userId,
+          remarks: `[CASINO-BET-SETTLED-CRON] ${betData.gameSlug || 'Unknown'} (Match: ${bet.matchId}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+          type: "settle-bet",
+          amount: Math.abs(profitLoss),
+          balanceBefore: balanceBefore,
+          balanceAfter: balanceAfter,
+          groupId: user.groupId || null
+        });
+        await accountTransactionRepo.save(accountTransaction);
 
         // Update user balance after bet is marked as settled
         await transactionalEntityManager.save(user);

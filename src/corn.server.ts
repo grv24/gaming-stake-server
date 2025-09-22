@@ -42,7 +42,6 @@ import { Client } from "./entities/users/ClientUser";
 import { Whitelist } from "./entities/whitelist/Whitelist";
 import { AccountTrasaction } from "./entities/Transactions/AccountTransactions";
 import { DefaultCasino } from "./entities/casino/DefaultCasino";
-// import { CasinoMatch } from "./entities/casino/CasinoMatch";
 import { CasinoBet } from "./entities/casino/CasinoBet";
 import { SoccerSettings } from "./entities/users/utils/SoccerSetting";
 import { TennisSettings } from "./entities/users/utils/TennisSetting";
