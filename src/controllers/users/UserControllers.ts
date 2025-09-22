@@ -1126,10 +1126,161 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
       });
     }
 
+    // Get query parameters
+    // Supported type values:
+    // - 'all' or undefined: All transactions
+    // - 'deposit-withdraw': Deposit and withdrawal transactions
+    // - 'sport-report': Sports betting transactions
+    // - 'casino-report': Casino betting transactions
+    // - Individual types: 'deposit', 'withdraw', 'place-bet', 'settle-bet', 'payment-gateway-deposit'
+    const { 
+      page = 1, 
+      limit = 10, 
+      type, 
+      startDate, 
+      endDate,
+      search 
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+
+    // Build where conditions
+    const whereConditions: any = {
+      downlineUserId: userId
+    };
+
+    // Add type filter if provided
+    if (type && type !== 'all') {
+      whereConditions.type = type;
+    }
+
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      whereConditions.createdAt = {};
+      if (startDate) {
+        whereConditions.createdAt.gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        whereConditions.createdAt.lte = new Date(endDate as string);
+      }
+    }
+
+    // Get account transactions repository
+    const accountTransactionRepo = AppDataSource.getRepository(AccountTrasaction);
+
+    // Build query with pagination
+    const queryBuilder = accountTransactionRepo.createQueryBuilder('transaction')
+      .where('transaction.downlineUserId = :userId', { userId })
+      .orderBy('transaction.createdAt', 'DESC')
+      .skip(offset)
+      .take(limitNum);
+
+    // Add type filter if provided
+    if (type && type !== 'all') {
+      if (type === 'deposit-withdraw') {
+        // Filter for deposit and withdrawal transactions
+        queryBuilder.andWhere('transaction.type IN (:...types)', { 
+          types: ['deposit', 'withdraw', 'payment-gateway-deposit'] 
+        });
+      } else if (type === 'sports') {
+        // Filter for sports betting transactions
+        queryBuilder.andWhere('transaction.remarks ILIKE :sportKeyword', { 
+          sportKeyword: '%SPORTS%' 
+        });
+      } else if (type === 'casinos') {
+        // Filter for casino betting transactions
+        queryBuilder.andWhere('transaction.remarks ILIKE :casinoKeyword', { 
+          casinoKeyword: '%CASINO%' 
+        });
+      } else {
+        // Single type filter
+        queryBuilder.andWhere('transaction.type = :type', { type });
+      }
+    }
+
+    // Add date range filter
+    if (startDate) {
+      queryBuilder.andWhere('transaction.createdAt >= :startDate', { 
+        startDate: new Date(startDate as string) 
+      });
+    }
+    if (endDate) {
+      queryBuilder.andWhere('transaction.createdAt <= :endDate', { 
+        endDate: new Date(endDate as string) 
+      });
+    }
+
+    // Add search filter for remarks
+    if (search) {
+      queryBuilder.andWhere('transaction.remarks ILIKE :search', { 
+        search: `%${search}%` 
+      });
+    }
+
+    // Execute query
+    const [transactions, totalCount] = await queryBuilder.getManyAndCount();
+
+    // Format transactions for response
+    const formattedTransactions = transactions.map((transaction, index) => ({
+      srNo: offset + index + 1,
+      id: transaction.id,
+      date: transaction.createdAt.toISOString().split('T')[0],
+      time: transaction.createdAt.toTimeString().split(' ')[0],
+      type: transaction.type,
+      amount: transaction.amount,
+      balanceBefore: transaction.balanceBefore || 0,
+      balanceAfter: transaction.balanceAfter || 0,
+      remarks: transaction.remarks,
+      uplineUserId: transaction.uplineUserId,
+      groupId: transaction.groupId
+    }));
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
+
     return res.status(200).json({
       status: true,
       message: "Transactions fetched successfully",
-   
+      data: {
+        transactions: formattedTransactions,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalRecords: totalCount,
+          limit: limitNum,
+          hasNextPage,
+          hasPrevPage
+        },
+        summary: {
+          totalTransactions: totalCount,
+          totalDeposits: transactions
+            .filter(t => t.type === 'deposit' || t.type === 'payment-gateway-deposit')
+            .reduce((sum, t) => sum + t.amount, 0),
+          totalWithdrawals: transactions
+            .filter(t => t.type === 'withdraw')
+            .reduce((sum, t) => sum + t.amount, 0),
+          totalBets: transactions
+            .filter(t => t.type === 'place-bet')
+            .reduce((sum, t) => sum + t.amount, 0),
+          totalSettlements: transactions
+            .filter(t => t.type === 'settle-bet')
+            .reduce((sum, t) => sum + t.amount, 0),
+          // Report-specific summaries
+          sportBets: transactions
+            .filter(t => t.remarks && t.remarks.includes('SPORTS'))
+            .reduce((sum, t) => sum + t.amount, 0),
+          casinoBets: transactions
+            .filter(t => t.remarks && t.remarks.includes('CASINO'))
+            .reduce((sum, t) => sum + t.amount, 0),
+          depositWithdrawTotal: transactions
+            .filter(t => ['deposit', 'withdraw', 'payment-gateway-deposit'].includes(t.type))
+            .reduce((sum, t) => sum + t.amount, 0)
+        }
+      }
     });
   } catch (error: any) {
     console.error("Error fetching transactions:", error);

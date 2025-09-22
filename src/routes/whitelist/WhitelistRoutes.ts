@@ -4,6 +4,7 @@ import path from 'path';
 import {
   getWhitelists,
   createWhitelist,
+  saveWhitelist,
   deleteWhitelist,
   getWhitelistByUrl
 } from '../../controllers/whitelist/WhitelistController';
@@ -58,6 +59,12 @@ router.post(
   developerAuth,
   upload.single('Logo'),
   createWhitelist
+);
+router.put(
+  '/:id',
+  developerAuth,
+  upload.single('Logo'),
+  saveWhitelist
 );
 router.delete('/:id', developerAuth, deleteWhitelist);
 
