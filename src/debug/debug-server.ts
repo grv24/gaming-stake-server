@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { CasinoBet } from '../entities/casino/CasinoBet';
 import { CasinoMatch } from '../entities/casino/CasinoMatch';
 import { DefaultCasino } from '../entities/casino/DefaultCasino';
-import { fetchAndUpdateCasinoOdds } from '../services/casino/CasinoService';
+// import { fetchAndUpdateCasinoOdds } from '../services/casino/CasinoService';
 import { getRedisClient } from '../config/redisConfig';
 import { getRedisPublisher } from '../config/redisPubSub';
 

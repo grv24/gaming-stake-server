@@ -1,0 +1,122 @@
+{
+  "timestamp": "2025-09-22T18:16:08.431Z",
+  "count": 2,
+  "data": [
+    {
+      "id": "11d4e8f5-fb1a-459e-b487-1ee974217aa5",
+      "isDomainWhiteListedForSportScore": false,
+      "isDomainWhiteListedForSportVideos": false,
+      "isDomainWhiteListedForCasinoVideos": false,
+      "isDomainWhiteListedForIntCasinoGames": false,
+      "TechAdminUrl": "https://techadmin.bluebet9.com",
+      "AdminUrl": "https://admin.bluebet9.com",
+      "CommonName": "bluebet9 Exchange",
+      "websiteTitle": "",
+      "primaryBackground": "#0D7A8E",
+      "primaryBackground90": "#0D7A8E",
+      "secondaryBackground": "#04303e",
+      "secondaryBackground70": "#AE4600B3",
+      "secondaryBackground85": "#AE4600E6",
+      "textPrimary": "#FFFFFF",
+      "textSecondary": "#CCCCCC",
+      "matchOdd": [
+        "Back",
+        "Lay"
+      ],
+      "bookMakerOdd": [
+        "Back",
+        "Lay"
+      ],
+      "normalOdd": [
+        "No",
+        "Yes"
+      ],
+      "refundOptionIsActive": false,
+      "refundPercentage": 0,
+      "refundLimit": 0,
+      "minDeposit": 100,
+      "autoSignUpFeature": false,
+      "autoSignUpAssignedUplineId": null,
+      "whatsappNumber": false,
+      "googleAnalyticsTrackingId": "",
+      "loginWithDemoIdFeature": false,
+      "isActive": true,
+      "Logo": "",
+      "createdById": "f0f41605-f74b-47f3-a88d-ecb0cd4d9ef8",
+      "createdAt": "2025-09-09T09:37:51.371Z",
+      "updatedAt": "2025-09-09T09:37:51.371Z",
+      "websiteMetaTags": null,
+      "matchOddOptions": [
+        [
+          "b3",
+          "b2",
+          "b1"
+        ],
+        [
+          "l1",
+          "l2",
+          "l3"
+        ]
+      ],
+      "ClientUrl": ""
+    },
+    {
+      "id": "5ed4fa86-850b-49de-9993-808cd7ee7717",
+      "isDomainWhiteListedForSportScore": false,
+      "isDomainWhiteListedForSportVideos": false,
+      "isDomainWhiteListedForCasinoVideos": false,
+      "isDomainWhiteListedForIntCasinoGames": false,
+      "TechAdminUrl": "https://techadmin.ibookexch.com",
+      "AdminUrl": "https://admin.ibookexch.com",
+      "CommonName": "jdx19 Exchange",
+      "websiteTitle": "",
+      "primaryBackground": "#0D7A8E",
+      "primaryBackground90": "#0D7A8E",
+      "secondaryBackground": "#04303e",
+      "secondaryBackground70": "#AE4600B3",
+      "secondaryBackground85": "#AE4600E6",
+      "textPrimary": "#FFFFFF",
+      "textSecondary": "#CCCCCC",
+      "matchOdd": [
+        "Back",
+        "Lay"
+      ],
+      "bookMakerOdd": [
+        "Back",
+        "Lay"
+      ],
+      "normalOdd": [
+        "No",
+        "Yes"
+      ],
+      "refundOptionIsActive": false,
+      "refundPercentage": 0,
+      "refundLimit": 0,
+      "minDeposit": 100,
+      "autoSignUpFeature": false,
+      "autoSignUpAssignedUplineId": null,
+      "whatsappNumber": false,
+      "googleAnalyticsTrackingId": "",
+      "loginWithDemoIdFeature": false,
+      "isActive": true,
+      "Logo": "",
+      "createdById": "f0f41605-f74b-47f3-a88d-ecb0cd4d9ef8",
+      "createdAt": "2025-09-12T09:32:58.012Z",
+      "updatedAt": "2025-09-12T09:32:58.012Z",
+      "websiteMetaTags": null,
+      "matchOddOptions": [
+        [
+          "b3",
+          "b2",
+          "b1"
+        ],
+        [
+          "l1",
+          "l2",
+          "l3"
+        ]
+      ],
+      "ClientUrl": ""
+    }
+  ]
+}

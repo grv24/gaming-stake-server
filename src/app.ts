@@ -18,6 +18,8 @@ import SportRouter from './routes/sports/SportRoutes';
 import GamesRouter from './routes/games/GamesRoutes';
 import CommissionRouter from './routes/CommissionRoutes';
 import BalanceManagementRouter from './routes/BalanceManagementRoutes';
+import PaymentGatewayRouter from './routes/payment/PaymentGatewayRoutes';
+import PaymentGatewayPermissionRouter from './routes/payment/PaymentGatewayPermissionRoutes';
 
 
 const app: Application = express();
@@ -51,5 +53,7 @@ app.use('/api/v1/sports', SportRouter);
 app.use('/api/v1/games', GamesRouter);
 app.use('/api/v1/commission', CommissionRouter);
 app.use('/api/v1/balance', BalanceManagementRouter);
+app.use('/api/v1/payment', PaymentGatewayRouter);
+app.use('/api/v1/payment-permissions', PaymentGatewayPermissionRouter);
 
 export default app;

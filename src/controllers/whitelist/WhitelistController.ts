@@ -33,16 +33,24 @@ export const createWhitelist = async (req: Request, res: Response) => {
       });
     }
 
-    const existingWhitelist = await whitelistRepo.findOne({
-      where: [
-        { TechAdminUrl: req.body.TechAdminUrl },
-        { AdminUrl: req.body.AdminUrl || '' },
-        // { ClientUrls: Like(`%${req.body.ClientUrl}%`) || '' }
-        { ClientUrl: req.body.ClientUrl || '' }
-      ]
-    });
+    // Check for existing whitelist with any of the provided URLs
+    const clientUrls = Array.isArray(req.body.ClientUrl) ? req.body.ClientUrl : 
+                      (req.body.ClientUrl ? [req.body.ClientUrl] : []);
+    
+    const urlsToCheck = [
+      req.body.TechAdminUrl,
+      req.body.AdminUrl,
+      ...clientUrls
+    ].filter(url => url && url.trim() !== '');
 
-    if (existingWhitelist) {
+    const existingWhitelist = await whitelistRepo.query(`
+      SELECT * FROM whitelist_updated 
+      WHERE "TechAdminUrl" = ANY($1) 
+         OR "AdminUrl" = ANY($1) 
+         OR "ClientUrl" && $1
+    `, [urlsToCheck]);
+
+    if (existingWhitelist && existingWhitelist.length > 0) {
       await queryRunner.rollbackTransaction();
       return res.status(409).json({
         success: false,
@@ -56,10 +64,10 @@ export const createWhitelist = async (req: Request, res: Response) => {
       isDomainWhiteListedForCasinoVideos: req.body.isDomainWhiteListedForCasinoVideos || false,
       isDomainWhiteListedForIntCasinoGames: req.body.isDomainWhiteListedForIntCasinoGames || false,
 
-      TechAdminUrl: req.body.TechAdminUrl,
-      AdminUrl: req.body.AdminUrl || '',
-      ClientUrls: Array.isArray(req.body.ClientUrl) ? req.body.ClientUrl : 
-            (req.body.ClientUrl ? [req.body.ClientUrl] : []),
+        TechAdminUrl: req.body.TechAdminUrl,
+        AdminUrl: req.body.AdminUrl || '',
+        ClientUrl: Array.isArray(req.body.ClientUrl) ? req.body.ClientUrl : 
+              (req.body.ClientUrl ? [req.body.ClientUrl] : []),
       CommonName: req.body.CommonName,
       websiteTitle: req.body.websiteTitle || '',
 
@@ -91,6 +99,9 @@ export const createWhitelist = async (req: Request, res: Response) => {
 
       isActive: req.body.isActive !== undefined ? req.body.isActive : true,
       Logo: req.body.Logo || '',
+
+      // Payment Gateway Permissions
+      paymentGatewayPermissions: req.body.paymentGatewayPermissions || null,
 
       createdById
     };
@@ -281,6 +292,7 @@ export const deleteWhitelist = async (req: Request, res: Response) => {
 export const getWhitelistByUrl = async (req: Request, res: Response) => {
   try {
     const { url } = req.query;
+    const userType = req.query.userType as string || 'client'; // client, admin, techAdmin
 
     if (!url || typeof url !== "string") {
       return res.status(400).json({ error: "url query parameter is required" });
@@ -288,20 +300,39 @@ export const getWhitelistByUrl = async (req: Request, res: Response) => {
 
     const whitelistRepo = AppDataSource.getRepository(Whitelist);
 
-    const whitelist = await whitelistRepo.findOne({
-      where: [
-        { ClientUrl: url },
-        // { ClientUrls: Like(`%${url}%`) },
-        { AdminUrl: url },
-        { TechAdminUrl: url },
-      ],
-    });
+    // Enhanced query to check all URL fields including ClientUrl array
+    const whitelist = await whitelistRepo.query(`
+      SELECT * FROM whitelist_updated 
+      WHERE "ClientUrl" && ARRAY[$1]
+         OR "AdminUrl" = $1 
+         OR "TechAdminUrl" = $1
+      LIMIT 1
+    `, [url]);
 
-    if (!whitelist) {
+    if (!whitelist || whitelist.length === 0) {
       return res.status(404).json({ error: "Whitelist not found for the given URL" });
     }
 
-    return res.json({ data: whitelist });
+    const whitelistData = whitelist[0];
+    
+    // Get panel-specific settings based on user type
+    const panelSettings = whitelistData.panelSettings || {};
+    const userTypeSettings = panelSettings[userType] || {};
+    
+    // Add panel-specific settings to response
+    whitelistData.panelSettings = userTypeSettings;
+    
+    // Add legacy settings for backward compatibility
+    whitelistData.allClientUrls = whitelistData.ClientUrl || [];
+    
+    // Ensure paymentGatewayPermissions is included
+    whitelistData.paymentGatewayPermissions = whitelistData.paymentGatewayPermissions || null;
+
+    return res.json({ 
+      data: whitelistData,
+      userType: userType,
+      panelSettings: userTypeSettings
+    });
   } catch (error) {
     console.error("Error fetching whitelist by URL:", error);
     return res.status(500).json({ error: "Internal server error" });

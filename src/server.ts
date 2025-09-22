@@ -32,6 +32,10 @@ import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
 import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
 import { SportMatch } from "./entities/sports/SportMatch";
 import { CommissionTransaction } from "./entities/CommissionTransaction";
+import { PaymentGateway } from "./entities/payment/PaymentGateway";
+import { DepositRequest } from "./entities/payment/DepositRequest";
+import { FileUpload } from "./entities/payment/FileUpload";
+import { GatewayAssignment } from "./entities/payment/GatewayAssignment";
 
 dotenv.config();
 
@@ -71,19 +75,33 @@ export const AppDataSource = new DataSource({
     //sport 
     SportMatch,
     //commission
-    CommissionTransaction
+    CommissionTransaction,
+    //payment gateway
+    PaymentGateway,
+    DepositRequest,
+    FileUpload,
+    GatewayAssignment
   ],
-  synchronize: false,
+  synchronize: false, // Disable auto-sync to prevent hanging
   logging: process.env.NODE_ENV === "development",
+  connectTimeoutMS: 30000, // 30 second timeout
 });
 
 const startServer = async () => {
   try {
+    console.log("Starting server initialization...");
+    
+    console.log("Initializing database connection...");
     await AppDataSource.initialize();
     console.log("Database connected");
 
+    console.log("Connecting to Redis...");
     await connectRedis();
+    console.log("Redis connected");
+    
+    console.log("Initializing Redis PubSub...");
     initRedisPubSub();
+    console.log("Redis PubSub initialized");
 
     const PORT = process.env.PORT || 4000;
     

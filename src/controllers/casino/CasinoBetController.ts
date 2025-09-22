@@ -3,7 +3,6 @@ import { AppDataSource } from "../../server";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { USER_TABLES } from "../../Helpers/users/Roles";
-import { CronDataSource } from "../../corn.server";
 import { getRedisClient } from "../../config/redisConfig";
 import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
@@ -415,8 +414,8 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
       });
     }
 
-    const casinoBetRepo = CronDataSource.getRepository(CasinoBet);
-    const casinoMatchRepo = CronDataSource.getRepository(CasinoMatch);
+    const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
+    const casinoMatchRepo = AppDataSource.getRepository(CasinoMatch);
 
     // First check casinoMatch table for existing result
     let casinoMatch = await casinoMatchRepo.findOne({
@@ -596,7 +595,7 @@ export const settleUserCasinoBets = async (req: Request, res: Response) => {
         }
 
         // Use a transaction for each bet
-        await CronDataSource.transaction(async (transactionalEntityManager) => {
+        await AppDataSource.transaction(async (transactionalEntityManager) => {
           // First, check if bet is still pending with a lock to prevent race conditions
           const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
             where: { id: bet.id, status: "pending", userId: userId },

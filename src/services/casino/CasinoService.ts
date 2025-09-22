@@ -1,11 +1,10 @@
 import axios from "axios";
 import { getRedisClient } from "../../config/redisConfig";
 import { getRedisPublisher } from "../../config/redisPubSub";
-import { CronDataSource } from "../../corn.server";
+import { AppDataSource } from "../../server";
 // import { CasinoMatch } from "../../entities/casino/CasinoMatch";
 import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { USER_TABLES } from "../../Helpers/users/Roles";
-import { AppDataSource } from "../../server";
 import { DIFF_STRUCT_CASINO_TYPES, ALTERNATIVE_API_CASINO_TYPES } from "../../Helpers/Request/Validation";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 
@@ -692,10 +691,10 @@ const updateCasinoBetsWithResult = async (mid: string, winner: string, casinoBet
       }
 
       // Get user repository
-      const userRepo = CronDataSource.getRepository(USER_TABLES[bet.userType]);
+      const userRepo = AppDataSource.getRepository(USER_TABLES[bet.userType]);
 
       // Use a simple transaction for each bet
-      await CronDataSource.transaction(async (transactionalEntityManager) => {
+      await AppDataSource.transaction(async (transactionalEntityManager) => {
         // First, check if bet is still pending with a lock to prevent race conditions
         const currentBet = await transactionalEntityManager.findOne(CasinoBet, {
           where: { id: bet.id, status: "pending" },
