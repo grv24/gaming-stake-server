@@ -12,14 +12,16 @@ import { SportBet } from "../../entities/sports/SportBet";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
 
 export const getPendingBet = async (req: Request, res: Response) => {
-  const { type } = req.query;
+  const { type, page = 1, limit = 10, betType = 'all', search } = req.query;
   const userId = req.user?.userId;
+  
   if (!userId) {
     return res.status(400).json({
       success: false,
       error: "User ID is required",
     });
   }
+  
   if (!type) {
     return res.status(400).json({
       success: false,
@@ -30,24 +32,133 @@ export const getPendingBet = async (req: Request, res: Response) => {
   try {
     const casinoBetRepo = AppDataSource.getRepository(CasinoBet);
     const sportsBetRepo = AppDataSource.getRepository(SportBet);
-let pendingBets
-    if(type === "casino") {
-     pendingBets = await casinoBetRepo.find({
-      where: { userId, status: "pending" },
-    });
-    } else if(type === "sports") {
-     pendingBets = await sportsBetRepo.find({
-      where: { userId, status: "pending" },
-    });
+    
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+    
+    let pendingBets: any[] = [];
+    let totalCount = 0;
+    let totalAmount = 0;
+
+    if (type === "casino") {
+      // Build query for casino bets
+      let queryBuilder = casinoBetRepo.createQueryBuilder('bet')
+        .where('bet.userId = :userId', { userId })
+        .andWhere('bet.status = :status', { status: 'pending' })
+        .orderBy('bet.createdAt', 'DESC')
+        .skip(offset)
+        .take(limitNum);
+
+      // Add bet type filter if specified
+      if (betType !== 'all') {
+        queryBuilder.andWhere('bet.betData->>betType = :betType', { betType });
+      }
+
+      // Add search filter if specified
+      if (search) {
+        queryBuilder.andWhere('(bet.betData->>gameSlug ILIKE :search OR bet.matchId ILIKE :search)', { 
+          search: `%${search}%` 
+        });
+      }
+
+      const [bets, count] = await queryBuilder.getManyAndCount();
+      pendingBets = bets.map(bet => ({
+        id: bet.id,
+        eventName: bet.betData?.gameSlug || bet.betData?.casinoType || 'Unknown Game',
+        nation: bet.betData?.betSid || bet.betData?.selection || 'Unknown',
+        userRate: bet.betData?.betRate || bet.betData?.matchOdd || '1.00',
+        amount: bet.betData?.stake || bet.betData?.amount || 0,
+        placeDate: bet.createdAt.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
+        betType: bet.betData?.betType || 'back',
+        matchId: bet.matchId,
+        gameType: 'casino'
+      }));
+      
+      totalCount = count;
+      totalAmount = bets.reduce((sum, bet) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
+      
+    } else if (type === "sports") {
+      // Build query for sports bets
+      let queryBuilder = sportsBetRepo.createQueryBuilder('bet')
+        .where('bet.userId = :userId', { userId })
+        .andWhere('bet.status = :status', { status: 'pending' })
+        .orderBy('bet.createdAt', 'DESC')
+        .skip(offset)
+        .take(limitNum);
+
+      // Add bet type filter if specified
+      if (betType !== 'all') {
+        queryBuilder.andWhere('bet.betData->>betType = :betType', { betType });
+      }
+
+      // Add search filter if specified
+      if (search) {
+        queryBuilder.andWhere('(bet.betData->>eventName ILIKE :search OR bet.eventId ILIKE :search)', { 
+          search: `%${search}%` 
+        });
+      }
+
+      const [bets, count] = await queryBuilder.getManyAndCount();
+      pendingBets = bets.map(bet => ({
+        id: bet.id,
+        eventName: bet.betData?.eventName || bet.betData?.matchName || 'Unknown Event',
+        nation: bet.betData?.selection || bet.betData?.teamName || bet.betData?.sId || 'Unknown',
+        userRate: bet.betData?.odds || bet.betData?.betRate || '1.00',
+        amount: bet.betData?.stake || bet.betData?.amount || 0,
+        placeDate: bet.createdAt.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
+        betType: bet.betData?.betType || 'back',
+        matchId: bet.eventId,
+        gameType: 'sports'
+      }));
+      
+      totalCount = count;
+      totalAmount = bets.reduce((sum, bet) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
     }
 
-    // return res.status(200).json({
-    //   where: { userId, status: "pending" },
-    // });
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
 
     return res.status(200).json({
       success: true,
-      data: { pendingBets },
+      data: {
+        bets: pendingBets,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalRecords: totalCount,
+          limit: limitNum,
+          hasNextPage,
+          hasPrevPage
+        },
+        summary: {
+          totalBets: totalCount,
+          totalAmount: totalAmount
+        },
+        filters: {
+          type: type,
+          betType: betType,
+          search: search || ''
+        }
+      }
     });
   } catch (error) {
     console.error("Error getting pending bet:", error);
@@ -540,26 +651,114 @@ export const lockFancyAndDownlineMultiTable = async (
 
 export const getUserIp = async (req: Request, res: Response) => {
   try {
-    const ip =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0] ||
-      req.socket.remoteAddress ||
-      req.ip;
+    // Get IP from various sources with better fallbacks
+    let ip: string | undefined;
+    
+    // Try multiple IP detection methods
+    const ipSources = [
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim(),
+      req.headers["x-real-ip"]?.toString()?.trim(),
+      req.headers["x-client-ip"]?.toString()?.trim(),
+      req.headers["cf-connecting-ip"]?.toString()?.trim(), // Cloudflare
+      req.headers["x-cluster-client-ip"]?.toString()?.trim(),
+      req.socket.remoteAddress,
+      req.ip,
+      req.connection?.remoteAddress,
+      req.socket?.remoteAddress
+    ];
 
-    if (!ip) {
-      return res
-        .status(400)
-        .json({ status: false, message: "Unable to determine IP address" });
+    // Find the first valid IP
+    for (const source of ipSources) {
+      if (source && source !== 'undefined' && source !== 'null') {
+        ip = source;
+        break;
+      }
     }
+
+    // Clean and format the IP address
+    if (ip) {
+      // Remove any port numbers
+      ip = ip.split(':')[0];
+      
+      // Convert IPv6 localhost to IPv4 localhost for better readability
+      if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+        ip = '127.0.0.1';
+      }
+      
+      // Remove any brackets from IPv6 addresses
+      ip = ip.replace(/[\[\]]/g, '');
+      
+      // Handle IPv4-mapped IPv6 addresses
+      if (ip.startsWith('::ffff:')) {
+        ip = ip.substring(7);
+      }
+      
+      // Additional IPv6 localhost variants
+      if (ip === '0:0:0:0:0:0:0:1' || ip === '0000:0000:0000:0000:0000:0000:0000:0001') {
+        ip = '127.0.0.1';
+      }
+    }
+
+    // If still no IP found, provide a default localhost IP
+    if (!ip || ip === 'undefined' || ip === 'null') {
+      ip = '127.0.0.1'; // Default to localhost
+    }
+
+    // Additional IP information
+    const isLocalhost = ip === '127.0.0.1' || ip === 'localhost';
+    const ipVersion = ip.includes(':') ? 'IPv6' : 'IPv4';
+
+    // Determine which source was used
+    let detectedFrom = 'default';
+    if (req.headers["x-forwarded-for"]) detectedFrom = 'x-forwarded-for';
+    else if (req.headers["x-real-ip"]) detectedFrom = 'x-real-ip';
+    else if (req.headers["x-client-ip"]) detectedFrom = 'x-client-ip';
+    else if (req.headers["cf-connecting-ip"]) detectedFrom = 'cf-connecting-ip';
+    else if (req.headers["x-cluster-client-ip"]) detectedFrom = 'x-cluster-client-ip';
+    else if (req.socket.remoteAddress) detectedFrom = 'socket.remoteAddress';
+    else if (req.ip) detectedFrom = 'req.ip';
+    else if (req.connection?.remoteAddress) detectedFrom = 'connection.remoteAddress';
 
     return res.status(200).json({
       status: true,
       ip,
+      ipVersion,
+      isLocalhost,
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      timestamp: new Date().toISOString(),
+      debug: {
+        detectedFrom,
+        originalSources: {
+          'x-forwarded-for': req.headers["x-forwarded-for"],
+          'x-real-ip': req.headers["x-real-ip"],
+          'x-client-ip': req.headers["x-client-ip"],
+          'cf-connecting-ip': req.headers["cf-connecting-ip"],
+          'x-cluster-client-ip': req.headers["x-cluster-client-ip"],
+          'socket.remoteAddress': req.socket.remoteAddress,
+          'req.ip': req.ip,
+          'connection.remoteAddress': req.connection?.remoteAddress
+        },
+        allHeaders: Object.keys(req.headers).filter(key => 
+          key.toLowerCase().includes('ip') || 
+          key.toLowerCase().includes('forward') ||
+          key.toLowerCase().includes('client') ||
+          key.toLowerCase().includes('real')
+        ).reduce((obj, key) => {
+          obj[key] = req.headers[key];
+          return obj;
+        }, {} as any),
+        environment: {
+          nodeEnv: process.env.NODE_ENV,
+          isDevelopment: process.env.NODE_ENV === 'development',
+          isProduction: process.env.NODE_ENV === 'production'
+        }
+      }
     });
   } catch (error) {
     console.error("Error fetching user IP:", error);
     return res
       .status(500)
-      .json({ status: false, message: "Internal server error", error });
+      .json({ status: false, message: "Internal server error" });
   }
 };
 

@@ -32,22 +32,86 @@ export const trackApiPerformance = (req: Request, res: Response, next: NextFunct
 export const trackUserActivity = (activityType: string, description: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.user?.userId) {
+      // Create dynamic description with user information
+      const userName = req.user.loginId || req.user.userName || req.user.name || 'Unknown User';
+      const userType = req.user.__type || 'unknown';
+      const dynamicDescription = `${description} by ${userName} (${userType})`;
+      
       activityTracker.trackUserActivity({
         userId: req.user.userId,
         userType: req.user.__type,
         activityType,
-        activityDescription: description,
+        activityDescription: dynamicDescription,
         activityData: {
           endpoint: req.route?.path || req.path,
           method: req.method,
           query: req.query,
           body: req.body,
+          performedBy: userName,
+          performedByType: userType,
         },
         ipAddress: req.ip || '',
         userAgent: req.headers['user-agent'],
         sessionId: (req as any).session?.id || req.headers['x-session-id'] as string || '',
         groupId: req.user.groupId,
       });
+    }
+    next();
+  };
+};
+
+// Special middleware for password change activities
+export const trackPasswordChangeActivity = (description: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.user?.userId) {
+      const originalJson = res.json;
+      
+      res.json = function(data: any) {
+        // Track password change activity after successful response
+        if (data.success && req.user?.userId) {
+          const performerName = req.user.loginId || req.user.userName || req.user.name || 'Unknown User';
+          const performerType = req.user.__type || 'unknown';
+          
+          // Check if this is changing another user's password
+          const targetUserId = req.body.userId;
+          const targetUserType = req.body.userType;
+          
+          let dynamicDescription: string;
+          let activityData: any = {
+            endpoint: req.route?.path || req.path,
+            method: req.method,
+            performedBy: performerName,
+            performedByType: performerType,
+            timestamp: new Date(),
+          };
+          
+          if (targetUserId && targetUserId !== req.user.userId) {
+            // Changing another user's password
+            dynamicDescription = `${description} for user ${targetUserId} (${targetUserType}) by ${performerName} (${performerType})`;
+            activityData.targetUserId = targetUserId;
+            activityData.targetUserType = targetUserType;
+            activityData.actionType = 'change_other_password';
+          } else {
+            // Changing own password
+            dynamicDescription = `${description} by ${performerName} (${performerType})`;
+            activityData.actionType = 'change_own_password';
+          }
+          
+          activityTracker.trackUserActivity({
+            userId: req.user.userId,
+            userType: req.user.__type,
+            activityType: 'password_change',
+            activityDescription: dynamicDescription,
+            activityData,
+            ipAddress: req.ip || '',
+            userAgent: req.headers['user-agent'],
+            sessionId: (req as any).session?.id || req.headers['x-session-id'] as string || '',
+            groupId: req.user.groupId,
+          });
+        }
+        
+        return originalJson.call(this, data);
+      };
     }
     next();
   };

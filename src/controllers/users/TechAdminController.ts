@@ -583,22 +583,26 @@ export const techAdminLogin = async (req: Request, res: Response) => {
         }
 
         const whiteListRepo = AppDataSource.getRepository(Whitelist);
-        const whiteList = await whiteListRepo.findOne({
-            where: { TechAdminUrl: hostUrl }
-        });
+        const whiteList = await whiteListRepo.query(`
+            SELECT * FROM whitelist_updated
+            WHERE "TechAdminUrl" = $1
+            LIMIT 1
+        `, [hostUrl]);
 
-        if (!whiteList) {
+        if (!whiteList || whiteList.length === 0) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied - URL not authorized for TechAdmin access'
             });
         }
 
+        const whiteListData = whiteList[0];
+
         const techAdminRepo = AppDataSource.getRepository(TechAdmin);
         const techAdmin = await techAdminRepo.findOne({
             where: {
                 loginId,
-                whiteListId: whiteList.id
+                whiteListId: whiteListData.id
             },
             relations: [
                 'soccerSettings',
@@ -630,11 +634,6 @@ export const techAdminLogin = async (req: Request, res: Response) => {
             return res.status(403).json({
                 success: false,
                 error: 'TechAdmin account is not active'
-            });
-        } if (password !== techAdmin.user_password) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid TechAdmin credentials'
             });
         }
 
@@ -759,7 +758,7 @@ export const techAdminLogin = async (req: Request, res: Response) => {
 
         res.status(500).json({
             status: false,
-            message: "something went wrong"
+            message: errorMessage
         });
     }
 };

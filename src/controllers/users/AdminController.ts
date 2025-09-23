@@ -980,16 +980,20 @@ export const adminLogin = async (req: Request, res: Response) => {
         }
 
         const whiteListRepo = AppDataSource.getRepository(Whitelist);
-        const whiteList = await whiteListRepo.findOne({
-            where: { AdminUrl: hostUrl }
-        });
+        const whiteList = await whiteListRepo.query(`
+            SELECT * FROM whitelist_updated
+            WHERE "AdminUrl" = $1
+            LIMIT 1
+        `, [hostUrl]);
 
-        if (!whiteList) {
+        if (!whiteList || whiteList.length === 0) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied - URL not authorized for Admin access'
             });
         }
+
+        const whiteListData = whiteList[0];
 
         // Search through all admin tables to find the user
         let user: any = null;
@@ -1000,7 +1004,7 @@ export const adminLogin = async (req: Request, res: Response) => {
             const foundUser = await repo.findOne({
                 where: {
                     loginId,
-                    whiteListId: whiteList.id
+                    whiteListId: whiteListData.id
                 },
                 relations: [
                     'soccerSettings',

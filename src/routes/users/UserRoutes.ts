@@ -15,7 +15,7 @@ import {
   getPendingBet,
 } from "../../controllers/users/UserControllers";
 import { clientAuth } from "../../middlewares/RoleAuth";
-import { trackUserActivity, trackBalanceActivity } from "../../middlewares/ActivityTrackingMiddleware";
+import { trackUserActivity, trackBalanceActivity, trackPasswordChangeActivity } from "../../middlewares/ActivityTrackingMiddleware";
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ router.post("/withdraw", clientAuth, trackBalanceActivity('withdraw'), withdrawB
 router.patch("/lock", clientAuth, trackUserActivity('user_lock', 'Locked/unlocked user or betting'), lockUserOrBetAndDownlineMultiTable);
 router.patch("/set-exposure-limit", clientAuth, trackUserActivity('exposure_limit', 'Set exposure limit for downline'), setExposureLimitForDownline);
 router.patch("/set-credit-ref", clientAuth, trackUserActivity('credit_ref', 'Set credit reference for downline'), setCreditRefForDownline);
-router.patch("/change-password-downline", clientAuth, trackUserActivity('password_change_downline', 'Changed downline password'), changePasswordOfDownline);
+router.patch("/change-password-downline", clientAuth, trackPasswordChangeActivity('Changed downline password'), changePasswordOfDownline);
 
 router.get("/account-transactions", clientAuth, trackUserActivity('transactions_view', 'Viewed account transactions'), getAccountTransactions);
 
