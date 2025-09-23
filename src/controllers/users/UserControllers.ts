@@ -10,6 +10,12 @@ import { CasinoBet } from "../../entities/casino/CasinoBet";
 import { Between, In } from "typeorm";
 import { SportBet } from "../../entities/sports/SportBet";
 import { CasinoMatchNew } from "../../entities/casino/CasinoMatchNew";
+import { SoccerSettings } from "../../entities/users/utils/SoccerSetting";
+import { CricketSettings } from "../../entities/users/utils/CricketSetting";
+import { TennisSettings } from "../../entities/users/utils/TennisSetting";
+import { MatkaSettings } from "../../entities/users/utils/MatkaSetting";
+import { CasinoSettings } from "../../entities/users/utils/CasinoSetting";
+import { InternationalCasinoSettings } from "../../entities/users/utils/InternationalCasino";
 
 export const getPendingBet = async (req: Request, res: Response) => {
   const { type, page = 1, limit = 10, betType = 'all', search } = req.query;
@@ -793,68 +799,134 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
       const tablesToQuery = userType ? { [userType]: USER_TABLES[userType] } : USER_TABLES;
 
       for (const [type, entity] of Object.entries(tablesToQuery)) {
-        const repo = AppDataSource.getRepository(entity);
+        try {
+          const repo = AppDataSource.getRepository(entity);
 
-        const children = await repo.find({
-          where: { uplineId: parentId },
-          relations: [
-            "soccerSettings",
-            "cricketSettings",
-            "tennisSettings",
-            "matkaSettings",
-            "casinoSettings",
-            "internationalCasinoSettings",
-          ],
-        });
-
-        for (const child of children) {
-          allUsers.push({
-            userId: child.id,
-            PersonalDetails: {
-              userName: child.userName,
-              loginId: child.loginId,
-              user_password: child.user_password,
-              countryCode: child.countryCode,
-              mobile: child.mobile,
-              idIsActive: child.isActive,
-              isAutoRegisteredUser: child.isAutoRegisteredUser,
-            },
-            transactionPassword: child.transactionPassword,
-            whiteListId: child.whiteListId,
-            IpAddress: child.IpAddress,
-            uplineId: child.uplineId,
-            fancyLocked: child.fancyLocked,
-            bettingLocked: child.bettingLocked,
-            userLocked: child.userLocked,
-            __type: child.__type,
-            remarks: child.remarks,
-            AccountDetails: {
-              liability: child.liability,
-              Balance: child.balance,
-              profitLoss: child.profitLoss,
-              freeChips: child.freeChips,
-              totalSettledAmount: child.totalSettledAmount,
-              Exposure: child.exposure,
-              ExposureLimit: child.exposureLimit,
-              creditRef: child.creditRef,
-            },
-            allowedNoOfUsers: child.allowedNoOfUsers,
-            createdUsersCount: child.createdUsersCount,
-            commissionLenaYaDena: {
-              commissionLena: child.commissionLena,
-              commissionDena: child.commissionDena,
-            },
-            groupID: child.groupID,
-            createdAt: child.createdAt,
-            updatedAt: child.updatedAt,
-
-            soccerSettings: child.soccerSettings,
-            cricketSettings: child.cricketSettings,
-            tennisSettings: child.tennisSettings,
-            matkaSettings: child.matkaSettings,
-            casinoSettings: child.casinoSettings,
-            internationalCasinoSettings: child.internationalCasinoSettings,
+          // First try without relations to avoid potential issues
+          const children = await repo.find({
+            where: { uplineId: parentId },
           });
+
+          for (const child of children) {
+            // Try to load relations individually to avoid errors
+            let soccerSettings = null;
+            let cricketSettings = null;
+            let tennisSettings = null;
+            let matkaSettings = null;
+            let casinoSettings = null;
+            let internationalCasinoSettings = null;
+
+            try {
+              if (child.soccerSettingId) {
+                soccerSettings = await AppDataSource.getRepository(SoccerSettings).findOne({
+                  where: { id: child.soccerSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading soccer settings for user ${child.id}:`, e);
+            }
+
+            try {
+              if (child.cricketSettingId) {
+                cricketSettings = await AppDataSource.getRepository(CricketSettings).findOne({
+                  where: { id: child.cricketSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading cricket settings for user ${child.id}:`, e);
+            }
+
+            try {
+              if (child.tennisSettingId) {
+                tennisSettings = await AppDataSource.getRepository(TennisSettings).findOne({
+                  where: { id: child.tennisSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading tennis settings for user ${child.id}:`, e);
+            }
+
+            try {
+              if (child.matkaSettingId) {
+                matkaSettings = await AppDataSource.getRepository(MatkaSettings).findOne({
+                  where: { id: child.matkaSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading matka settings for user ${child.id}:`, e);
+            }
+
+            try {
+              if (child.casinoSettingId) {
+                casinoSettings = await AppDataSource.getRepository(CasinoSettings).findOne({
+                  where: { id: child.casinoSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading casino settings for user ${child.id}:`, e);
+            }
+
+            try {
+              if (child.internationalCasinoSettingId) {
+                internationalCasinoSettings = await AppDataSource.getRepository(InternationalCasinoSettings).findOne({
+                  where: { id: child.internationalCasinoSettingId }
+                });
+              }
+            } catch (e) {
+              console.log(`Error loading international casino settings for user ${child.id}:`, e);
+            }
+
+            allUsers.push({
+              userId: child.id,
+              PersonalDetails: {
+                userName: child.userName,
+                loginId: child.loginId,
+                user_password: child.user_password,
+                countryCode: child.countryCode,
+                mobile: child.mobile,
+                idIsActive: child.isActive,
+                isAutoRegisteredUser: child.isAutoRegisteredUser,
+              },
+              transactionPassword: child.transactionPassword,
+              whiteListId: child.whiteListId,
+              IpAddress: child.IpAddress,
+              uplineId: child.uplineId,
+              fancyLocked: child.fancyLocked,
+              bettingLocked: child.bettingLocked,
+              userLocked: child.userLocked,
+              __type: child.__type,
+              remarks: child.remarks,
+              AccountDetails: {
+                liability: child.liability,
+                Balance: child.balance,
+                profitLoss: child.profitLoss,
+                freeChips: child.freeChips,
+                totalSettledAmount: child.totalSettledAmount,
+                Exposure: child.exposure,
+                ExposureLimit: child.exposureLimit,
+                creditRef: child.creditRef,
+              },
+              allowedNoOfUsers: child.allowedNoOfUsers,
+              createdUsersCount: child.createdUsersCount,
+              commissionLenaYaDena: {
+                commissionLena: child.commissionLena,
+                commissionDena: child.commissionDena,
+              },
+              groupID: child.groupID,
+              createdAt: child.createdAt,
+              updatedAt: child.updatedAt,
+
+              soccerSettings: soccerSettings,
+              cricketSettings: cricketSettings,
+              tennisSettings: tennisSettings,
+              matkaSettings: matkaSettings,
+              casinoSettings: casinoSettings,
+              internationalCasinoSettings: internationalCasinoSettings,
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching users from ${type} table:`, error);
+          // Continue with other tables even if one fails
         }
       }
     };
