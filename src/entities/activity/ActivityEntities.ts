@@ -112,6 +112,9 @@ export class BetActivity {
   @Column({ type: 'varchar', length: 45, nullable: true })
   ipAddress!: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  userAgent!: string;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   groupId!: string;
 
@@ -218,3 +221,4 @@ export class PerformanceMetric {
   @UpdateDateColumn()
   updatedAt!: Date;
 }
+

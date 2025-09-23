@@ -188,6 +188,8 @@ export const createBet = async (req: Request, res: Response) => {
       eventId: betData.eventId,
       sId: betData.sid,
       status: "pending",
+      ipAddress: req.ip || '',
+      userAgent: req.get('User-Agent') || '',
     });
 
     await sportsBetRepository.save(bet);

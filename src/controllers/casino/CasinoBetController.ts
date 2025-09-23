@@ -112,6 +112,8 @@ export const createBet = async (req: Request, res: Response) => {
       },
       matchId: betData.mid,
       status: "pending",
+      ipAddress: req.ip || '',
+      userAgent: req.get('User-Agent') || '',
     });
 
     await casinoBetRepository.save(bet);
@@ -342,6 +344,60 @@ export const casinoResult = async (req: Request, res: Response) => {
       status: false,
       message: "Internal server error",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const getBetDetails = async (req: Request, res: Response) => {
+  try {
+    const { betId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const casinoBetRepository = AppDataSource.getRepository(CasinoBet);
+    const bet = await casinoBetRepository.findOne({
+      where: { 
+        id: betId,
+        userId: userId 
+      }
+    });
+
+    if (!bet) {
+      return res.status(404).json({
+        status: false,
+        message: "Bet not found"
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      data: {
+        betId: bet.id,
+        userId: bet.userId,
+        userType: bet.userType,
+        matchId: bet.matchId,
+        status: bet.status,
+        stakeAmount: bet.betData?.stake || 0,
+        potentialWin: bet.betData?.potentialWin || 0,
+        betDetails: bet.betData,
+        ipAddress: bet.ipAddress,
+        userAgent: bet.userAgent,
+        createdAt: bet.createdAt,
+        updatedAt: bet.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching bet details:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error"
     });
   }
 };

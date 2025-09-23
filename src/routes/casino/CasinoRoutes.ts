@@ -7,7 +7,7 @@ import {
     updateCasino,
     deleteCasino
 } from "../../controllers/casino/DefaultCasino";
-import { casinoResult, createBet, getCurrentBet } from "../../controllers/casino/CasinoBetController";
+import { casinoResult, createBet, getCurrentBet, getBetDetails } from "../../controllers/casino/CasinoBetController";
 import { clientAuth } from "../../middlewares/RoleAuth";
 import { settleUserCasinoBets, reverseCasinoBetSettlement, getSettlementReversalHistory, getDownlineSettledBets, getDownlineUsers, debugGetAllSettledBets } from "../../controllers/casino/settlement/SettleController";
 import { getActiveCasinosForWhitelist } from "../../controllers/whitelist/WhitelistCasinoController";
@@ -17,6 +17,7 @@ const router = Router();
 
 router.get("/results", clientAuth, casinoResult);
 router.get("/current-bet", clientAuth, getCurrentBet);
+router.get("/bet-details/:betId", clientAuth, trackUserActivity('bet_details_view', 'Viewed bet details'), getBetDetails);
 router.get("/odds", getCasinoData);
 router.get("/getCasinoTopTenResult", getCasinoResults);
 router.post("/place-bet", clientAuth, trackBettingActivity('casino'), createBet);

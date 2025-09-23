@@ -80,6 +80,7 @@ export class ActivityTrackingService {
     commission?: any;
     exposure?: any;
     ipAddress?: string;
+    userAgent?: string;
     groupId?: string;
   }) {
     try {
@@ -99,6 +100,7 @@ export class ActivityTrackingService {
         commission: data.commission,
         exposure: data.exposure,
         ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
         groupId: data.groupId,
       });
 

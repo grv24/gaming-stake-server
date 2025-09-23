@@ -217,13 +217,13 @@ export class SuperAgent {
   updatedAt !: Date;
 
   // Payment Gateway Permissions
-  @Column({ type: 'jsonb', nullable: true })
-  paymentGatewayPermissions!: {
-    canCreateGateways?: boolean;
-    canManageGateways?: boolean;
-    canAssignGateways?: boolean;
-    canProcessRequests?: boolean;
-  } | null;
+  // @Column({ type: 'jsonb', nullable: true })
+  // paymentGatewayPermissions!: {
+  //   canCreateGateways?: boolean;
+  //   canManageGateways?: boolean;
+  //   canAssignGateways?: boolean;
+  //   canProcessRequests?: boolean;
+  // } | null;
 
   @OneToOne(() => SoccerSettings)
   @JoinColumn({ name: 'soccerSettingId' })

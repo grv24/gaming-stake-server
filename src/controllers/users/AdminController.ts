@@ -167,7 +167,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: false,
+            isActive: true,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'admin',
@@ -1038,10 +1038,17 @@ export const adminLogin = async (req: Request, res: Response) => {
         }
 
         // Authentication checks
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                error: 'Admin account is not active. Please contact TechAdmin to activate your account.'
+            });
+        }
+
         if (user.userLocked) {
             return res.status(403).json({
                 success: false,
-                error: 'Admin account is not active'
+                error: 'Admin account is locked'
             });
         }
 

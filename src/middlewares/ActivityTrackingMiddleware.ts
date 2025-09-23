@@ -34,7 +34,7 @@ export const trackUserActivity = (activityType: string, description: string) => 
     if (req.user?.userId) {
       // Create dynamic description with user information
       const userName = req.user.loginId || req.user.userName || req.user.name || 'Unknown User';
-      const userType = req.user.__type || 'unknown';
+      const userType = req.user.__type;
       const dynamicDescription = `${description} by ${userName} (${userType})`;
       
       activityTracker.trackUserActivity({
@@ -70,7 +70,7 @@ export const trackPasswordChangeActivity = (description: string) => {
         // Track password change activity after successful response
         if (data.success && req.user?.userId) {
           const performerName = req.user.loginId || req.user.userName || req.user.name || 'Unknown User';
-          const performerType = req.user.__type || 'unknown';
+          const performerType = req.user.__type;
           
           // Check if this is changing another user's password
           const targetUserId = req.body.userId;
@@ -181,6 +181,7 @@ export const trackBettingActivity = (betType: 'sports' | 'casino') => {
             marketType: req.body.marketType,
           },
           ipAddress: req.ip || '',
+          userAgent: req.get('User-Agent') || '',
           groupId: req.user.groupId,
         });
       }
@@ -264,3 +265,4 @@ export const trackLogoutActivity = (req: Request, res: Response, next: NextFunct
   
   next();
 };
+

@@ -28,7 +28,12 @@ export class BalanceManagementController {
       return res.status(200).json({
         success: true,
         data: dashboard,
-        message: 'Balance dashboard retrieved successfully'
+        message: 'Balance dashboard retrieved successfully',
+        userInfo: {
+          userId: userId,
+          userType: userType,
+          lastUpdated: new Date().toISOString()
+        }
       });
     } catch (error: any) {
       console.error('Error getting balance dashboard:', error);

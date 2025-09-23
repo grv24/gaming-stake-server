@@ -1,0 +1,250 @@
+
+> gaming-stake-server@1.0.0 dev
+> nodemon src/server.ts
+
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: ts,json[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+Starting server initialization...
+Initializing database connection...
+Database connected
+Connecting to Redis...
+Redis connected
+Initializing Redis PubSub...
+Redis PubSub initialized
+Server running on port 7080
+Environment: development
+Subscriber connected to Redis
+Publisher connected to Redis
+Connected to Redis
+[CASINO-SOCKET-INFO] Subscribed to casino_odds_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to casino_data_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to sports_odds_updates channel 
+Admin login error: QueryFailedError: column TechAdmin.paymentGatewayPermissions does not exist
+    at PostgresQueryRunner.query (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/typeorm/src/driver/postgres/PostgresQueryRunner.ts:325:19)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SelectQueryBuilder.loadRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3808:25)
+    at async SelectQueryBuilder.getRawMany (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1627:29)
+    at async SelectQueryBuilder.executeEntitiesAndRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3470:26)
+    at async SelectQueryBuilder.getRawAndEntities (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1671:29)
+    at async SelectQueryBuilder.getOne (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1698:25)
+    at async adminLogin (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/src/controllers/users/AdminController.ts:1004:31) {
+  query: 'SELECT DISTINCT "distinctAlias"."TechAdmin_id" AS "ids_TechAdmin_id" FROM (SELECT "TechAdmin"."id" AS "TechAdmin_id", "TechAdmin"."uplineId" AS "TechAdmin_uplineId", "TechAdmin"."whiteListId" AS "TechAdmin_whiteListId", "TechAdmin"."groupID" AS "TechAdmin_groupID", "TechAdmin"."transactionPassword" AS "TechAdmin_transactionPassword", "TechAdmin"."referallCode" AS "TechAdmin_referallCode", "TechAdmin"."userName" AS "TechAdmin_userName", "TechAdmin"."loginId" AS "TechAdmin_loginId", "TechAdmin"."user_password" AS "TechAdmin_user_password", "TechAdmin"."countryCode" AS "TechAdmin_countryCode", "TechAdmin"."mobile" AS "TechAdmin_mobile", "TechAdmin"."isAutoRegisteredUser" AS "TechAdmin_isAutoRegisteredUser", "TechAdmin"."IpAddress" AS "TechAdmin_IpAddress", "TechAdmin"."remarks" AS "TechAdmin_remarks", "TechAdmin"."fancyLocked" AS "TechAdmin_fancyLocked", "TechAdmin"."bettingLocked" AS "TechAdmin_bettingLocked", "TechAdmin"."userLocked" AS "TechAdmin_userLocked", "TechAdmin"."isActive" AS "TechAdmin_isActive", "TechAdmin"."whatsappNumber" AS "TechAdmin_whatsappNumber", "TechAdmin"."topBarRunningMessage" AS "TechAdmin_topBarRunningMessage", "TechAdmin"."__type" AS "TechAdmin___type", "TechAdmin"."liability" AS "TechAdmin_liability", "TechAdmin"."balance" AS "TechAdmin_balance", "TechAdmin"."profitLoss" AS "TechAdmin_profitLoss", "TechAdmin"."freeChips" AS "TechAdmin_freeChips", "TechAdmin"."totalSettledAmount" AS "TechAdmin_totalSettledAmount", "TechAdmin"."creditRef" AS "TechAdmin_creditRef", "TechAdmin"."uplineSettlement" AS "TechAdmin_uplineSettlement", "TechAdmin"."exposure" AS "TechAdmin_exposure", "TechAdmin"."exposureLimit" AS "TechAdmin_exposureLimit", "TechAdmin"."isPanelCommission" AS "TechAdmin_isPanelCommission", "TechAdmin"."whiteListAccess" AS "TechAdmin_whiteListAccess", "TechAdmin"."depositWithdrawlAccess" AS "TechAdmin_depositWithdrawlAccess", "TechAdmin"."canDeleteBets" AS "TechAdmin_canDeleteBets", "TechAdmin"."canDeleteUsers" AS "TechAdmin_canDeleteUsers", "TechAdmin"."specialPermissions" AS "TechAdmin_specialPermissions", "TechAdmin"."enableMultipleLogin" AS "TechAdmin_enableMultipleLogin", "TechAdmin"."autoSignUpFeature" AS "TechAdmin_autoSignUpFeature", "TechAdmin"."displayUsersOnlineStatus" AS "TechAdmin_displayUsersOnlineStatus", "TechAdmin"."refundOptionFeature" AS "TechAdmin_refundOptionFeature", "TechAdmin"."canDeclareResultAsOperator" AS "TechAdmin_canDeclareResultAsOperator", "TechAdmin"."canChangeAvailableAdminPanels" AS "TechAdmin_canChangeAvailableAdminPanels", "TechAdmin"."availableAdminPanels" AS "TechAdmin_availableAdminPanels", "TechAdmin"."allowedNoOfUsers" AS "TechAdmin_allowedNoOfUsers", "TechAdmin"."createdUsersCount" AS "TechAdmin_createdUsersCount", "TechAdmin"."percentageWiseCommission" AS "TechAdmin_percentageWiseCommission", "TechAdmin"."partnerShipWiseCommission" AS "TechAdmin_partnerShipWiseCommission", "TechAdmin"."commissionLena" AS "TechAdmin_commissionLena", "TechAdmin"."commissionDena" AS "TechAdmin_commissionDena", "TechAdmin"."soccerSettingId" AS "TechAdmin_soccerSettingId", "TechAdmin"."tennisSettingId" AS "TechAdmin_tennisSettingId", "TechAdmin"."cricketSettingId" AS "TechAdmin_cricketSettingId", "TechAdmin"."matkaSettingId" AS "TechAdmin_matkaSettingId", "TechAdmin"."casinoSettingId" AS "TechAdmin_casinoSettingId", "TechAdmin"."internationalCasinoSettingId" AS "TechAdmin_internationalCasinoSettingId", "TechAdmin"."createdAt" AS "TechAdmin_createdAt", "TechAdmin"."updatedAt" AS "TechAdmin_updatedAt", "TechAdmin"."paymentGatewayPermissions" AS "TechAdmin_paymentGatewayPermissions", "TechAdmin__TechAdmin_soccerSettings"."id" AS "TechAdmin__TechAdmin_soccerSettings_id", "TechAdmin__TechAdmin_soccerSettings"."userId" AS "TechAdmin__TechAdmin_soccerSettings_userId", "TechAdmin__TechAdmin_soccerSettings"."user__type" AS "TechAdmin__TechAdmin_soccerSettings_user__type", "TechAdmin__TechAdmin_soccerSettings"."isWhiteListed" AS "TechAdmin__TechAdmin_soccerSettings_isWhiteListed", "TechAdmin__TechAdmin_soccerSettings"."minOddsToBet" AS "TechAdmin__TechAdmin_soccerSettings_minOddsToBet", "TechAdmin__TechAdmin_soccerSettings"."maxOddsToBet" AS "TechAdmin__TechAdmin_soccerSettings_maxOddsToBet", "TechAdmin__TechAdmin_soccerSettings"."sportId" AS "TechAdmin__TechAdmin_soccerSettings_sportId", "TechAdmin__TechAdmin_soccerSettings"."betDelay" AS "TechAdmin__TechAdmin_soccerSettings_betDelay", "TechAdmin__TechAdmin_soccerSettings"."bookMakerDelay" AS "TechAdmin__TechAdmin_soccerSettings_bookMakerDelay", "TechAdmin__TechAdmin_soccerSettings"."minMatchStake" AS "TechAdmin__TechAdmin_soccerSettings_minMatchStake", "TechAdmin__TechAdmin_soccerSettings"."maxMatchStake" AS "TechAdmin__TechAdmin_soccerSettings_maxMatchStake", "TechAdmin__TechAdmin_soccerSettings"."minBookMakerStake" AS "TechAdmin__TechAdmin_soccerSettings_minBookMakerStake", "TechAdmin__TechAdmin_soccerSettings"."maxBookMakerStake" AS "TechAdmin__TechAdmin_soccerSettings_maxBookMakerStake", "TechAdmin__TechAdmin_soccerSettings"."maxProfit" AS "TechAdmin__TechAdmin_soccerSettings_maxProfit", "TechAdmin__TechAdmin_soccerSettings"."maxLoss" AS "TechAdmin__TechAdmin_soccerSettings_maxLoss", "TechAdmin__TechAdmin_soccerSettings"."minExposure" AS "TechAdmin__TechAdmin_soccerSettings_minExposure", "TechAdmin__TechAdmin_soccerSettings"."maxExposure" AS "TechAdmin__TechAdmin_soccerSettings_maxExposure", "TechAdmin__TechAdmin_soccerSettings"."winningLimit" AS "TechAdmin__TechAdmin_soccerSettings_winningLimit", "TechAdmin__TechAdmin_soccerSettings"."commissionUplineType" AS "TechAdmin__TechAdmin_soccerSettings_commissionUplineType", "TechAdmin__TechAdmin_soccerSettings"."commissionUplineUserId" AS "TechAdmin__TechAdmin_soccerSettings_commissionUplineUserId", "TechAdmin__TechAdmin_soccerSettings"."commissionUpline" AS "TechAdmin__TechAdmin_soccerSettings_commissionUpline", "TechAdmin__TechAdmin_soccerSettings"."commissionOwn" AS "TechAdmin__TechAdmin_soccerSettings_commissionOwn", "TechAdmin__TechAdmin_soccerSettings"."partnershipUplineType" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUplineType", "TechAdmin__TechAdmin_soccerSettings"."partnershipUplineUserId" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUplineUserId", "TechAdmin__TechAdmin_soccerSettings"."partnershipUpline" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUpline", "TechAdmin__TechAdmin_soccerSettings"."partnershipOwn" AS "TechAdmin__TechAdmin_soccerSettings_partnershipOwn", "TechAdmin__TechAdmin_soccerSettings"."createdAt" AS "TechAdmin__TechAdmin_soccerSettings_createdAt", "TechAdmin__TechAdmin_soccerSettings"."updatedAt" AS "TechAdmin__TechAdmin_soccerSettings_updatedAt", "TechAdmin__TechAdmin_cricketSettings"."id" AS "TechAdmin__TechAdmin_cricketSettings_id", "TechAdmin__TechAdmin_cricketSettings"."userId" AS "TechAdmin__TechAdmin_cricketSettings_userId", "TechAdmin__TechAdmin_cricketSettings"."user__type" AS "TechAdmin__TechAdmin_cricketSettings_user__type", "TechAdmin__TechAdmin_cricketSettings"."isWhiteListed" AS "TechAdmin__TechAdmin_cricketSettings_isWhiteListed", "TechAdmin__TechAdmin_cricketSettings"."min_Odds_To_Bet" AS "TechAdmin__TechAdmin_cricketSettings_min_Odds_To_Bet", "TechAdmin__TechAdmin_cricketSettings"."max_Odds_To_Bet" AS "TechAdmin__TechAdmin_cricketSettings_max_Odds_To_Bet", "TechAdmin__TechAdmin_cricketSettings"."sportId" AS "TechAdmin__TechAdmin_cricketSettings_sportId", "TechAdmin__TechAdmin_cricketSettings"."betDelay" AS "TechAdmin__TechAdmin_cricketSettings_betDelay", "TechAdmin__TechAdmin_cricketSettings"."bookMakerDelay" AS "TechAdmin__TechAdmin_cricketSettings_bookMakerDelay", "TechAdmin__TechAdmin_cricketSettings"."sessionDelay" AS "TechAdmin__TechAdmin_cricketSettings_sessionDelay", "TechAdmin__TechAdmin_cricketSettings"."minMatchStake" AS "TechAdmin__TechAdmin_cricketSettings_minMatchStake", "TechAdmin__TechAdmin_cricketSettings"."maxMatchStake" AS "TechAdmin__TechAdmin_cricketSettings_maxMatchStake", "TechAdmin__TechAdmin_cricketSettings"."minBookMakerStake" AS "TechAdmin__TechAdmin_cricketSettings_minBookMakerStake", "TechAdmin__TechAdmin_cricketSettings"."maxBookMakerStake" AS "TechAdmin__TechAdmin_cricketSettings_maxBookMakerStake", "TechAdmin__TechAdmin_cricketSettings"."minSessionStake" AS "TechAdmin__TechAdmin_cricketSettings_minSessionStake", "TechAdmin__TechAdmin_cricketSettings"."maxSessionStake" AS "TechAdmin__TechAdmin_cricketSettings_maxSessionStake", "TechAdmin__TechAdmin_cricketSettings"."maxProfit" AS "TechAdmin__TechAdmin_cricketSettings_maxProfit", "TechAdmin__TechAdmin_cricketSettings"."maxLoss" AS "TechAdmin__TechAdmin_cricketSettings_maxLoss", "TechAdmin__TechAdmin_cricketSettings"."sessionMaxProfit" AS "TechAdmin__TechAdmin_cricketSettings_sessionMaxProfit", "TechAdmin__TechAdmin_cricketSettings"."sessionMaxLoss" AS "TechAdmin__TechAdmin_cricketSettings_sessionMaxLoss", "TechAdmin__TechAdmin_cricketSettings"."minExposure" AS "TechAdmin__TechAdmin_cricketSettings_minExposure", "TechAdmin__TechAdmin_cricketSettings"."maxExposure" AS "TechAdmin__TechAdmin_cricketSettings_maxExposure", "TechAdmin__TechAdmin_cricketSettings"."winningLimit" AS "TechAdmin__TechAdmin_cricketSettings_winningLimit", "TechAdmin__TechAdmin_cricketSettings"."commissionUplineType" AS "TechAdmin__TechAdmin_cricketSettings_commissionUplineType", "TechAdmin__TechAdmin_cricketSettings"."commissionUplineUserId" AS "TechAdmin__TechAdmin_cricketSettings_commissionUplineUserId", "TechAdmin__TechAdmin_cricketSettings"."commissionUpline" AS "TechAdmin__TechAdmin_cricketSettings_commissionUpline", "TechAdmin__TechAdmin_cricketSettings"."commissionOwn" AS "TechAdmin__TechAdmin_cricketSettings_commissionOwn", "TechAdmin__TechAdmin_cricketSettings"."partnershipUplineType" AS "TechAdmin__TechAdmin_cricketSettings_partnershipUplineType", "TechAdmin__TechAdmin_cricketSettings"."partnershipUplineUserId" AS "TechAdmin__TechAdmin_cricketSettings_partnershipUplineUserId", "TechAdmin__TechAdmin_cricketSettings"."partnershipUpline" AS "Tec'... 12779 more characters,
+  parameters: [ 'test_admin', '11d4e8f5-fb1a-459e-b487-1ee974217aa5' ],
+  driverError: error: column TechAdmin.paymentGatewayPermissions does not exist
+      at /Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/pg/lib/client.js:545:17
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async PostgresQueryRunner.query (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/typeorm/src/driver/postgres/PostgresQueryRunner.ts:254:25)
+      at async SelectQueryBuilder.loadRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3808:25)
+      at async SelectQueryBuilder.getRawMany (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1627:29)
+      at async SelectQueryBuilder.executeEntitiesAndRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3470:26)
+      at async SelectQueryBuilder.getRawAndEntities (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1671:29)
+      at async SelectQueryBuilder.getOne (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1698:25)
+      at async adminLogin (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/src/controllers/users/AdminController.ts:1004:31) {
+    length: 135,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '3517',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3665',
+    routine: 'errorMissingColumn'
+  },
+  length: 135,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '3517',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3665',
+  routine: 'errorMissingColumn'
+}
+[CASINO-SOCKET-DEBUG] Change detection triggered 
+[CASINO-SOCKET-DEBUG] Checking 71 casino types for changes {
+  casinoTypes: [
+    'teen20c',    'cricketv3', 'lottcard',   'abj',
+    'poker',      'teen20',    'goal',       'ab3',
+    'ballbyball', 'trap',      'race2',      'cmeter1',
+    'teen6',      'teen41',    'superover2', 'teen33',
+    'teen32',     'superover', 'lucky7',     'dt202',
+    'notenum',    'queen',     'ab20',       'dum10',
+    'teenmuf',    'joker1',    'sicbo2',     'joker20',
+    'kbc',        'teen1',     'lucky7eu2',  'dt20',
+    'superover3', 'race20',    'poker20',    'teen42',
+    'cmeter',     'race17',    'poison20',   'ab4',
+    'teen20b',    'patti2',    'trio',       'teen',
+    'lucky7eu',   'war',       'card32eu',   'cmatch20',
+    'btable',     '3cardj',    'teen9',      'teensin',
+    'dtl20',      'btable2',   'lucky5',     'poker6',
+    'teen120',    'sicbo',     'lucky15',    'baccarat2',
+    'worli',      'worli2',    'card32',     'teenjoker',
+    'poison',     'aaa',       'aaa2',       'dt6',
+    'teen8',      'teen3',     'baccarat'
+  ]
+}
+[CASINO-SOCKET-DEBUG] Change detection triggered 
+[CASINO-SOCKET-DEBUG] Checking 71 casino types for changes {
+  casinoTypes: [
+    'teen20c',    'cricketv3', 'lottcard',   'abj',
+    'poker',      'teen20',    'goal',       'ab3',
+    'ballbyball', 'trap',      'race2',      'cmeter1',
+    'teen6',      'teen41',    'superover2', 'teen33',
+    'teen32',     'superover', 'lucky7',     'dt202',
+    'notenum',    'queen',     'ab20',       'dum10',
+    'teenmuf',    'joker1',    'sicbo2',     'joker20',
+    'kbc',        'teen1',     'lucky7eu2',  'dt20',
+    'superover3', 'race20',    'poker20',    'teen42',
+    'cmeter',     'race17',    'poison20',   'ab4',
+    'teen20b',    'patti2',    'trio',       'teen',
+    'lucky7eu',   'war',       'card32eu',   'cmatch20',
+    'btable',     '3cardj',    'teen9',      'teensin',
+    'dtl20',      'btable2',   'lucky5',     'poker6',
+    'teen120',    'sicbo',     'lucky15',    'baccarat2',
+    'worli',      'worli2',    'card32',     'teenjoker',
+    'poison',     'aaa',       'aaa2',       'dt6',
+    'teen8',      'teen3',     'baccarat'
+  ]
+}
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+Starting server initialization...
+Initializing database connection...
+Database connected
+Connecting to Redis...
+Redis connected
+Initializing Redis PubSub...
+Redis PubSub initialized
+Server running on port 7080
+Environment: development
+Connected to Redis
+Subscriber connected to Redis
+Publisher connected to Redis
+[CASINO-SOCKET-INFO] Subscribed to casino_odds_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to casino_data_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to sports_odds_updates channel 
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+Starting server initialization...
+Initializing database connection...
+Database connected
+Connecting to Redis...
+Redis connected
+Initializing Redis PubSub...
+Redis PubSub initialized
+Server running on port 7080
+Environment: development
+Connected to Redis
+Publisher connected to Redis
+Subscriber connected to Redis
+[CASINO-SOCKET-INFO] Subscribed to casino_odds_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to casino_data_updates:* pattern 
+[CASINO-SOCKET-INFO] Subscribed to sports_odds_updates channel 
+Admin login error: QueryFailedError: column TechAdmin.paymentGatewayPermissions does not exist
+    at PostgresQueryRunner.query (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/typeorm/src/driver/postgres/PostgresQueryRunner.ts:325:19)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SelectQueryBuilder.loadRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3808:25)
+    at async SelectQueryBuilder.getRawMany (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1627:29)
+    at async SelectQueryBuilder.executeEntitiesAndRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3470:26)
+    at async SelectQueryBuilder.getRawAndEntities (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1671:29)
+    at async SelectQueryBuilder.getOne (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1698:25)
+    at async adminLogin (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/src/controllers/users/AdminController.ts:1004:31) {
+  query: 'SELECT DISTINCT "distinctAlias"."TechAdmin_id" AS "ids_TechAdmin_id" FROM (SELECT "TechAdmin"."id" AS "TechAdmin_id", "TechAdmin"."uplineId" AS "TechAdmin_uplineId", "TechAdmin"."whiteListId" AS "TechAdmin_whiteListId", "TechAdmin"."groupID" AS "TechAdmin_groupID", "TechAdmin"."transactionPassword" AS "TechAdmin_transactionPassword", "TechAdmin"."referallCode" AS "TechAdmin_referallCode", "TechAdmin"."userName" AS "TechAdmin_userName", "TechAdmin"."loginId" AS "TechAdmin_loginId", "TechAdmin"."user_password" AS "TechAdmin_user_password", "TechAdmin"."countryCode" AS "TechAdmin_countryCode", "TechAdmin"."mobile" AS "TechAdmin_mobile", "TechAdmin"."isAutoRegisteredUser" AS "TechAdmin_isAutoRegisteredUser", "TechAdmin"."IpAddress" AS "TechAdmin_IpAddress", "TechAdmin"."remarks" AS "TechAdmin_remarks", "TechAdmin"."fancyLocked" AS "TechAdmin_fancyLocked", "TechAdmin"."bettingLocked" AS "TechAdmin_bettingLocked", "TechAdmin"."userLocked" AS "TechAdmin_userLocked", "TechAdmin"."isActive" AS "TechAdmin_isActive", "TechAdmin"."whatsappNumber" AS "TechAdmin_whatsappNumber", "TechAdmin"."topBarRunningMessage" AS "TechAdmin_topBarRunningMessage", "TechAdmin"."__type" AS "TechAdmin___type", "TechAdmin"."liability" AS "TechAdmin_liability", "TechAdmin"."balance" AS "TechAdmin_balance", "TechAdmin"."profitLoss" AS "TechAdmin_profitLoss", "TechAdmin"."freeChips" AS "TechAdmin_freeChips", "TechAdmin"."totalSettledAmount" AS "TechAdmin_totalSettledAmount", "TechAdmin"."creditRef" AS "TechAdmin_creditRef", "TechAdmin"."uplineSettlement" AS "TechAdmin_uplineSettlement", "TechAdmin"."exposure" AS "TechAdmin_exposure", "TechAdmin"."exposureLimit" AS "TechAdmin_exposureLimit", "TechAdmin"."isPanelCommission" AS "TechAdmin_isPanelCommission", "TechAdmin"."whiteListAccess" AS "TechAdmin_whiteListAccess", "TechAdmin"."depositWithdrawlAccess" AS "TechAdmin_depositWithdrawlAccess", "TechAdmin"."canDeleteBets" AS "TechAdmin_canDeleteBets", "TechAdmin"."canDeleteUsers" AS "TechAdmin_canDeleteUsers", "TechAdmin"."specialPermissions" AS "TechAdmin_specialPermissions", "TechAdmin"."enableMultipleLogin" AS "TechAdmin_enableMultipleLogin", "TechAdmin"."autoSignUpFeature" AS "TechAdmin_autoSignUpFeature", "TechAdmin"."displayUsersOnlineStatus" AS "TechAdmin_displayUsersOnlineStatus", "TechAdmin"."refundOptionFeature" AS "TechAdmin_refundOptionFeature", "TechAdmin"."canDeclareResultAsOperator" AS "TechAdmin_canDeclareResultAsOperator", "TechAdmin"."canChangeAvailableAdminPanels" AS "TechAdmin_canChangeAvailableAdminPanels", "TechAdmin"."availableAdminPanels" AS "TechAdmin_availableAdminPanels", "TechAdmin"."allowedNoOfUsers" AS "TechAdmin_allowedNoOfUsers", "TechAdmin"."createdUsersCount" AS "TechAdmin_createdUsersCount", "TechAdmin"."percentageWiseCommission" AS "TechAdmin_percentageWiseCommission", "TechAdmin"."partnerShipWiseCommission" AS "TechAdmin_partnerShipWiseCommission", "TechAdmin"."commissionLena" AS "TechAdmin_commissionLena", "TechAdmin"."commissionDena" AS "TechAdmin_commissionDena", "TechAdmin"."soccerSettingId" AS "TechAdmin_soccerSettingId", "TechAdmin"."tennisSettingId" AS "TechAdmin_tennisSettingId", "TechAdmin"."cricketSettingId" AS "TechAdmin_cricketSettingId", "TechAdmin"."matkaSettingId" AS "TechAdmin_matkaSettingId", "TechAdmin"."casinoSettingId" AS "TechAdmin_casinoSettingId", "TechAdmin"."internationalCasinoSettingId" AS "TechAdmin_internationalCasinoSettingId", "TechAdmin"."createdAt" AS "TechAdmin_createdAt", "TechAdmin"."updatedAt" AS "TechAdmin_updatedAt", "TechAdmin"."paymentGatewayPermissions" AS "TechAdmin_paymentGatewayPermissions", "TechAdmin__TechAdmin_soccerSettings"."id" AS "TechAdmin__TechAdmin_soccerSettings_id", "TechAdmin__TechAdmin_soccerSettings"."userId" AS "TechAdmin__TechAdmin_soccerSettings_userId", "TechAdmin__TechAdmin_soccerSettings"."user__type" AS "TechAdmin__TechAdmin_soccerSettings_user__type", "TechAdmin__TechAdmin_soccerSettings"."isWhiteListed" AS "TechAdmin__TechAdmin_soccerSettings_isWhiteListed", "TechAdmin__TechAdmin_soccerSettings"."minOddsToBet" AS "TechAdmin__TechAdmin_soccerSettings_minOddsToBet", "TechAdmin__TechAdmin_soccerSettings"."maxOddsToBet" AS "TechAdmin__TechAdmin_soccerSettings_maxOddsToBet", "TechAdmin__TechAdmin_soccerSettings"."sportId" AS "TechAdmin__TechAdmin_soccerSettings_sportId", "TechAdmin__TechAdmin_soccerSettings"."betDelay" AS "TechAdmin__TechAdmin_soccerSettings_betDelay", "TechAdmin__TechAdmin_soccerSettings"."bookMakerDelay" AS "TechAdmin__TechAdmin_soccerSettings_bookMakerDelay", "TechAdmin__TechAdmin_soccerSettings"."minMatchStake" AS "TechAdmin__TechAdmin_soccerSettings_minMatchStake", "TechAdmin__TechAdmin_soccerSettings"."maxMatchStake" AS "TechAdmin__TechAdmin_soccerSettings_maxMatchStake", "TechAdmin__TechAdmin_soccerSettings"."minBookMakerStake" AS "TechAdmin__TechAdmin_soccerSettings_minBookMakerStake", "TechAdmin__TechAdmin_soccerSettings"."maxBookMakerStake" AS "TechAdmin__TechAdmin_soccerSettings_maxBookMakerStake", "TechAdmin__TechAdmin_soccerSettings"."maxProfit" AS "TechAdmin__TechAdmin_soccerSettings_maxProfit", "TechAdmin__TechAdmin_soccerSettings"."maxLoss" AS "TechAdmin__TechAdmin_soccerSettings_maxLoss", "TechAdmin__TechAdmin_soccerSettings"."minExposure" AS "TechAdmin__TechAdmin_soccerSettings_minExposure", "TechAdmin__TechAdmin_soccerSettings"."maxExposure" AS "TechAdmin__TechAdmin_soccerSettings_maxExposure", "TechAdmin__TechAdmin_soccerSettings"."winningLimit" AS "TechAdmin__TechAdmin_soccerSettings_winningLimit", "TechAdmin__TechAdmin_soccerSettings"."commissionUplineType" AS "TechAdmin__TechAdmin_soccerSettings_commissionUplineType", "TechAdmin__TechAdmin_soccerSettings"."commissionUplineUserId" AS "TechAdmin__TechAdmin_soccerSettings_commissionUplineUserId", "TechAdmin__TechAdmin_soccerSettings"."commissionUpline" AS "TechAdmin__TechAdmin_soccerSettings_commissionUpline", "TechAdmin__TechAdmin_soccerSettings"."commissionOwn" AS "TechAdmin__TechAdmin_soccerSettings_commissionOwn", "TechAdmin__TechAdmin_soccerSettings"."partnershipUplineType" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUplineType", "TechAdmin__TechAdmin_soccerSettings"."partnershipUplineUserId" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUplineUserId", "TechAdmin__TechAdmin_soccerSettings"."partnershipUpline" AS "TechAdmin__TechAdmin_soccerSettings_partnershipUpline", "TechAdmin__TechAdmin_soccerSettings"."partnershipOwn" AS "TechAdmin__TechAdmin_soccerSettings_partnershipOwn", "TechAdmin__TechAdmin_soccerSettings"."createdAt" AS "TechAdmin__TechAdmin_soccerSettings_createdAt", "TechAdmin__TechAdmin_soccerSettings"."updatedAt" AS "TechAdmin__TechAdmin_soccerSettings_updatedAt", "TechAdmin__TechAdmin_cricketSettings"."id" AS "TechAdmin__TechAdmin_cricketSettings_id", "TechAdmin__TechAdmin_cricketSettings"."userId" AS "TechAdmin__TechAdmin_cricketSettings_userId", "TechAdmin__TechAdmin_cricketSettings"."user__type" AS "TechAdmin__TechAdmin_cricketSettings_user__type", "TechAdmin__TechAdmin_cricketSettings"."isWhiteListed" AS "TechAdmin__TechAdmin_cricketSettings_isWhiteListed", "TechAdmin__TechAdmin_cricketSettings"."min_Odds_To_Bet" AS "TechAdmin__TechAdmin_cricketSettings_min_Odds_To_Bet", "TechAdmin__TechAdmin_cricketSettings"."max_Odds_To_Bet" AS "TechAdmin__TechAdmin_cricketSettings_max_Odds_To_Bet", "TechAdmin__TechAdmin_cricketSettings"."sportId" AS "TechAdmin__TechAdmin_cricketSettings_sportId", "TechAdmin__TechAdmin_cricketSettings"."betDelay" AS "TechAdmin__TechAdmin_cricketSettings_betDelay", "TechAdmin__TechAdmin_cricketSettings"."bookMakerDelay" AS "TechAdmin__TechAdmin_cricketSettings_bookMakerDelay", "TechAdmin__TechAdmin_cricketSettings"."sessionDelay" AS "TechAdmin__TechAdmin_cricketSettings_sessionDelay", "TechAdmin__TechAdmin_cricketSettings"."minMatchStake" AS "TechAdmin__TechAdmin_cricketSettings_minMatchStake", "TechAdmin__TechAdmin_cricketSettings"."maxMatchStake" AS "TechAdmin__TechAdmin_cricketSettings_maxMatchStake", "TechAdmin__TechAdmin_cricketSettings"."minBookMakerStake" AS "TechAdmin__TechAdmin_cricketSettings_minBookMakerStake", "TechAdmin__TechAdmin_cricketSettings"."maxBookMakerStake" AS "TechAdmin__TechAdmin_cricketSettings_maxBookMakerStake", "TechAdmin__TechAdmin_cricketSettings"."minSessionStake" AS "TechAdmin__TechAdmin_cricketSettings_minSessionStake", "TechAdmin__TechAdmin_cricketSettings"."maxSessionStake" AS "TechAdmin__TechAdmin_cricketSettings_maxSessionStake", "TechAdmin__TechAdmin_cricketSettings"."maxProfit" AS "TechAdmin__TechAdmin_cricketSettings_maxProfit", "TechAdmin__TechAdmin_cricketSettings"."maxLoss" AS "TechAdmin__TechAdmin_cricketSettings_maxLoss", "TechAdmin__TechAdmin_cricketSettings"."sessionMaxProfit" AS "TechAdmin__TechAdmin_cricketSettings_sessionMaxProfit", "TechAdmin__TechAdmin_cricketSettings"."sessionMaxLoss" AS "TechAdmin__TechAdmin_cricketSettings_sessionMaxLoss", "TechAdmin__TechAdmin_cricketSettings"."minExposure" AS "TechAdmin__TechAdmin_cricketSettings_minExposure", "TechAdmin__TechAdmin_cricketSettings"."maxExposure" AS "TechAdmin__TechAdmin_cricketSettings_maxExposure", "TechAdmin__TechAdmin_cricketSettings"."winningLimit" AS "TechAdmin__TechAdmin_cricketSettings_winningLimit", "TechAdmin__TechAdmin_cricketSettings"."commissionUplineType" AS "TechAdmin__TechAdmin_cricketSettings_commissionUplineType", "TechAdmin__TechAdmin_cricketSettings"."commissionUplineUserId" AS "TechAdmin__TechAdmin_cricketSettings_commissionUplineUserId", "TechAdmin__TechAdmin_cricketSettings"."commissionUpline" AS "TechAdmin__TechAdmin_cricketSettings_commissionUpline", "TechAdmin__TechAdmin_cricketSettings"."commissionOwn" AS "TechAdmin__TechAdmin_cricketSettings_commissionOwn", "TechAdmin__TechAdmin_cricketSettings"."partnershipUplineType" AS "TechAdmin__TechAdmin_cricketSettings_partnershipUplineType", "TechAdmin__TechAdmin_cricketSettings"."partnershipUplineUserId" AS "TechAdmin__TechAdmin_cricketSettings_partnershipUplineUserId", "TechAdmin__TechAdmin_cricketSettings"."partnershipUpline" AS "Tec'... 12779 more characters,
+  parameters: [ 'test_admin', '11d4e8f5-fb1a-459e-b487-1ee974217aa5' ],
+  driverError: error: column TechAdmin.paymentGatewayPermissions does not exist
+      at /Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/pg/lib/client.js:545:17
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async PostgresQueryRunner.query (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/typeorm/src/driver/postgres/PostgresQueryRunner.ts:254:25)
+      at async SelectQueryBuilder.loadRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3808:25)
+      at async SelectQueryBuilder.getRawMany (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1627:29)
+      at async SelectQueryBuilder.executeEntitiesAndRawResults (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:3470:26)
+      at async SelectQueryBuilder.getRawAndEntities (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1671:29)
+      at async SelectQueryBuilder.getOne (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/node_modules/src/query-builder/SelectQueryBuilder.ts:1698:25)
+      at async adminLogin (/Users/grv98/Desktop/Desktop - gourav’s MacBook Air/game-stake-server/src/controllers/users/AdminController.ts:1004:31) {
+    length: 135,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '3517',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3665',
+    routine: 'errorMissingColumn'
+  },
+  length: 135,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '3517',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3665',
+  routine: 'errorMissingColumn'
+}
+[CASINO-SOCKET-DEBUG] Change detection triggered 
+[CASINO-SOCKET-DEBUG] Checking 71 casino types for changes {
+  casinoTypes: [
+    'teen20c',    'cricketv3', 'lottcard',   'abj',
+    'poker',      'teen20',    'goal',       'ab3',
+    'ballbyball', 'trap',      'race2',      'cmeter1',
+    'teen6',      'teen41',    'superover2', 'teen33',
+    'teen32',     'superover', 'lucky7',     'dt202',
+    'notenum',    'queen',     'ab20',       'dum10',
+    'teenmuf',    'joker1',    'sicbo2',     'joker20',
+    'kbc',        'teen1',     'lucky7eu2',  'dt20',
+    'superover3', 'race20',    'poker20',    'teen42',
+    'cmeter',     'race17',    'poison20',   'ab4',
+    'teen20b',    'patti2',    'trio',       'teen',
+    'lucky7eu',   'war',       'card32eu',   'cmatch20',
+    'btable',     '3cardj',    'teen9',      'teensin',
+    'dtl20',      'btable2',   'lucky5',     'poker6',
+    'teen120',    'sicbo',     'lucky15',    'baccarat2',
+    'worli',      'worli2',    'card32',     'teenjoker',
+    'poison',     'aaa',       'aaa2',       'dt6',
+    'teen8',      'teen3',     'baccarat'
+  ]
+}
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/server.ts`[39m
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

@@ -101,7 +101,7 @@ export const createWhitelist = async (req: Request, res: Response) => {
       Logo: req.body.Logo || '',
 
       // Payment Gateway Permissions
-      paymentGatewayPermissions: req.body.paymentGatewayPermissions || null,
+      // paymentGatewayPermissions: req.body.paymentGatewayPermissions || null,
 
       createdById
     };

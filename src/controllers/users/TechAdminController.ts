@@ -45,9 +45,9 @@ export const createTechAdmin = async (req: Request, res: Response) => {
         const whiteListId = whiteListData.id;
 
         // Get payment gateway permissions from whitelist
-        const whitelistPaymentPermissions = whiteListData.paymentGatewayPermissions || null;
+        // const whitelistPaymentPermissions = whiteListData.paymentGatewayPermissions || null;
         
-        console.log("Whitelist Payment Gateway Permissions:", whitelistPaymentPermissions);
+        // console.log("Whitelist Payment Gateway Permissions:", whitelistPaymentPermissions);
 
         const {
             loginId,
@@ -182,7 +182,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             // partnership,
 
             // Payment Gateway Permissions from whitelist
-            paymentGatewayPermissions: whitelistPaymentPermissions,
+            // paymentGatewayPermissions: whitelistPaymentPermissions,
 
             // Settings IDs will be added after creation
         };
@@ -361,7 +361,7 @@ export const createTechAdmin = async (req: Request, res: Response) => {
             matkaSettings: savedMatkaSettings,
             casinoSettings: savedCasinoSettings,
             internationalCasinoSettings: savedInternationalCasinoSettings,
-            paymentGatewayPermissions: whitelistPaymentPermissions
+            // paymentGatewayPermissions: whitelistPaymentPermissions
         };
 
         return res.status(201).json({

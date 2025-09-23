@@ -6,7 +6,7 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 
-@Entity({ name: "sport_bet" })
+@Entity({ name: "sport_bet_updated" })
 export class SportBet {
 
     @PrimaryGeneratedColumn("uuid")
@@ -30,9 +30,16 @@ export class SportBet {
     @Column({ type: "jsonb", nullable: true })
     betData: any;
 
+    @Column({ type: "varchar", length: 45, nullable: true })
+    ipAddress!: string;
+
+    @Column({ type: "varchar", length: 500, nullable: true })
+    userAgent!: string;
+
     @CreateDateColumn({ type: "timestamp" })
     createdAt!: Date;
 
     @UpdateDateColumn({ type: "timestamp" })
     updatedAt!: Date;
 }
+

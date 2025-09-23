@@ -782,6 +782,7 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const userType = req.query.type as string;
+    const includeSettings = req.query.includeSettings === 'true';
 
     // Validate user type if provided
     if (userType && !USER_TABLES[userType]) {
@@ -791,152 +792,184 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
       });
     }
 
-    const allUsers: any[] = [];
-    let totalCount = 0;
+    // Calculate pagination
+    const skip = (page - 1) * limit;
 
-    const fetchChildren = async (parentId: string) => {
       // If specific user type is requested, only fetch that type
       const tablesToQuery = userType ? { [userType]: USER_TABLES[userType] } : USER_TABLES;
 
+    let allUsers: any[] = [];
+    let totalCount = 0;
+
+    // Use database-level pagination for better performance
       for (const [type, entity] of Object.entries(tablesToQuery)) {
-        try {
-          const repo = AppDataSource.getRepository(entity);
+      try {
+        const repo = AppDataSource.getRepository(entity);
 
-          // First try without relations to avoid potential issues
-          const children = await repo.find({
-            where: { uplineId: parentId },
-          });
+        // Get total count for this table
+        const count = await repo.count({ where: { uplineId: currentUserId } });
+        totalCount += count;
 
-          for (const child of children) {
-            // Try to load relations individually to avoid errors
-            let soccerSettings = null;
-            let cricketSettings = null;
-            let tennisSettings = null;
-            let matkaSettings = null;
-            let casinoSettings = null;
-            let internationalCasinoSettings = null;
+        // Get paginated users from this table
+        const children = await repo.find({
+          where: { uplineId: currentUserId },
+          skip: skip,
+          take: limit,
+          order: { createdAt: 'DESC' }
+        });
 
-            try {
-              if (child.soccerSettingId) {
-                soccerSettings = await AppDataSource.getRepository(SoccerSettings).findOne({
-                  where: { id: child.soccerSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading soccer settings for user ${child.id}:`, e);
-            }
+        if (children.length === 0) continue;
 
-            try {
-              if (child.cricketSettingId) {
-                cricketSettings = await AppDataSource.getRepository(CricketSettings).findOne({
-                  where: { id: child.cricketSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading cricket settings for user ${child.id}:`, e);
-            }
+        // Only load settings if explicitly requested
+        let settingsMaps = {
+          soccerSettingsMap: new Map(),
+          cricketSettingsMap: new Map(),
+          tennisSettingsMap: new Map(),
+          matkaSettingsMap: new Map(),
+          casinoSettingsMap: new Map(),
+          internationalCasinoSettingsMap: new Map()
+        };
 
-            try {
-              if (child.tennisSettingId) {
-                tennisSettings = await AppDataSource.getRepository(TennisSettings).findOne({
-                  where: { id: child.tennisSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading tennis settings for user ${child.id}:`, e);
-            }
+        if (includeSettings) {
+          // Collect all setting IDs for batch loading
+          const soccerSettingIds = children.map(c => c.soccerSettingId).filter(Boolean);
+          const cricketSettingIds = children.map(c => c.cricketSettingId).filter(Boolean);
+          const tennisSettingIds = children.map(c => c.tennisSettingId).filter(Boolean);
+          const matkaSettingIds = children.map(c => c.matkaSettingId).filter(Boolean);
+          const casinoSettingIds = children.map(c => c.casinoSettingId).filter(Boolean);
+          const internationalCasinoSettingIds = children.map(c => c.internationalCasinoSettingId).filter(Boolean);
 
-            try {
-              if (child.matkaSettingId) {
-                matkaSettings = await AppDataSource.getRepository(MatkaSettings).findOne({
-                  where: { id: child.matkaSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading matka settings for user ${child.id}:`, e);
-            }
+          // Batch load all settings in parallel
+          const [
+            soccerSettingsMap,
+            cricketSettingsMap,
+            tennisSettingsMap,
+            matkaSettingsMap,
+            casinoSettingsMap,
+            internationalCasinoSettingsMap
+          ] = await Promise.all([
+            soccerSettingIds.length > 0 ? 
+              AppDataSource.getRepository(SoccerSettings).find({ where: { id: In(soccerSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map()),
+            cricketSettingIds.length > 0 ? 
+              AppDataSource.getRepository(CricketSettings).find({ where: { id: In(cricketSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map()),
+            tennisSettingIds.length > 0 ? 
+              AppDataSource.getRepository(TennisSettings).find({ where: { id: In(tennisSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map()),
+            matkaSettingIds.length > 0 ? 
+              AppDataSource.getRepository(MatkaSettings).find({ where: { id: In(matkaSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map()),
+            casinoSettingIds.length > 0 ? 
+              AppDataSource.getRepository(CasinoSettings).find({ where: { id: In(casinoSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map()),
+            internationalCasinoSettingIds.length > 0 ? 
+              AppDataSource.getRepository(InternationalCasinoSettings).find({ where: { id: In(internationalCasinoSettingIds) } })
+                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+              Promise.resolve(new Map())
+          ]);
 
-            try {
-              if (child.casinoSettingId) {
-                casinoSettings = await AppDataSource.getRepository(CasinoSettings).findOne({
-                  where: { id: child.casinoSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading casino settings for user ${child.id}:`, e);
-            }
-
-            try {
-              if (child.internationalCasinoSettingId) {
-                internationalCasinoSettings = await AppDataSource.getRepository(InternationalCasinoSettings).findOne({
-                  where: { id: child.internationalCasinoSettingId }
-                });
-              }
-            } catch (e) {
-              console.log(`Error loading international casino settings for user ${child.id}:`, e);
-            }
-
-            allUsers.push({
-              userId: child.id,
-              PersonalDetails: {
-                userName: child.userName,
-                loginId: child.loginId,
-                user_password: child.user_password,
-                countryCode: child.countryCode,
-                mobile: child.mobile,
-                idIsActive: child.isActive,
-                isAutoRegisteredUser: child.isAutoRegisteredUser,
-              },
-              transactionPassword: child.transactionPassword,
-              whiteListId: child.whiteListId,
-              IpAddress: child.IpAddress,
-              uplineId: child.uplineId,
-              fancyLocked: child.fancyLocked,
-              bettingLocked: child.bettingLocked,
-              userLocked: child.userLocked,
-              __type: child.__type,
-              remarks: child.remarks,
-              AccountDetails: {
-                liability: child.liability,
-                Balance: child.balance,
-                profitLoss: child.profitLoss,
-                freeChips: child.freeChips,
-                totalSettledAmount: child.totalSettledAmount,
-                Exposure: child.exposure,
-                ExposureLimit: child.exposureLimit,
-                creditRef: child.creditRef,
-              },
-              allowedNoOfUsers: child.allowedNoOfUsers,
-              createdUsersCount: child.createdUsersCount,
-              commissionLenaYaDena: {
-                commissionLena: child.commissionLena,
-                commissionDena: child.commissionDena,
-              },
-              groupID: child.groupID,
-              createdAt: child.createdAt,
-              updatedAt: child.updatedAt,
-
-              soccerSettings: soccerSettings,
-              cricketSettings: cricketSettings,
-              tennisSettings: tennisSettings,
-              matkaSettings: matkaSettings,
-              casinoSettings: casinoSettings,
-              internationalCasinoSettings: internationalCasinoSettings,
-            });
-          }
-        } catch (error) {
-          console.error(`Error fetching users from ${type} table:`, error);
-          // Continue with other tables even if one fails
+          settingsMaps = {
+            soccerSettingsMap,
+            cricketSettingsMap,
+            tennisSettingsMap,
+            matkaSettingsMap,
+            casinoSettingsMap,
+            internationalCasinoSettingsMap
+          };
         }
+
+        // Process users with optional settings
+        for (const child of children) {
+          const userData: any = {
+            userId: child.id,
+            PersonalDetails: {
+              userName: child.userName,
+              loginId: child.loginId,
+              user_password: child.user_password,
+              countryCode: child.countryCode,
+              mobile: child.mobile,
+              idIsActive: child.isActive,
+              isAutoRegisteredUser: child.isAutoRegisteredUser,
+            },
+            transactionPassword: child.transactionPassword,
+            whiteListId: child.whiteListId,
+            IpAddress: child.IpAddress,
+            uplineId: child.uplineId,
+            fancyLocked: child.fancyLocked,
+            bettingLocked: child.bettingLocked,
+            userLocked: child.userLocked,
+            __type: child.__type,
+            remarks: child.remarks,
+            AccountDetails: {
+              liability: child.liability,
+              Balance: child.balance,
+              profitLoss: child.profitLoss,
+              freeChips: child.freeChips,
+              totalSettledAmount: child.totalSettledAmount,
+              Exposure: child.exposure,
+              ExposureLimit: child.exposureLimit,
+              creditRef: child.creditRef,
+            },
+            allowedNoOfUsers: child.allowedNoOfUsers,
+            createdUsersCount: child.createdUsersCount,
+            commissionLenaYaDena: {
+              commissionLena: child.commissionLena,
+              commissionDena: child.commissionDena,
+            },
+            // Commission and Partnership Details
+            commissionDetails: {
+              percentageWiseCommission: child.percentageWiseCommission,
+              partnerShipWiseCommission: child.partnerShipWiseCommission,
+              commissionUplineType: child.commissionUplineType,
+              commissionUplineUserId: child.commissionUplineUserId,
+              commissionUpline: child.commissionUpline,
+              commissionOwn: child.commissionOwn,
+              partnershipUplineType: child.partnershipUplineType,
+              partnershipUplineUserId: child.partnershipUplineUserId,
+              partnershipUpline: child.partnershipUpline,
+              partnershipOwn: child.partnershipOwn,
+            },
+            // Additional Admin Fields
+            adminPermissions: {
+              whiteListAccess: child.whiteListAccess,
+              depositWithdrawlAccess: child.depositWithdrawlAccess,
+              canDeleteBets: child.canDeleteBets,
+              canDeleteUsers: child.canDeleteUsers,
+              specialPermissions: child.specialPermissions,
+              enableMultipleLogin: child.enableMultipleLogin,
+              autoSignUpFeature: child.autoSignUpFeature,
+              displayUsersOnlineStatus: child.displayUsersOnlineStatus,
+              refundOptionFeature: child.refundOptionFeature,
+              canDeclareResultAsOperator: child.canDeclareResultAsOperator,
+            },
+            groupID: child.groupID,
+            createdAt: child.createdAt,
+            updatedAt: child.updatedAt,
+          };
+
+          // Only add settings if requested
+          if (includeSettings) {
+            userData.soccerSettings = child.soccerSettingId ? settingsMaps.soccerSettingsMap.get(child.soccerSettingId) || null : null;
+            userData.cricketSettings = child.cricketSettingId ? settingsMaps.cricketSettingsMap.get(child.cricketSettingId) || null : null;
+            userData.tennisSettings = child.tennisSettingId ? settingsMaps.tennisSettingsMap.get(child.tennisSettingId) || null : null;
+            userData.matkaSettings = child.matkaSettingId ? settingsMaps.matkaSettingsMap.get(child.matkaSettingId) || null : null;
+            userData.casinoSettings = child.casinoSettingId ? settingsMaps.casinoSettingsMap.get(child.casinoSettingId) || null : null;
+            userData.internationalCasinoSettings = child.internationalCasinoSettingId ? settingsMaps.internationalCasinoSettingsMap.get(child.internationalCasinoSettingId) || null : null;
+          }
+
+          allUsers.push(userData);
+        }
+      } catch (error) {
+        console.error(`Error fetching users from ${type} table:`, error);
+        // Continue with other tables even if one fails
       }
-    };
-
-    await fetchChildren(currentUserId);
-    totalCount = allUsers.length;
-
-    // Apply pagination
-    const skip = (page - 1) * limit;
-    const paginatedUsers = allUsers.slice(skip, skip + limit);
+    }
 
     return res.status(200).json({
       success: true,
@@ -947,7 +980,7 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
           limit,
           totalPages: Math.ceil(totalCount / limit),
         },
-        users: paginatedUsers,
+        users: allUsers,
       },
     });
   } catch (error) {
@@ -1562,3 +1595,4 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
     });
   }
 };
+

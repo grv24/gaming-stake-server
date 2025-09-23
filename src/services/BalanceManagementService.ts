@@ -1,4 +1,4 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, Like } from 'typeorm';
 import { TechAdmin } from '../entities/users/TechAdminUser';
 import { Admin } from '../entities/users/AdminUser';
 import { MiniAdmin } from '../entities/users/MiniAdminUser';
@@ -8,6 +8,14 @@ import { SuperAgent } from '../entities/users/SuperAgentUser';
 import { Agent } from '../entities/users/AgentUser';
 import { Client } from '../entities/users/ClientUser';
 import { USER_TABLES } from '../Helpers/users/Roles';
+import { AccountTrasaction } from '../entities/Transactions/AccountTransactions';
+import { SoccerSettings } from '../entities/users/utils/SoccerSetting';
+import { CricketSettings } from '../entities/users/utils/CricketSetting';
+import { TennisSettings } from '../entities/users/utils/TennisSetting';
+import { MatkaSettings } from '../entities/users/utils/MatkaSetting';
+import { CasinoSettings } from '../entities/users/utils/CasinoSetting';
+import { InternationalCasinoSettings } from '../entities/users/utils/InternationalCasino';
+import { commissionCalculationService } from './CommissionCalculationService';
 
 export interface BalanceDashboard {
   upperLevelCreditReference: number;
@@ -20,6 +28,12 @@ export interface BalanceDashboard {
   downLevelCreditReference: number;
   downLevelProfitLoss: number;
   myProfitLoss: number;
+  // Enhanced commission fields
+  commissionEarned: number;
+  directDownlineProfitLoss: number;
+  totalDownlineCount: number;
+  directDownlineCount: number;
+  netPosition: number;
 }
 
 export interface BalanceTransferRequest {
@@ -66,16 +80,213 @@ export class BalanceManagementService {
   }
 
   /**
+   * Calculate accurate profit/loss from account transactions
+   */
+  private async calculateUserProfitLoss(userId: string): Promise<number> {
+    try {
+      const accountTransactionRepo = this.dataSource.getRepository(AccountTrasaction);
+      
+      // Get all settled betting transactions for the user (both casino and sports)
+      const settledBets = await accountTransactionRepo
+        .createQueryBuilder('transaction')
+        .where('transaction.downlineUserId = :userId', { userId })
+        .andWhere(
+          '(transaction.type = :settleBetType OR ' +
+          '(transaction.type = :withdrawType AND transaction.remarks LIKE :sportSettled) OR ' +
+          '(transaction.type = :depositType AND transaction.remarks LIKE :sportSettled))',
+          {
+            settleBetType: 'settle-bet',
+            withdrawType: 'withdraw',
+            depositType: 'deposit',
+            sportSettled: '%SPORT-BET-SETTLED%'
+          }
+        )
+        .getMany();
+
+      let totalProfitLoss = 0;
+
+      for (const transaction of settledBets) {
+        if (transaction.type === 'settle-bet') {
+          // For settle-bet, extract P/L from remarks
+          const remarks = transaction.remarks || '';
+          const plMatch = remarks.match(/P\/L:\s*([+-]?\d+(?:\.\d+)?)/);
+          if (plMatch) {
+            const plAmount = parseFloat(plMatch[1]) || 0;
+            totalProfitLoss += plAmount;
+          }
+        } else if (transaction.type === 'deposit') {
+          // For deposit (wins), add the amount as positive
+          const amount = parseFloat(String(transaction.amount)) || 0;
+          totalProfitLoss += amount;
+        } else if (transaction.type === 'withdraw') {
+          // For withdraw (losses), subtract the amount as negative
+          const amount = parseFloat(String(transaction.amount)) || 0;
+          totalProfitLoss -= amount;
+        }
+      }
+
+      return parseFloat(String(totalProfitLoss)) || 0;
+    } catch (error) {
+      console.error(`Error calculating profit/loss for user ${userId}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Simple function to get commission earned from commissionFlow data
+   */
+  private async getCommissionEarned(userId: string, userType: string): Promise<number> {
+    try {
+      console.log(`[COMMISSION-DEBUG] Getting commission earned for ${userType}(${userId})`);
+      
+      const { CommissionTransaction } = await import('../entities/CommissionTransaction');
+      const commissionRepo = this.dataSource.getRepository(CommissionTransaction);
+      
+      // Get all commission transactions
+      const allTransactions = await commissionRepo.find();
+      console.log(`[COMMISSION-DEBUG] Found ${allTransactions.length} total commission transactions`);
+      
+      let totalCommission = 0;
+      
+      for (const transaction of allTransactions) {
+        if (transaction.metadata && transaction.metadata.commissionFlow) {
+          const commissionFlow = transaction.metadata.commissionFlow;
+          const userCommissionData = commissionFlow[userType];
+          
+          if (userCommissionData && userCommissionData.commissionEarned !== undefined) {
+            const transactionCommission = parseFloat(String(userCommissionData.commissionEarned)) || 0;
+            totalCommission += transactionCommission;
+            console.log(`[COMMISSION-DEBUG] Transaction ${transaction.id}: ${userType} earned ${transactionCommission}, Total: ${totalCommission}`);
+          }
+        }
+      }
+      
+      console.log(`[COMMISSION-DEBUG] Final commission earned for ${userType}(${userId}): ${totalCommission}`);
+      return totalCommission;
+    } catch (error) {
+      console.error(`Error getting commission earned for user ${userId}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Calculate downline profit/loss with commission structure
+   */
+  private async calculateDownlineProfitLossWithCommissions(userId: string, userType: string): Promise<{
+    directDownlineProfitLoss: number;
+    totalDownlineProfitLoss: number;
+    commissionEarned: number;
+    downlineCount: number;
+    directDownlineCount: number;
+  }> {
+    try {
+      console.log(`[COMMISSION-DEBUG] *** FUNCTION CALLED *** Starting calculation for user ${userId} (${userType})`);
+      const downlineTypes = this.getDownlineTypes(userType);
+      let directDownlineProfitLoss = 0;
+      let totalDownlineProfitLoss = 0;
+      let directDownlineCount = 0;
+      let totalDownlineCount = 0;
+
+      // Get commission earned from commissionFlow data
+      const commissionEarned = await this.getCommissionEarned(userId, userType);
+
+      // Calculate direct downline profit/loss
+      for (const downlineType of downlineTypes) {
+        const repo = this.userRepos.get(downlineType);
+        if (!repo) continue;
+
+        const directDownlines = await repo.find({
+          where: { uplineId: userId }
+        });
+
+        directDownlineCount += directDownlines.length;
+
+        for (const downline of directDownlines) {
+          const userProfitLoss = await this.calculateUserProfitLoss(downline.id);
+          const profitLossAmt = parseFloat(String(userProfitLoss)) || 0;
+          
+          directDownlineProfitLoss = parseFloat(String(directDownlineProfitLoss)) + profitLossAmt;
+          
+          // Recursively calculate total downline profit/loss
+          const recursiveResult = await this.calculateDownlineProfitLossWithCommissions(downline.id, downlineType);
+          const recursiveAmount = parseFloat(String(recursiveResult.totalDownlineProfitLoss)) || 0;
+          totalDownlineProfitLoss = parseFloat(String(totalDownlineProfitLoss)) + recursiveAmount;
+          totalDownlineCount += parseFloat(String(recursiveResult.downlineCount)) || 0;
+        }
+      }
+
+      totalDownlineProfitLoss = parseFloat(String(totalDownlineProfitLoss)) + parseFloat(String(directDownlineProfitLoss));
+      totalDownlineCount += directDownlineCount;
+
+      console.log(`[COMMISSION-DEBUG] Final result for ${userId} (${userType}): commissionEarned=${commissionEarned}, directDownlineProfitLoss=${directDownlineProfitLoss}, totalDownlineProfitLoss=${totalDownlineProfitLoss}`);
+
+      return {
+        directDownlineProfitLoss: parseFloat(String(directDownlineProfitLoss)) || 0,
+        totalDownlineProfitLoss: parseFloat(String(totalDownlineProfitLoss)) || 0,
+        commissionEarned: parseFloat(String(commissionEarned)) || 0,
+        downlineCount: totalDownlineCount || 0,
+        directDownlineCount: directDownlineCount || 0
+      };
+    } catch (error) {
+      console.error(`Error calculating downline profit/loss with commissions for user ${userId}:`, error);
+      return { directDownlineProfitLoss: 0, totalDownlineProfitLoss: 0, commissionEarned: 0, downlineCount: 0, directDownlineCount: 0 };
+    }
+  }
+
+  /**
+   * Get stored commission rate from user settings
+   */
+  private async getStoredCommissionRate(downlineUserId: string, downlineType: string, uplineUserId: string): Promise<number> {
+    try {
+      // Get the downline user to access their settings
+      const downlineUser = await this.findUserById(downlineUserId, downlineType);
+      if (!downlineUser) {
+        return 0;
+      }
+
+      // Check different settings tables for commission rates
+      const settingsTables = [
+        { repo: this.dataSource.getRepository(SoccerSettings), field: 'soccerSettingId' },
+        { repo: this.dataSource.getRepository(CricketSettings), field: 'cricketSettingId' },
+        { repo: this.dataSource.getRepository(TennisSettings), field: 'tennisSettingId' },
+        { repo: this.dataSource.getRepository(MatkaSettings), field: 'matkaSettingId' },
+        { repo: this.dataSource.getRepository(CasinoSettings), field: 'casinoSettingId' },
+        { repo: this.dataSource.getRepository(InternationalCasinoSettings), field: 'internationalCasinoSettingId' }
+      ];
+
+      for (const { repo, field } of settingsTables) {
+        const settingId = (downlineUser as any)[field];
+        if (settingId) {
+          const setting = await repo.findOne({
+            where: { id: settingId }
+          });
+          
+          if (setting && setting.commissionUplineUserId === uplineUserId) {
+            return Number(setting.commissionUpline) || 0;
+          }
+        }
+      }
+
+      // If no specific commission found, return 0
+      return 0;
+    } catch (error) {
+      console.error(`Error getting stored commission rate for user ${downlineUserId}:`, error);
+      return 0;
+    }
+  }
+
+  /**
    * Get balance dashboard for a user
    */
   async getBalanceDashboard(userId: string, userType: string): Promise<BalanceDashboard> {
     try {
+      console.log(`[BALANCE-DEBUG] *** GET BALANCE DASHBOARD CALLED *** for ${userId} (${userType})`);
       const user = await this.findUserById(userId, userType);
       if (!user) {
         throw new Error(`User ${userId} not found`);
       }
 
-      // Calculate downline balances
+      // Calculate downline balances (for occupy balance and credit reference only)
       const downlineData = await this.calculateDownlineBalances(userId, userType);
       
       // Calculate upline data
@@ -83,6 +294,23 @@ export class BalanceManagementService {
 
       // Calculate upper level occupy balance
       const upperLevelOccupyBalance = await this.calculateUpperLevelOccupyBalance(userId, userType);
+
+      // Calculate accurate profit/loss for current user from account transactions
+      const myAccurateProfitLoss = await this.calculateUserProfitLoss(userId);
+
+      // Calculate enhanced downline profit/loss with commissions
+      console.log(`[BALANCE-DEBUG] About to calculate downline profit/loss with commissions for ${userId} (${userType})`);
+      let downlineDataWithCommissions;
+      try {
+        downlineDataWithCommissions = await this.calculateDownlineProfitLossWithCommissions(userId, userType);
+        console.log(`[BALANCE-DEBUG] Commission calculation result:`, downlineDataWithCommissions);
+      } catch (error) {
+        console.error(`[BALANCE-DEBUG] Error in commission calculation:`, error);
+        downlineDataWithCommissions = { directDownlineProfitLoss: 0, totalDownlineProfitLoss: 0, commissionEarned: 0, downlineCount: 0, directDownlineCount: 0 };
+      }
+
+      // Calculate net position (own profit/loss + commissions earned)
+      const netPosition = parseFloat(String(myAccurateProfitLoss)) + parseFloat(String(downlineDataWithCommissions.commissionEarned || 0));
 
       return {
         upperLevelCreditReference: uplineData.creditRef || 0,
@@ -93,8 +321,14 @@ export class BalanceManagementService {
         upperLevel: uplineData.balance || 0,
         availableBalanceWithProfitLoss: this.calculateAvailableBalanceWithProfitLoss(user),
         downLevelCreditReference: downlineData.totalCreditRef || 0,
-        downLevelProfitLoss: downlineData.totalProfitLoss || 0,
-        myProfitLoss: user.profitLoss || 0
+        downLevelProfitLoss: parseFloat(String(downlineDataWithCommissions.totalDownlineProfitLoss)) || 0, // Total downline profit/loss
+        myProfitLoss: parseFloat(String(myAccurateProfitLoss)) || 0, // Own profit/loss from account transactions
+        // Enhanced commission and downline data
+        commissionEarned: parseFloat(String(downlineDataWithCommissions.commissionEarned)) || 0,
+        directDownlineProfitLoss: parseFloat(String(downlineDataWithCommissions.directDownlineProfitLoss)) || 0,
+        totalDownlineCount: downlineDataWithCommissions.downlineCount || 0,
+        directDownlineCount: downlineDataWithCommissions.directDownlineCount || 0,
+        netPosition: parseFloat(String(netPosition)) || 0, // Own profit/loss + commissions
       };
     } catch (error) {
       console.error('Error getting balance dashboard:', error);
@@ -289,7 +523,7 @@ export class BalanceManagementService {
       const downlineTypes = this.getDownlineTypes(userType);
       let totalOccupyBalance = 0;
       let totalCreditRef = 0;
-      let totalProfitLoss = 0;
+      // totalProfitLoss removed - using accurate calculation instead
 
       console.log(`[BALANCE-MANAGEMENT] Calculating downline balances for ${userType}(${userId})`);
       console.log(`[BALANCE-MANAGEMENT] Downline types: ${JSON.stringify(downlineTypes)}`);
@@ -333,24 +567,24 @@ export class BalanceManagementService {
             }
 
             totalOccupyBalance += userOccupyBalance;
-            totalCreditRef += user.creditRef || 0;
-            totalProfitLoss += user.profitLoss || 0;
+            totalCreditRef += Number(user.creditRef) || 0;
+            // Don't use user.profitLoss from database - use accurate calculation instead
+            // totalProfitLoss += Number(user.profitLoss) || 0;
 
             console.log(`[BALANCE-MANAGEMENT] ${downlineType}(${user.id}): occupy=${userOccupyBalance}, credit=${user.creditRef}, p/l=${user.profitLoss}`);
           }
         }
       }
 
-      console.log(`[BALANCE-MANAGEMENT] Total downline: occupy=${totalOccupyBalance}, credit=${totalCreditRef}, p/l=${totalProfitLoss}`);
+      console.log(`[BALANCE-MANAGEMENT] Total downline: occupy=${totalOccupyBalance}, credit=${totalCreditRef}`);
 
       return {
         totalOccupyBalance,
-        totalCreditRef,
-        totalProfitLoss
+        totalCreditRef
       };
     } catch (error) {
       console.error('Error calculating downline balances:', error);
-      return { totalOccupyBalance: 0, totalCreditRef: 0, totalProfitLoss: 0 };
+      return { totalOccupyBalance: 0, totalCreditRef: 0 };
     }
   }
 

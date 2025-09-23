@@ -351,42 +351,42 @@ export class CommissionService {
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM tech_admin WHERE id = ?
+          FROM tech_admin WHERE id = $1
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM admin WHERE id = ?
+          FROM admin WHERE id = $2
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM mini_admin WHERE id = ?
+          FROM mini_admin WHERE id = $3
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM super_master WHERE id = ?
+          FROM super_master WHERE id = $4
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM master WHERE id = ?
+          FROM master WHERE id = $5
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM super_agent WHERE id = ?
+          FROM super_agent WHERE id = $6
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM agent WHERE id = ?
+          FROM agent WHERE id = $7
           UNION ALL
           SELECT id, loginId, userName, uplineId, commissionLena, commissionDena,
                  commissionOwn, partnershipOwn, balance, profitLoss, creditRef,
                  exposure, exposureLimit, isActive, createdAt, updatedAt
-          FROM client WHERE id = ?
+          FROM client WHERE id = $8
         ) u
         LEFT JOIN soccer_settings s ON u.id = s.userId
         LEFT JOIN tennis_settings t ON u.id = t.userId
@@ -394,7 +394,7 @@ export class CommissionService {
         LEFT JOIN matka_settings m ON u.id = m.userId
         LEFT JOIN casino_settings cas ON u.id = cas.userId
         LEFT JOIN international_casino_settings ic ON u.id = ic.userId
-        WHERE u.id = ?
+        WHERE u.id = $9
         LIMIT 1
       `;
 
