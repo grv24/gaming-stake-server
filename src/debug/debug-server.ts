@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import io from 'socket.io-client';
 import { DataSource } from 'typeorm';
 import { CasinoBet } from '../entities/casino/CasinoBet';
-import { CasinoMatch } from '../entities/casino/CasinoMatch';
+import { CasinoMatchNew } from '../entities/casino/CasinoMatchNew';
 import { DefaultCasino } from '../entities/casino/DefaultCasino';
 // import { fetchAndUpdateCasinoOdds } from '../services/casino/CasinoService';
 import { getRedisClient } from '../config/redisConfig';
@@ -120,7 +120,7 @@ class CasinoDebugServer {
       username: process.env.POSTGRES_USERNAME,
       password: process.env.POSTGRES_PASSWORD,
       database: process.env.POSTGRES_DATABASE,
-      entities: [CasinoBet, CasinoMatch, DefaultCasino],
+      entities: [CasinoBet, CasinoMatchNew, DefaultCasino],
       synchronize: false,
       logging: false
     });
@@ -244,7 +244,13 @@ class CasinoDebugServer {
         console.log(`🧪 Testing casino API for: ${casinoType}`);
         const startTime = Date.now();
         
-        const result = await fetchAndUpdateCasinoOdds(casinoType);
+        // const result = await fetchAndUpdateCasinoOdds(casinoType);
+        const result = { 
+          success: false, 
+          message: 'fetchAndUpdateCasinoOdds is disabled',
+          data: null,
+          result: null
+        };
         const responseTime = Date.now() - startTime;
 
         // Update API stats
@@ -288,7 +294,7 @@ class CasinoDebugServer {
           return res.status(500).json({ error: 'Database not connected' });
         }
 
-        const matchRepo = this.dataSource.getRepository(CasinoMatch);
+        const matchRepo = this.dataSource.getRepository(CasinoMatchNew);
         const matches = await matchRepo.find({
           where: { casinoType },
           order: { createdAt: 'DESC' },
@@ -360,7 +366,13 @@ class CasinoDebugServer {
         console.log(`🔄 Force refreshing casino data for: ${casinoType}`);
         
         // Force refresh from API
-        const result = await fetchAndUpdateCasinoOdds(casinoType);
+        // const result = await fetchAndUpdateCasinoOdds(casinoType);
+        const result = { 
+          success: false, 
+          message: 'fetchAndUpdateCasinoOdds is disabled',
+          data: null,
+          result: null
+        };
         
         // Update debug data
         await this.updateCasinoData(casinoType);
@@ -561,8 +573,14 @@ class CasinoDebugServer {
         }
 
         // 2. If cache miss → fetch + update
-        const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
-        const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+        // const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
+        // const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+        const freshData = { 
+          success: false, 
+          message: 'fetchAndUpdateCasinoOdds is disabled',
+          data: null,
+          result: { res: [] }
+        };
         
         if (!freshData?.data) {
           return res.status(500).json({
@@ -744,11 +762,17 @@ class CasinoDebugServer {
         }
 
         // 2. If cache miss → fetch + update
-        const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
-        const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+        // const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
+        // const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+        const freshData = { 
+          success: false, 
+          message: 'fetchAndUpdateCasinoOdds is disabled',
+          data: null,
+          result: { res: [] }
+        };
         
         // Handle both result structures
-        let results = [];
+        let results: any[] = [];
         if (freshData?.result?.res && Array.isArray(freshData.result.res)) {
           results = freshData.result.res;
         } else if (freshData?.result && Array.isArray(freshData.result)) {
@@ -802,7 +826,7 @@ class CasinoDebugServer {
         ]);
 
         let currentData = null;
-        let resultsData = [];
+        let resultsData: any[] = [];
         let source = 'redis_cache';
 
         if (cachedCurrent) {
@@ -814,8 +838,14 @@ class CasinoDebugServer {
 
         // If either is missing, fetch fresh data
         if (!cachedCurrent || !cachedResults) {
-          const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
-          const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+          // const { fetchAndUpdateCasinoOdds } = await import('../services/casino/CasinoService');
+          // const freshData = await fetchAndUpdateCasinoOdds(casinoType);
+          const freshData = { 
+            success: false, 
+            message: 'fetchAndUpdateCasinoOdds is disabled',
+            data: null,
+            result: { res: [] }
+          };
           
           if (freshData?.data) {
             currentData = freshData.data;
@@ -922,7 +952,13 @@ class CasinoDebugServer {
       socket.on('test-casino-api', async (casinoType: string) => {
         try {
           console.log(`🧪 Socket API test for: ${casinoType}`);
-          const result = await fetchAndUpdateCasinoOdds(casinoType);
+          // const result = await fetchAndUpdateCasinoOdds(casinoType);
+        const result = { 
+          success: false, 
+          message: 'fetchAndUpdateCasinoOdds is disabled',
+          data: null,
+          result: null
+        };
           
           socket.emit('api-test-result', {
             casinoType,

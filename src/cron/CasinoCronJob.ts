@@ -1,5 +1,6 @@
 import cron from "node-cron";
-import { fetchAndUpdateCasinoOdds, getPriorityCasinoTypes, clearPriorityQueue } from "../services/casino/CasinoService";
+// import { fetchAndUpdateCasinoOdds, getPriorityCasinoTypes, clearPriorityQueue } from "../services/casino/CasinoService";
+import { getPriorityCasinoTypes, clearPriorityQueue } from "../services/casino/CasinoService";
 import { CASINO_TYPES } from "../Helpers/Request/Validation";
 
 let cronJobsStarted = false;
@@ -34,7 +35,8 @@ export const startCasinoCronJobs = () => {
         }
         
         try {
-          await fetchAndUpdateCasinoOdds(casinoType);
+          // await fetchAndUpdateCasinoOdds(casinoType);
+          console.log(`[CRON] Skipping ${casinoType} - fetchAndUpdateCasinoOdds is disabled`);
         } catch (error: any) {
           console.error(`[CRON] Error processing priority ${casinoType}:`, error.message);
         }
@@ -68,7 +70,8 @@ export const startCasinoCronJobs = () => {
           }
           
           try {
-            await fetchAndUpdateCasinoOdds(casinoType);
+            // await fetchAndUpdateCasinoOdds(casinoType);
+            console.log(`[CRON] Skipping ${casinoType} - fetchAndUpdateCasinoOdds is disabled`);
           } catch (error: any) {
             console.error(`[CRON] Error processing ${casinoType}:`, error.message);
           }

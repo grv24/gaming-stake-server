@@ -62,7 +62,7 @@ export function setupActivityTrackingSocket(io: SocketIOServer) {
           potentialWin: data.potentialWin,
           status: data.status,
           betDetails: data.betDetails,
-          sessionId: socket.id,
+          groupId: data.groupId,
         });
       }
     });
