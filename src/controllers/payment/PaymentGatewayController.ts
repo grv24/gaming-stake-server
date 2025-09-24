@@ -56,6 +56,34 @@ export const checkPaymentGatewayPermission = async (userId: string, userType: st
   }
 };
 
+/**
+ * Helper function to handle file replacement
+ * 
+ * This function safely deletes old files when new ones are uploaded,
+ * preventing disk space issues from accumulating duplicate files.
+ * 
+ * Features:
+ * - Checks if old file exists before attempting deletion
+ * - Prevents deleting the same file (oldFilePath === newFilePath)
+ * - Logs successful deletions for debugging
+ * - Gracefully handles errors without breaking the upload process
+ * 
+ * @param oldFilePath - Path to the old file to be deleted
+ * @param newFilePath - Path to the new file being uploaded
+ */
+const handleFileReplacement = (oldFilePath: string, newFilePath: string): void => {
+  try {
+    // Delete old file if it exists and is different from new file
+    if (oldFilePath && fs.existsSync(oldFilePath) && oldFilePath !== newFilePath) {
+      fs.unlinkSync(oldFilePath);
+      console.log(`✅ Deleted old file: ${oldFilePath}`);
+    }
+  } catch (error) {
+    console.error('❌ Error deleting old file:', error);
+    // Don't throw error, just log it to prevent upload failure
+  }
+};
+
 // Configure multer for file uploads with public directory structure
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -78,9 +106,19 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + sanitizedName);
+    // Check if we should replace existing file or create new one
+    const replaceExisting = req.body?.replaceExisting === 'true' || req.query?.replaceExisting === 'true';
+    
+    if (replaceExisting) {
+      // Use original filename for replacement (sanitized)
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, sanitizedName);
+    } else {
+      // Generate unique filename for new uploads
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, file.fieldname + '-' + uniqueSuffix + '-' + sanitizedName);
+    }
   }
 });
 
@@ -544,9 +582,7 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
       // Delete old file if exists
       if (gateway.gatewayImage) {
         const oldFilePath = gateway.gatewayImage.replace('/images/payment-gateways/gateway-images/', 'public/images/payment-gateways/gateway-images/');
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
+        handleFileReplacement(oldFilePath, files.gatewayImage[0].path);
       }
       
       const gatewayImageFile = files.gatewayImage[0];
@@ -571,9 +607,7 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
       // Delete old file if exists
       if (gateway.qrImage) {
         const oldFilePath = gateway.qrImage.replace('/images/payment-gateways/qr-codes/', 'public/images/payment-gateways/qr-codes/');
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
+        handleFileReplacement(oldFilePath, files.qrImage[0].path);
       }
       
       const qrImageFile = files.qrImage[0];
@@ -818,14 +852,25 @@ export const updatePaymentGatewayQrImage = async (req: Request, res: Response) =
 
     // Update only the QR image
     const oldQrImage = gateway.qrImage;
-    gateway.qrImage = req.file.path;
+    const newQrImagePath = req.file.path;
+    
+    // Handle file replacement - delete old file if it exists
+    if (oldQrImage) {
+      const oldFilePath = oldQrImage.replace('/images/payment-gateways/qr-codes/', 'public/images/payment-gateways/qr-codes/');
+      handleFileReplacement(oldFilePath, newQrImagePath);
+    }
+    
+    // Store public URL instead of file path
+    const publicUrl = `/images/payment-gateways/qr-codes/${path.basename(newQrImagePath)}`;
+    gateway.qrImage = publicUrl;
 
     await paymentGatewayRepo.save(gateway);
 
     console.log('✅ QR image updated successfully:', {
       gatewayId: id,
       oldQrImage,
-      newQrImage: req.file.path
+      newQrImage: publicUrl,
+      filePath: newQrImagePath
     });
 
     return res.status(200).json({
@@ -834,7 +879,7 @@ export const updatePaymentGatewayQrImage = async (req: Request, res: Response) =
       data: {
         id: gateway.id,
         gatewayMethod: gateway.gatewayMethod,
-        qrImage: gateway.qrImage,
+        qrImage: publicUrl,
         updatedAt: gateway.updatedAt
       }
     });
