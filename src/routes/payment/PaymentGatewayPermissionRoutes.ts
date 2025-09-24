@@ -14,6 +14,8 @@ import {
   updateGatewayAssignmentPermissions,
   manageGatewayAssignment,
   debugTokenInfo,
+  checkAllAdminPermissions,
+  getMyGatewayPermissions,
 } from '../../controllers/payment/PaymentGatewayPermissionController';
 import { 
   adminAndAboveAuth, 
@@ -42,6 +44,12 @@ router.get('/techadmins-for-grant', developerAuth, getTechAdminsForPermissionGra
 
 // Debug Routes
 router.get('/debug-token', adminAndAboveAuth, debugTokenInfo);
+
+// Check permissions for all admin types
+router.get('/check-all-admin-permissions', adminAndAboveAuth, checkAllAdminPermissions);
+
+// Get current user's gateway permissions only (for UI)
+router.get('/my-gateway-permissions', adminAndAboveAuth, getMyGatewayPermissions);
 
 // Gateway Assignment Routes
 router.post('/assign-gateway', adminAndAboveAuth, assignGatewayToUser);

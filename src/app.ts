@@ -28,7 +28,12 @@ import { trackApiPerformance } from './middlewares/ActivityTrackingMiddleware';
 const app: Application = express();
 
 app.use(cors({ origin: '*', credentials: true }));
-app.use(helmet());
+
+// Configure helmet to allow cross-origin access to static files
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 app.use(express.json());
 
 // Serve static files from public directory

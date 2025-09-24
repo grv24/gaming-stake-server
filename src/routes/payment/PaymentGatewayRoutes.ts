@@ -7,9 +7,11 @@ import {
   getCreatedGateways,
   getAssignedGateways,
   updatePaymentGateway,
+  updatePaymentGatewayQrImage,
   deletePaymentGateway,
   toggleGatewayStatus,
   uploadMiddleware,
+  uploadQrImageMiddleware,
   handleMulterError
 } from '../../controllers/payment/PaymentGatewayController';
 import {
@@ -61,6 +63,15 @@ router.patch('/updatepaymentgateway/:id',
   uploadMiddleware,
   handleMulterError,
   updatePaymentGateway
+);
+
+// Update QR Image Only
+router.patch('/updatepaymentgateway/:id/qr-image',
+  agentAndAboveAuth,
+  trackUserActivity('gateway_qr_update', 'Updated payment gateway QR image'),
+  uploadQrImageMiddleware,
+  handleMulterError,
+  updatePaymentGatewayQrImage
 );
 
 // Delete Payment Gateway

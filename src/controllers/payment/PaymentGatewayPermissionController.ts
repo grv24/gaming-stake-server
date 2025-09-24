@@ -1302,3 +1302,263 @@ export const debugTokenInfo = async (req: Request, res: Response) => {
     });
   }
 };
+
+// Check gateway assignment permissions for all admin types
+export const checkAllAdminPermissions = async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user;
+    
+    console.log('🔍 Checking permissions for all admin types...');
+    
+    // Define admin types and their hierarchy
+    const adminTypes = [
+      { type: 'developer', level: 1, name: 'Developer' },
+      { type: 'techAdmin', level: 2, name: 'Tech Admin' },
+      { type: 'admin', level: 3, name: 'Admin' },
+      { type: 'miniAdmin', level: 4, name: 'Mini Admin' },
+      { type: 'superMaster', level: 5, name: 'Super Master' },
+      { type: 'master', level: 6, name: 'Master' },
+      { type: 'superAgent', level: 7, name: 'Super Agent' },
+      { type: 'agent', level: 8, name: 'Agent' },
+      { type: 'client', level: 9, name: 'Client' }
+    ];
+
+    const permissionResults = [];
+
+    for (const adminType of adminTypes) {
+      try {
+        // Get repository for this admin type
+        const userRepo = getUserRepository(adminType.type);
+        
+        // Get all users of this type
+        const users = await userRepo.find({
+          select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess', 'groupID'],
+          take: 10 // Limit to first 10 for performance
+        });
+
+        const userPermissions = [];
+        
+        for (const user of users) {
+          // Check basic deposit/withdraw access
+          const hasDepositWithdrawAccess = user.depositWithdrawlAccess || false;
+          
+          // Check gateway assignments for this user
+          const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+          const assignments = await assignmentRepo.find({
+            where: { 
+              assignedToUserId: user.id,
+              isActive: true 
+            },
+            relations: ['gateway']
+          });
+
+          // Check created gateways
+          const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+          const createdGateways = await gatewayRepo.find({
+            where: { createdBy: user.id },
+            select: ['id', 'gatewayMethod', 'isActive', 'createdAt']
+          });
+
+          // Calculate permissions based on assignments and access
+          const permissions = {
+            canCreateGateway: hasDepositWithdrawAccess && (adminType.type === 'techAdmin' || adminType.type === 'developer'),
+            canManageGateway: hasDepositWithdrawAccess,
+            canAssignGateway: hasDepositWithdrawAccess && adminType.level <= 3, // Only top 3 levels
+            canProcessRequests: hasDepositWithdrawAccess,
+            hasActiveAssignments: assignments.length > 0,
+            hasCreatedGateways: createdGateways.length > 0
+          };
+
+          userPermissions.push({
+            userId: user.id,
+            userName: user.userName,
+            loginId: user.loginId,
+            isActive: user.isActive,
+            groupId: user.groupID,
+            depositWithdrawlAccess: hasDepositWithdrawAccess,
+            permissions,
+            assignmentsCount: assignments.length,
+            createdGatewaysCount: createdGateways.length,
+            assignments: assignments.map(a => ({
+              id: a.id,
+              gatewayId: a.gatewayId,
+              gatewayMethod: a.gateway?.gatewayMethod,
+              canCreateGateway: a.canCreateGateway,
+              canManageGateway: a.canManageGateway,
+              canAssignGateway: a.canAssignGateway,
+              canProcessRequests: a.canProcessRequests
+            }))
+          });
+        }
+
+        permissionResults.push({
+          adminType: adminType.type,
+          adminName: adminType.name,
+          level: adminType.level,
+          usersCount: users.length,
+          users: userPermissions
+        });
+
+      } catch (error: any) {
+        console.error(`Error checking permissions for ${adminType.type}:`, error);
+        permissionResults.push({
+          adminType: adminType.type,
+          adminName: adminType.name,
+          level: adminType.level,
+          error: error.message,
+          users: []
+        });
+      }
+    }
+
+    // Summary statistics
+    const summary = {
+      totalAdminTypes: adminTypes.length,
+      totalUsers: permissionResults.reduce((sum, type) => sum + (type.usersCount || 0), 0),
+      usersWithDepositAccess: permissionResults.reduce((sum, type) => 
+        sum + (type.users || []).filter(u => u.depositWithdrawlAccess).length, 0),
+      usersWithActiveAssignments: permissionResults.reduce((sum, type) => 
+        sum + (type.users || []).filter(u => u.permissions?.hasActiveAssignments).length, 0),
+      usersWithCreatedGateways: permissionResults.reduce((sum, type) => 
+        sum + (type.users || []).filter(u => u.permissions?.hasCreatedGateways).length, 0)
+    };
+
+    res.json({
+      success: true,
+      message: 'Gateway assignment permissions checked for all admin types',
+      data: {
+        summary,
+        adminTypes: permissionResults,
+        currentUser: {
+          userId: currentUser?.userId,
+          userType: currentUser?.userType,
+          userName: currentUser?.userName
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error checking all admin permissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get current user's gateway permissions only (for UI handling)
+export const getMyGatewayPermissions = async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user;
+    
+    if (!currentUser?.userId || !currentUser?.userType) {
+      return res.status(400).json({
+        success: false,
+        message: 'User information not found'
+      });
+    }
+
+    // Get user data
+    const userRepo = getUserRepository(currentUser.userType);
+    const userData = await userRepo.findOne({
+      where: { id: currentUser.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId', 'groupID']
+    });
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if user has deposit/withdraw access
+    const hasDepositWithdrawAccess = userData.depositWithdrawlAccess || false;
+
+    // Get gateway assignments for this user
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignments = await assignmentRepo.find({
+      where: { 
+        assignedToUserId: currentUser.userId,
+        isActive: true 
+      },
+      relations: ['gateway'],
+      order: { createdAt: 'DESC' }
+    });
+
+    // Get created gateways count
+    const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const createdGatewaysCount = await gatewayRepo.count({
+      where: { 
+        createdBy: currentUser.userId,
+        isActive: true 
+      }
+    });
+
+    // Calculate permissions based on user type and access
+    let permissions = {
+      canCreateGateway: false,
+      canManageGateway: false,
+      canAssignGateway: false,
+      canProcessRequests: false
+    };
+
+    if (hasDepositWithdrawAccess) {
+      // Tech Admin and Developer have automatic permissions
+      if (currentUser.userType === 'techAdmin' || currentUser.userType === 'developer') {
+        permissions = {
+          canCreateGateway: true,
+          canManageGateway: true,
+          canAssignGateway: true,
+          canProcessRequests: true
+        };
+      } else {
+        // Other admin types get permissions from assignments
+        permissions = {
+          canCreateGateway: assignments.some(a => a.canCreateGateway),
+          canManageGateway: assignments.some(a => a.canManageGateway),
+          canAssignGateway: assignments.some(a => a.canAssignGateway),
+          canProcessRequests: assignments.some(a => a.canProcessRequests)
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        userId: currentUser.userId,
+        userType: currentUser.userType,
+        userName: userData.userName || userData.loginId,
+        groupId: userData.groupID,
+        hasDepositWithdrawAccess,
+        permissions,
+        stats: {
+          assignedGatewaysCount: assignments.length,
+          createdGatewaysCount,
+          hasActiveAssignments: assignments.length > 0,
+          hasCreatedGateways: createdGatewaysCount > 0
+        },
+        assignments: assignments.map(a => ({
+          id: a.id,
+          gatewayId: a.gatewayId,
+          gatewayMethod: a.gateway?.gatewayMethod,
+          permissions: {
+            canCreateGateway: a.canCreateGateway,
+            canManageGateway: a.canManageGateway,
+            canAssignGateway: a.canAssignGateway,
+            canProcessRequests: a.canProcessRequests
+          }
+        }))
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error getting my gateway permissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};

@@ -181,3 +181,5 @@ ADD COLUMN IF NOT EXISTS "publicUrl" varchar(500) DEFAULT NULL;
 - **Unique Naming**: Timestamp + random prevents filename conflicts
 - **Database Indexing**: Indexes on uploadType and relatedEntityType for fast queries
 
+
+

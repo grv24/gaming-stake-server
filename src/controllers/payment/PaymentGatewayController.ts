@@ -136,6 +136,9 @@ export const uploadMiddleware = upload.fields([
   { name: 'qrImage', maxCount: 1 }
 ]);
 
+// Specific middleware for QR image uploads only
+export const uploadQrImageMiddleware = upload.single('qrImage');
+
 export { handleMulterError };
 
 // Create Payment Gateway
@@ -739,6 +742,105 @@ export const toggleGatewayStatus = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Error toggling gateway status:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Update QR Image Only
+export const updatePaymentGatewayQrImage = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    const userType = req.user?.userType;
+    const groupId = req.user?.groupId;
+
+    console.log('🔄 Updating QR image for gateway:', { id, userId, userType });
+
+    // Check permission to manage gateways
+    if (!userId || !userType) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateway');
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to manage payment gateways'
+      });
+    }
+
+    const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
+
+    // Find the gateway
+    const gateway = await paymentGatewayRepo.findOne({
+      where: { id, createdBy: userId, groupId }
+    });
+
+    if (!gateway) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payment gateway not found'
+      });
+    }
+
+    // Debug logging
+    console.log('🔍 Debug QR image upload:', {
+      hasFile: !!req.file,
+      fileField: req.file?.fieldname,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      fileMimetype: req.file?.mimetype
+    });
+
+    // Check if QR image file was uploaded
+    if (!req.file) {
+      console.log('❌ No file uploaded in request');
+      return res.status(400).json({
+        success: false,
+        error: 'QR image file is required'
+      });
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file type. Only JPEG, PNG, and GIF images are allowed for QR codes'
+      });
+    }
+
+    // Update only the QR image
+    const oldQrImage = gateway.qrImage;
+    gateway.qrImage = req.file.path;
+
+    await paymentGatewayRepo.save(gateway);
+
+    console.log('✅ QR image updated successfully:', {
+      gatewayId: id,
+      oldQrImage,
+      newQrImage: req.file.path
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'QR image updated successfully',
+      data: {
+        id: gateway.id,
+        gatewayMethod: gateway.gatewayMethod,
+        qrImage: gateway.qrImage,
+        updatedAt: gateway.updatedAt
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error updating QR image:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error'
