@@ -100,8 +100,9 @@ export const createWhitelist = async (req: Request, res: Response) => {
       isActive: req.body.isActive !== undefined ? req.body.isActive : true,
       Logo: req.body.Logo || '',
 
-      // Payment Gateway Permissions
-      // paymentGatewayPermissions: req.body.paymentGatewayPermissions || null,
+      // Payment Gateway Settings
+      isPaymentGatewayEnabled: req.body.isPaymentGatewayEnabled !== undefined ? 
+        req.body.isPaymentGatewayEnabled : false,
 
       createdById
     };
@@ -318,11 +319,11 @@ export const saveWhitelist = async (req: Request, res: Response) => {
       isActive: req.body.isActive !== undefined ? req.body.isActive : existingWhitelist.isActive,
       Logo: req.body.Logo !== undefined ? req.body.Logo : existingWhitelist.Logo,
 
-      // Panel settings and payment gateway permissions
+      // Panel settings and payment gateway settings
       panelSettings: req.body.panelSettings !== undefined ? 
         req.body.panelSettings : existingWhitelist.panelSettings,
-      paymentGatewayPermissions: req.body.paymentGatewayPermissions !== undefined ? 
-        req.body.paymentGatewayPermissions : existingWhitelist.paymentGatewayPermissions,
+      isPaymentGatewayEnabled: req.body.isPaymentGatewayEnabled !== undefined ? 
+        req.body.isPaymentGatewayEnabled : existingWhitelist.isPaymentGatewayEnabled,
 
       // Keep original createdById
       createdById: existingWhitelist.createdById
@@ -423,8 +424,8 @@ export const getWhitelistByUrl = async (req: Request, res: Response) => {
     // Add legacy settings for backward compatibility
     whitelistData.allClientUrls = whitelistData.ClientUrl || [];
     
-    // Ensure paymentGatewayPermissions is included
-    whitelistData.paymentGatewayPermissions = whitelistData.paymentGatewayPermissions || null;
+    // Ensure payment gateway settings are included
+    whitelistData.isPaymentGatewayEnabled = whitelistData.isPaymentGatewayEnabled || false;
 
     return res.json({ 
       data: whitelistData,

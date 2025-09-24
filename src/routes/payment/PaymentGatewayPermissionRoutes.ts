@@ -6,6 +6,8 @@ import {
   getAssignedGateways,
   removeGatewayAssignment,
   getMyPaymentGatewayPermissions,
+  checkUserPaymentGatewayPermissions,
+  debugTokenInfo,
 } from '../../controllers/payment/PaymentGatewayPermissionController';
 import { 
   adminAndAboveAuth, 
@@ -19,6 +21,12 @@ const router = express.Router();
 router.post('/grant-permissions', adminAndAboveAuth, grantPaymentGatewayPermissions);
 router.get('/user-permissions/:userId', adminAndAboveAuth, getUserPaymentGatewayPermissions);
 router.get('/my-permissions', adminAndAboveAuth, getMyPaymentGatewayPermissions);
+router.get('/check-permissions', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
+router.get('/check-permissions/:userId', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
+router.get('/check-permissions/:userId/:userType', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
+
+// Debug Routes
+router.get('/debug-token', adminAndAboveAuth, debugTokenInfo);
 
 // Gateway Assignment Routes
 router.post('/assign-gateway', adminAndAboveAuth, assignGatewayToUser);

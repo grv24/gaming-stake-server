@@ -115,7 +115,11 @@ export const loginDeveloper = async (req: Request, res: Response) => {
     };
 
     const token = jwt.sign(
-      { user: sanitizedDeveloper },
+      { 
+        userId: developer.id,
+        userType: 'developer',
+        user: sanitizedDeveloper 
+      },
       process.env.JWT_SECRET as any,
       { expiresIn: process.env.JWT_EXPIRES_IN as any }
     );

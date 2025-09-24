@@ -562,8 +562,8 @@ export class BalanceManagementService {
               console.log(`[BALANCE-MANAGEMENT] Using existing downLevelOccupyBalance: ${userOccupyBalance}`);
             } else {
               // Calculate occupy balance for users without the field
-              userOccupyBalance = (user.balance || 0) + (user.liability || 0) + (user.exposure || 0);
-              console.log(`[BALANCE-MANAGEMENT] Calculated occupy balance: ${user.balance || 0} + ${user.liability || 0} + ${user.exposure || 0} = ${userOccupyBalance}`);
+              userOccupyBalance = (user.balance || 0) - (user.exposure || 0);
+              console.log(`[BALANCE-MANAGEMENT] Calculated occupy balance: ${user.balance || 0} - ${user.exposure || 0} = ${userOccupyBalance}`);
             }
 
             totalOccupyBalance += userOccupyBalance;
@@ -623,7 +623,7 @@ export class BalanceManagementService {
       // Upper level occupy balance is typically calculated as:
       // Current user's balance + liability + exposure
       // This represents how much of the upline's resources this user is using
-      const upperLevelOccupyBalance = (user.balance || 0) + (user.liability || 0) + (user.exposure || 0);
+      const upperLevelOccupyBalance = (user.balance || 0) - (user.exposure || 0);
       
       console.log(`[BALANCE-MANAGEMENT] Upper level occupy balance for ${userType}(${userId}): ${upperLevelOccupyBalance}`);
       

@@ -1098,6 +1098,8 @@ export const clientLogin = async (req: Request, res: Response) => {
 
         const token = jwt.sign(
             {
+                userId: authenticatedClient.id,
+                userType: 'client',
                 user: {
                     userId: authenticatedClient.id,
                     PersonalDetails: {

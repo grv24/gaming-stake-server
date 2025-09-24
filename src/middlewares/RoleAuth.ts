@@ -26,12 +26,14 @@ const roleAuth = (requiredRole: Role) => {
 
             const token = authHeader.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET || 'idwbdiwdwndowdnowdihwidhiwhdiwhdiwhdiwhdiwhdiwhd') as { 
+                userId?: string;
+                userType?: string;
                 user: {
                     id: string;
                     __type: Role;
                     isActive: boolean;
                 } 
-            };``
+            };
 
             // if (!decoded.user?.isActive) {
             //     return res.status(403).json({
@@ -61,7 +63,11 @@ const roleAuth = (requiredRole: Role) => {
                 });
             }
 
-            req.user = decoded.user;
+            req.user = {
+                userId: decoded.userId || decoded.user.id,
+                userType: decoded.userType || decoded.user.__type,
+                ...decoded.user
+            };
             req.token = token;
             req.__type = decoded.user.__type;
 

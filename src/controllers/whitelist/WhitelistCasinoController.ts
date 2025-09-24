@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../../server';
+import { AppDataSource } from '../../config/database';
 import { WhitelistCasinoMapping } from '../../entities/whitelist/WhitelistCasinoMapping';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { DefaultCasino } from '../../entities/casino/DefaultCasino';

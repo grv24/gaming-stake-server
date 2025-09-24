@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../../server';
+import { AppDataSource } from '../../config/database';
 import { USER_TABLES } from '../../Helpers/users/Roles';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { GatewayAssignment } from '../../entities/payment/GatewayAssignment';
@@ -403,3 +403,194 @@ export const getMyPaymentGatewayPermissions = async (req: Request, res: Response
   }
 };
 
+// Check specific user's payment gateway permissions with detailed info
+export const checkUserPaymentGatewayPermissions = async (req: Request, res: Response) => {
+  try {
+    const { userId, userType } = req.params;
+    const currentUser = req.user;
+
+    // Debug logging
+    console.log('Debug - Current user from token:', {
+      userId: currentUser?.userId,
+      userType: currentUser?.userType,
+      hasUser: !!currentUser
+    });
+
+    // If no userId provided, use current user from token
+    const targetUserId = userId || currentUser?.userId;
+    const targetUserType = userType || currentUser?.userType;
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required or valid token must be provided'
+      });
+    }
+
+    if (!targetUserType) {
+      return res.status(400).json({
+        success: false,
+        message: 'User type not found in token. Please ensure you are properly authenticated.'
+      });
+    }
+
+    // Check if current user has permission to view permissions
+    let currentUserData = null;
+    try {
+      const currentUserRepo = getUserRepository(currentUser?.userType || '');
+      currentUserData = await currentUserRepo.findOne({
+        where: { id: currentUser?.userId }
+      });
+    } catch (error) {
+      console.error('Error getting current user data:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type in token. Please check your authentication.'
+      });
+    }
+
+    // Allow users to check their own permissions, or admins to check others
+    const canViewPermissions = currentUserData?.paymentGatewayPermissions?.canAssignGateways || 
+                              currentUser?.userId === targetUserId;
+
+    if (!canViewPermissions) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view payment gateway permissions'
+      });
+    }
+
+    // Find user - if userType is provided, use it; otherwise search all types
+    let userData = null;
+    let foundUserType = null;
+
+    if (targetUserType) {
+      // Check specific user type
+      try {
+        const userRepo = getUserRepository(targetUserType);
+        const user = await userRepo.findOne({ where: { id: targetUserId } });
+        if (user) {
+          userData = user;
+          foundUserType = targetUserType;
+        }
+      } catch (error) {
+        console.error('Error finding user by type:', error);
+        return res.status(400).json({
+          success: false,
+          message: `Invalid user type: ${targetUserType}`
+        });
+      }
+    } else {
+      // Search across all user types
+      for (const [type, entity] of Object.entries(USER_TABLES)) {
+        try {
+          const repo = AppDataSource.getRepository(entity);
+          const user = await repo.findOne({ where: { id: targetUserId } });
+          if (user) {
+            userData = user;
+            foundUserType = type;
+            break;
+          }
+        } catch (error) {
+          console.error(`Error searching user type ${type}:`, error);
+          continue;
+        }
+      }
+    }
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get user's payment gateway permissions
+    const permissions = userData.paymentGatewayPermissions || {};
+    
+    // Check if user has any payment gateway permissions
+    const hasAnyPermissions = Object.values(permissions).some(value => value === true);
+    
+    // Get assigned gateways count
+    const gatewayAssignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignedGatewaysCount = await gatewayAssignmentRepo.count({
+      where: { 
+        assignedToUserId: targetUserId,
+        isActive: true 
+      }
+    });
+
+    // Get created gateways count
+    const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const createdGatewaysCount = await paymentGatewayRepo.count({
+      where: { 
+        createdBy: targetUserId,
+        isActive: true 
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        userId: targetUserId,
+        userType: foundUserType,
+        userName: userData.userName || userData.loginId || 'Unknown',
+        hasPaymentGatewayPermissions: hasAnyPermissions,
+        permissions: {
+          canCreateGateways: permissions.canCreateGateways || false,
+          canManageGateways: permissions.canManageGateways || false,
+          canAssignGateways: permissions.canAssignGateways || false,
+          canProcessRequests: permissions.canProcessRequests || false
+        },
+        gatewayStats: {
+          assignedGatewaysCount,
+          createdGatewaysCount
+        },
+        permissionSummary: {
+          canCreate: permissions.canCreateGateways || false,
+          canManage: permissions.canManageGateways || false,
+          canAssign: permissions.canAssignGateways || false,
+          canProcess: permissions.canProcessRequests || false
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error checking user payment gateway permissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+
+// Debug route to check token information
+export const debugTokenInfo = async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user;
+
+    res.json({
+      success: true,
+      debug: {
+        hasUser: !!currentUser,
+        userId: currentUser?.userId || 'Not found',
+        userType: currentUser?.userType || 'Not found',
+        userObject: currentUser || 'No user object',
+        headers: {
+          authorization: req.headers.authorization ? 'Present' : 'Missing',
+          contentType: req.headers['content-type'] || 'Not set'
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error in debug token info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};

@@ -185,14 +185,9 @@ export class Whitelist {
   @Column({ type: "text", default: "" })
   Logo!: string;
 
-  // Payment Gateway Permissions
-  @Column({ type: 'jsonb', nullable: true })
-  paymentGatewayPermissions!: {
-    canCreateGateways?: boolean;
-    canManageGateways?: boolean;
-    canAssignGateways?: boolean;
-    canProcessRequests?: boolean;
-  } | null;
+  // Payment Gateway Settings
+  @Column({ type: "boolean", default: false })
+  isPaymentGatewayEnabled!: boolean;
 
   @Column({ type: "uuid", nullable: true })
   createdById!: string | null;

@@ -3,93 +3,11 @@ import dotenv from "dotenv";
 import http from "http";
 import { setupSocket } from "./config/socketHandler";
 import { connectRedis } from "./config/redisConfig";
-import { DataSource } from "typeorm";
+import { AppDataSource } from "./config/database";
 import app from "./app";
-import { Developer } from "./entities/users/DeveloperUser";
-import { Whitelist } from "./entities/whitelist/Whitelist";
-import { TechAdmin } from "./entities/users/TechAdminUser";
-import { SoccerSettings } from "./entities/users/utils/SoccerSetting";
-import { TennisSettings } from "./entities/users/utils/TennisSetting";
-import { CricketSettings } from "./entities/users/utils/CricketSetting";
-import { CasinoSettings } from "./entities/users/utils/CasinoSetting";
-import { InternationalCasinoSettings } from "./entities/users/utils/InternationalCasino";
-import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
-import { SuperMaster } from "./entities/users/SuperMasterUser";
-import { Master } from "./entities/users/MasterUser";
-import { SuperAgent } from "./entities/users/SuperAgentUser";
-import { Agent } from "./entities/users/AgentUser";
-import { MiniAdmin } from "./entities/users/MiniAdminUser";
-import { Admin } from "./entities/users/AdminUser";
-import { Client } from "./entities/users/ClientUser";
 import { initRedisPubSub } from "./config/redisPubSub";
-import { AccountTrasaction } from "./entities/Transactions/AccountTransactions";
-import { DefaultCasino } from "./entities/casino/DefaultCasino";
-import { CasinoBet } from "./entities/casino/CasinoBet";
-import { Buttons } from "./entities/games/Buttons";
-import { SportBet } from "./entities/sports/SportBet";
-import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
-import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
-import { UserActivity, BetActivity, SessionActivity, PerformanceMetric } from "./entities/activity/ActivityEntities";
-import { SportMatch } from "./entities/sports/SportMatch";
-import { CommissionTransaction } from "./entities/CommissionTransaction";
-import { PaymentGateway } from "./entities/payment/PaymentGateway";
-import { DepositRequest } from "./entities/payment/DepositRequest";
-import { FileUpload } from "./entities/payment/FileUpload";
-import { GatewayAssignment } from "./entities/payment/GatewayAssignment";
 
 dotenv.config();
-
-// Database Configuration
-export const AppDataSource = new DataSource({
-  type: "postgres",
-  host: process.env.POSTGRES_HOST,
-  port: Number(process.env.POSTGRES_PORT),
-  username: process.env.POSTGRES_USERNAME,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DATABASE,
-  entities: [
-    Developer,
-    Whitelist,
-    TechAdmin,
-    SuperMaster,
-    Master,
-    SuperAgent,
-    Agent,
-    MiniAdmin,
-    Admin,
-    Client,
-    SoccerSettings,
-    TennisSettings,
-    CricketSettings,
-    CasinoSettings,
-    InternationalCasinoSettings,
-    MatkaSettings,
-    CasinoMatchNew,
-    AccountTrasaction,
-    DefaultCasino,
-    // CasinoMatch,
-    CasinoBet,
-    SportBet,
-    Buttons,
-    WhitelistCasinoMapping,
-    UserActivity,
-    BetActivity,
-    SessionActivity,
-    PerformanceMetric,
-    //sport 
-    SportMatch,
-    //commission
-    CommissionTransaction,
-    //payment gateway
-    PaymentGateway,
-    DepositRequest,
-    FileUpload,
-    GatewayAssignment
-  ],
-  synchronize: false, // Disable auto-sync to prevent hanging
-  logging: process.env.NODE_ENV === "development",
-  connectTimeoutMS: 30000, // 30 second timeout
-});
 
 const startServer = async () => {
   try {
@@ -146,3 +64,5 @@ const startServer = async () => {
 };
 
 startServer();
+export { AppDataSource };
+

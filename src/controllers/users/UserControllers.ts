@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../../server";
+import { AppDataSource } from "../../config/database";
 import { USER_TABLES } from "../../Helpers/users/Roles";
 import { DOWNLINE_MAPPING } from "../../Helpers/users/Roles";
 import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
@@ -69,7 +69,7 @@ export const getPendingBet = async (req: Request, res: Response) => {
       }
 
       const [bets, count] = await queryBuilder.getManyAndCount();
-      pendingBets = bets.map(bet => ({
+      pendingBets = bets.map((bet: any) => ({
         id: bet.id,
         eventName: bet.betData?.gameSlug || bet.betData?.casinoType || 'Unknown Game',
         nation: bet.betData?.betSid || bet.betData?.selection || 'Unknown',
@@ -90,7 +90,7 @@ export const getPendingBet = async (req: Request, res: Response) => {
       }));
       
       totalCount = count;
-      totalAmount = bets.reduce((sum, bet) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
+      totalAmount = bets.reduce((sum: number, bet: any) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
       
     } else if (type === "sports") {
       // Build query for sports bets
@@ -114,7 +114,7 @@ export const getPendingBet = async (req: Request, res: Response) => {
       }
 
       const [bets, count] = await queryBuilder.getManyAndCount();
-      pendingBets = bets.map(bet => ({
+      pendingBets = bets.map((bet: any) => ({
         id: bet.id,
         eventName: bet.betData?.eventName || bet.betData?.matchName || 'Unknown Event',
         nation: bet.betData?.selection || bet.betData?.teamName || bet.betData?.sId || 'Unknown',
@@ -135,7 +135,7 @@ export const getPendingBet = async (req: Request, res: Response) => {
       }));
       
       totalCount = count;
-      totalAmount = bets.reduce((sum, bet) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
+      totalAmount = bets.reduce((sum: number, bet: any) => sum + (bet.betData?.stake || bet.betData?.amount || 0), 0);
     }
 
     // Calculate pagination info
@@ -832,12 +832,12 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
 
         if (includeSettings) {
           // Collect all setting IDs for batch loading
-          const soccerSettingIds = children.map(c => c.soccerSettingId).filter(Boolean);
-          const cricketSettingIds = children.map(c => c.cricketSettingId).filter(Boolean);
-          const tennisSettingIds = children.map(c => c.tennisSettingId).filter(Boolean);
-          const matkaSettingIds = children.map(c => c.matkaSettingId).filter(Boolean);
-          const casinoSettingIds = children.map(c => c.casinoSettingId).filter(Boolean);
-          const internationalCasinoSettingIds = children.map(c => c.internationalCasinoSettingId).filter(Boolean);
+          const soccerSettingIds = children.map((c: any) => c.soccerSettingId).filter(Boolean);
+          const cricketSettingIds = children.map((c: any) => c.cricketSettingId).filter(Boolean);
+          const tennisSettingIds = children.map((c: any) => c.tennisSettingId).filter(Boolean);
+          const matkaSettingIds = children.map((c: any) => c.matkaSettingId).filter(Boolean);
+          const casinoSettingIds = children.map((c: any) => c.casinoSettingId).filter(Boolean);
+          const internationalCasinoSettingIds = children.map((c: any) => c.internationalCasinoSettingId).filter(Boolean);
 
           // Batch load all settings in parallel
           const [
@@ -850,27 +850,27 @@ export const getAllDownlineUsers = async (req: Request, res: Response) => {
           ] = await Promise.all([
             soccerSettingIds.length > 0 ? 
               AppDataSource.getRepository(SoccerSettings).find({ where: { id: In(soccerSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map()),
             cricketSettingIds.length > 0 ? 
               AppDataSource.getRepository(CricketSettings).find({ where: { id: In(cricketSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map()),
             tennisSettingIds.length > 0 ? 
               AppDataSource.getRepository(TennisSettings).find({ where: { id: In(tennisSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map()),
             matkaSettingIds.length > 0 ? 
               AppDataSource.getRepository(MatkaSettings).find({ where: { id: In(matkaSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map()),
             casinoSettingIds.length > 0 ? 
               AppDataSource.getRepository(CasinoSettings).find({ where: { id: In(casinoSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map()),
             internationalCasinoSettingIds.length > 0 ? 
               AppDataSource.getRepository(InternationalCasinoSettings).find({ where: { id: In(internationalCasinoSettingIds) } })
-                .then(settings => new Map(settings.map(s => [s.id, s]))) : 
+                .then((settings: any) => new Map(settings.map((s: any) => [s.id, s]))) : 
               Promise.resolve(new Map())
           ]);
 
@@ -1527,7 +1527,7 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
     const [transactions, totalCount] = await queryBuilder.getManyAndCount();
 
     // Format transactions for response
-    const formattedTransactions = transactions.map((transaction, index) => ({
+    const formattedTransactions = transactions.map((transaction: any, index: number) => ({
       srNo: offset + index + 1,
       id: transaction.id,
       date: transaction.createdAt.toISOString().split('T')[0],
@@ -1562,27 +1562,27 @@ export const getAccountTransactions = async (req: Request, res: Response) => {
         summary: {
           totalTransactions: totalCount,
           totalDeposits: transactions
-            .filter(t => t.type === 'deposit' || t.type === 'payment-gateway-deposit')
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.type === 'deposit' || t.type === 'payment-gateway-deposit')
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           totalWithdrawals: transactions
-            .filter(t => t.type === 'withdraw')
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.type === 'withdraw')
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           totalBets: transactions
-            .filter(t => t.type === 'place-bet')
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.type === 'place-bet')
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           totalSettlements: transactions
-            .filter(t => t.type === 'settle-bet')
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.type === 'settle-bet')
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           // Report-specific summaries
           sportBets: transactions
-            .filter(t => t.remarks && t.remarks.includes('SPORTS'))
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.remarks && t.remarks.includes('SPORTS'))
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           casinoBets: transactions
-            .filter(t => t.remarks && t.remarks.includes('CASINO'))
-            .reduce((sum, t) => sum + t.amount, 0),
+            .filter((t: any) => t.remarks && t.remarks.includes('CASINO'))
+            .reduce((sum: number, t: any) => sum + t.amount, 0),
           depositWithdrawTotal: transactions
-            .filter(t => ['deposit', 'withdraw', 'payment-gateway-deposit'].includes(t.type))
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => ['deposit', 'withdraw', 'payment-gateway-deposit'].includes(t.type))
+            .reduce((sum: number, t: any) => sum + t.amount, 0)
         }
       }
     });

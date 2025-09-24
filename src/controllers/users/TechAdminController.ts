@@ -648,6 +648,8 @@ export const techAdminLogin = async (req: Request, res: Response) => {
 
         const token = jwt.sign(
             {
+                userId: techAdmin.id,
+                userType: 'techAdmin',
                 user: {
                     userId: techAdmin.id,
                     PersonalDetails: {

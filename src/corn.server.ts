@@ -21,37 +21,12 @@
 
 import "reflect-metadata";
 import dotenv from "dotenv";
-import { DataSource } from "typeorm";
+import { CronDataSource } from "./config/database";
 import { connectRedis } from "./config/redisConfig";
 import { initRedisPubSub } from "./config/redisPubSub";
 import { startCasinoCronJobs } from "./cron/CasinoCronJob";
 import { startLiveMatchesCron, startOddsCron, startSportsCrons } from "./cron/SportsCronJob";
 import pino from "pino";
-
-// Database entities for TypeORM configuration
-// These entities define the data models that the cron service needs to access
-import { Developer } from "./entities/users/DeveloperUser";
-import { TechAdmin } from "./entities/users/TechAdminUser";
-import { SuperMaster } from "./entities/users/SuperMasterUser";
-import { Master } from "./entities/users/MasterUser";
-import { SuperAgent } from "./entities/users/SuperAgentUser";
-import { Agent } from "./entities/users/AgentUser";
-import { MiniAdmin } from "./entities/users/MiniAdminUser";
-import { Admin } from "./entities/users/AdminUser";
-import { Client } from "./entities/users/ClientUser";
-import { Whitelist } from "./entities/whitelist/Whitelist";
-import { AccountTrasaction } from "./entities/Transactions/AccountTransactions";
-import { DefaultCasino } from "./entities/casino/DefaultCasino";
-import { CasinoBet } from "./entities/casino/CasinoBet";
-import { SoccerSettings } from "./entities/users/utils/SoccerSetting";
-import { TennisSettings } from "./entities/users/utils/TennisSetting";
-import { CricketSettings } from "./entities/users/utils/CricketSetting";
-import { CasinoSettings } from "./entities/users/utils/CasinoSetting";
-import { InternationalCasinoSettings } from "./entities/users/utils/InternationalCasino";
-import { MatkaSettings } from "./entities/users/utils/MatkaSetting";
-import { CasinoMatchNew } from "./entities/casino/CasinoMatchNew";
-import { WhitelistCasinoMapping } from "./entities/whitelist/WhitelistCasinoMapping";
-import { SportMatch } from "./entities/sports/SportMatch";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -80,49 +55,9 @@ process.env.CRON_SERVICE = "true";
  * - Connection pool exhaustion is prevented
  * - Database operations can be optimized for batch processing
  * - Independent connection management and monitoring
+ * 
+ * Configuration is now centralized in ./config/database.ts
  */
-export const CronDataSource = new DataSource({
-  type: "postgres",
-  host: process.env.POSTGRES_HOST,
-  port: Number(process.env.POSTGRES_PORT),
-  username: process.env.POSTGRES_USERNAME,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DATABASE,
-  // All entities that cron service needs to access
-  entities: [
-    // User hierarchy - for authentication and authorization checks
-    Developer,
-    TechAdmin,
-    SuperMaster,
-    Master,
-    SuperAgent,
-    Agent,
-    MiniAdmin,
-    Admin,
-    Client,
-    // System entities - for whitelist and transaction tracking
-    Whitelist,
-    AccountTrasaction,
-    // Casino entities - for game data and betting operations
-    DefaultCasino,
-    // CasinoMatch,
-    CasinoBet,
-    // Settings entities - for configuration management
-    SoccerSettings,
-    TennisSettings,
-    CricketSettings,
-    CasinoSettings,
-    InternationalCasinoSettings,
-    MatkaSettings,
-    CasinoMatchNew,
-    WhitelistCasinoMapping,
-    //sport 
-    SportMatch
-  ],
-  synchronize: false, // Disable auto-sync for safety in production
-  logging: false, // Disable TypeORM logging to reduce noise
-  name: "cron-service", // Unique connection name to avoid conflicts
-});
 
 /**
  * Main function to initialize and start the cron service
