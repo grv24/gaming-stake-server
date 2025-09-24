@@ -38,18 +38,19 @@ import {
   masterAndAboveAuth,
   superAgentAndAboveAuth,
   agentAndAboveAuth,
-  clientAuth
+  clientAuth,
+  gatewayManagementAuth
 } from '../../middlewares/RoleAuth';
 import { trackUserActivity, trackBalanceActivity } from '../../middlewares/ActivityTrackingMiddleware';
 
 const router = express.Router();
 
-// Payment Gateway Management Routes (All Admin Levels)
-// These routes are accessible by all admin levels (Developer, TechAdmin, Admin, MiniAdmin, SuperMaster, Master, SuperAgent, Agent)
+// Payment Gateway Management Routes (Agent Level+ with canManageGateway Permission)
+// These routes are accessible by agent level and above IF they have canManageGateway permission
 
 // Create Payment Gateway
 router.post('/createpaymentgateway', 
-  agentAndAboveAuth, // Any admin level can create gateways
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_creation', 'Created payment gateway'),
   uploadMiddleware,
   handleMulterError,
@@ -58,7 +59,7 @@ router.post('/createpaymentgateway',
 
 // Update Payment Gateway
 router.patch('/updatepaymentgateway/:id',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_update', 'Updated payment gateway'),
   uploadMiddleware,
   handleMulterError,
@@ -67,7 +68,7 @@ router.patch('/updatepaymentgateway/:id',
 
 // Update QR Image Only
 router.patch('/updatepaymentgateway/:id/qr-image',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_qr_update', 'Updated payment gateway QR image'),
   uploadQrImageMiddleware,
   handleMulterError,
@@ -76,21 +77,21 @@ router.patch('/updatepaymentgateway/:id/qr-image',
 
 // Delete Payment Gateway
 router.delete('/deletepaymentgateway/:id',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_deletion', 'Deleted payment gateway'),
   deletePaymentGateway
 );
 
 // Toggle Gateway Status
 router.patch('/paymentgateway/activateDeactivate/:id',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_toggle', 'Activated/deactivated payment gateway'),
   toggleGatewayStatus
 );
 
 // Get Created Gateways (for admin users)
 router.get('/paymentgateway/created/getall',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_view', 'Viewed created payment gateways'),
   getCreatedGateways
 );
@@ -174,47 +175,47 @@ router.get('/paymentgateway/:id',
   }
 );
 
-// Gateway Assignment Routes (Admin users)
+// Gateway Assignment Routes (Agent level+ with canManageGateway permission)
 router.post('/assign-gateway',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_assignment', 'Assigned payment gateway to user'),
   assignGatewayToUser
 );
 
 router.get('/assigned-gateways/:userId',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_assignment_view', 'Viewed assigned gateways for user'),
   getAssignedGatewaysForUser
 );
 
 router.delete('/remove-assignment/:assignmentId',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_assignment_removal', 'Removed gateway assignment'),
   removeGatewayAssignment
 );
 
 router.put('/manage-assignment/:assignmentId',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_assignment_management', 'Managed gateway assignment'),
   manageGatewayAssignment
 );
 
-// Permission Management Routes
+// Permission Management Routes (Agent level+ with canManageGateway permission)
 router.post('/grant-permissions',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('permission_grant', 'Granted payment gateway permissions'),
   grantPaymentGatewayPermissions
 );
 
 router.get('/check-permissions/:userId',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('permission_check', 'Checked user payment gateway permissions'),
   checkUserPaymentGatewayPermissions
 );
 
-// Bulk Operations Routes
+// Bulk Operations Routes (Agent level+ with canManageGateway permission)
 router.patch('/paymentgateway/bulk-status',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_bulk_status', 'Updated multiple gateway statuses'),
   async (req, res) => {
     try {
@@ -257,7 +258,7 @@ router.patch('/paymentgateway/bulk-status',
 );
 
 router.delete('/paymentgateway/bulk-delete',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_bulk_delete', 'Deleted multiple payment gateways'),
   async (req, res) => {
     try {
@@ -296,9 +297,9 @@ router.delete('/paymentgateway/bulk-delete',
   }
 );
 
-// Gateway Statistics Route
+// Gateway Statistics Route (Agent level+ with canManageGateway permission)
 router.get('/paymentgateway/stats',
-  agentAndAboveAuth,
+  gatewayManagementAuth, // Agent level+ with canManageGateway permission
   trackUserActivity('gateway_stats', 'Viewed payment gateway statistics'),
   async (req, res) => {
     try {

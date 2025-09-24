@@ -17,7 +17,7 @@ const getUserRepository = (userType: string) => {
 };
 
 // Helper to check payment gateway permissions
-const checkPaymentGatewayPermission = async (userId: string, userType: string, permission: string): Promise<boolean> => {
+export const checkPaymentGatewayPermission = async (userId: string, userType: string, permission: string): Promise<boolean> => {
   try {
     const userRepo = getUserRepository(userType);
     const user = await userRepo.findOne({ 

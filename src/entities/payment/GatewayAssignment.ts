@@ -18,8 +18,8 @@ export class GatewayAssignment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'uuid' })
-  gatewayId!: string; // Reference to PaymentGateway
+  @Column({ type: 'uuid', nullable: true })
+  gatewayId!: string | null; // Reference to PaymentGateway (nullable for general permissions)
 
   @Column({ type: 'uuid' })
   assignedToUserId!: string; // User who receives the gateway assignment

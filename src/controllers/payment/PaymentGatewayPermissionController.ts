@@ -21,10 +21,12 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
     const { userId, userType, gatewayId, permissions, notes } = req.body;
     const currentUser = req.user;
 
-    if (!userId || !userType || !gatewayId || !permissions) {
+    console.log('🔐 Granting permissions:', { userId, userType, gatewayId, permissions, notes });
+
+    if (!userId || !userType || !permissions) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: userId, userType, gatewayId, permissions'
+        message: 'Missing required fields: userId, userType, permissions'
       });
     }
 
@@ -53,15 +55,18 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // Check if gateway exists
-    const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
-    const gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
+    // Handle gateway validation - allow empty gatewayId for general permissions
+    let gateway = null;
+    if (gatewayId && gatewayId.trim() !== '') {
+      const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+      gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
 
-    if (!gateway) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payment gateway not found'
-      });
+      if (!gateway) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment gateway not found'
+        });
+      }
     }
 
     // Find target user
@@ -78,36 +83,50 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // Check if assignment already exists
+    // Check if assignment already exists (only if gatewayId is provided)
     const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
-    const existingAssignment = await assignmentRepo.findOne({
-      where: {
-        gatewayId,
-        assignedToUserId: userId,
-        isActive: true
-      }
-    });
-
-    if (existingAssignment) {
-      return res.status(400).json({
-        success: false,
-        message: 'Gateway is already assigned to this user'
+    let existingAssignment = null;
+    
+    if (gatewayId && gatewayId.trim() !== '') {
+      existingAssignment = await assignmentRepo.findOne({
+        where: {
+          gatewayId,
+          assignedToUserId: userId,
+          isActive: true
+        }
       });
+
+      if (existingAssignment) {
+        return res.status(400).json({
+          success: false,
+          message: 'Gateway is already assigned to this user'
+        });
+      }
     }
+
+    // Use the permissions as provided by the user
+    const finalPermissions = {
+      canCreateGateway: permissions.canCreateGateway || false,
+      canManageGateway: permissions.canManageGateway || false,
+      canAssignGateway: permissions.canAssignGateway || false,
+      canProcessRequests: permissions.canProcessRequests || false
+    };
+
+    console.log('🔐 Final permissions:', finalPermissions);
 
     // Create new gateway assignment with granular permissions
     const assignment = assignmentRepo.create({
-      gatewayId,
+      gatewayId: gatewayId && gatewayId.trim() !== '' ? gatewayId : null, // Use null for empty gatewayId
       assignedToUserId: userId,
       assignedToUserType: userType,
       assignedByUserId: currentUser?.userId || '',
       assignedByUserType: currentUser?.userType || '',
       groupId: currentUserData?.groupID || '',
       notes: notes || `Payment gateway permissions granted by ${currentUser?.userType}`,
-      canCreateGateway: permissions.canCreateGateway || false,
-      canManageGateway: permissions.canManageGateway || false,
-      canAssignGateway: permissions.canAssignGateway || false,
-      canProcessRequests: permissions.canProcessRequests || false,
+      canCreateGateway: finalPermissions.canCreateGateway,
+      canManageGateway: finalPermissions.canManageGateway,
+      canAssignGateway: finalPermissions.canAssignGateway,
+      canProcessRequests: finalPermissions.canProcessRequests,
       restrictions: permissions.restrictions || {
         maxGateways: 5,
         maxAmount: 10000,
@@ -129,8 +148,8 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
         userId,
         userType,
         userName: targetUser.userName || targetUser.loginId,
-        gatewayId,
-        gatewayName: gateway.gatewayMethod,
+        gatewayId: gatewayId || '',
+        gatewayName: gateway?.gatewayMethod || 'General Permissions',
         hasDepositWithdrawAccess: true,
         permissions: {
           canCreateGateway: assignment.canCreateGateway,
@@ -144,7 +163,8 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
           userType: currentUser?.userType,
           userName: currentUser?.userName || currentUser?.loginId
         },
-        assignmentInfo: assignment.getAssignmentInfo()
+        assignmentInfo: assignment.getAssignmentInfo(),
+        note: gatewayId ? 'Gateway-specific permissions granted' : 'General permissions granted (not tied to specific gateway)'
       }
     });
 
@@ -775,22 +795,25 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    if (!gatewayId || !permissions) {
+    if (!permissions) {
       return res.status(400).json({
         success: false,
-        message: 'Gateway ID and permissions are required'
+        message: 'Permissions are required'
       });
     }
 
-    // Check if gateway exists
-    const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
-    const gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
+    // Handle gateway validation - allow empty gatewayId for general permissions
+    let gateway = null;
+    if (gatewayId && gatewayId.trim() !== '') {
+      const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+      gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
 
-    if (!gateway) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payment gateway not found'
-      });
+      if (!gateway) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment gateway not found'
+        });
+      }
     }
 
     // Find the admin
@@ -807,26 +830,30 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    // Check if assignment already exists
+    // Check if assignment already exists (only if gatewayId is provided)
     const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
-    const existingAssignment = await assignmentRepo.findOne({
-      where: {
-        gatewayId,
-        assignedToUserId: adminId,
-        isActive: true
-      }
-    });
-
-    if (existingAssignment) {
-      return res.status(400).json({
-        success: false,
-        message: 'Gateway is already assigned to this admin'
+    let existingAssignment = null;
+    
+    if (gatewayId && gatewayId.trim() !== '') {
+      existingAssignment = await assignmentRepo.findOne({
+        where: {
+          gatewayId,
+          assignedToUserId: adminId,
+          isActive: true
+        }
       });
+
+      if (existingAssignment) {
+        return res.status(400).json({
+          success: false,
+          message: 'Gateway is already assigned to this admin'
+        });
+      }
     }
 
     // Create new gateway assignment with granular permissions
     const assignment = assignmentRepo.create({
-      gatewayId,
+      gatewayId: gatewayId && gatewayId.trim() !== '' ? gatewayId : null, // Use null for empty gatewayId
       assignedToUserId: adminId,
       assignedToUserType: 'admin',
       assignedByUserId: currentUser?.userId || '',
@@ -857,8 +884,8 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
         assignmentId: assignment.id,
         adminId: admin.id,
         adminName: admin.userName || admin.loginId,
-        gatewayId,
-        gatewayName: gateway.gatewayMethod,
+        gatewayId: gatewayId || '',
+        gatewayName: gateway?.gatewayMethod || 'General Permissions',
         hasDepositWithdrawAccess: true,
         permissions: {
           canCreateGateway: assignment.canCreateGateway,
