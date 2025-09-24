@@ -91,7 +91,7 @@ export const AppDataSource = new DataSource({
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DATABASE,
   entities: ALL_ENTITIES,
-  synchronize: false, // Disable auto-sync to prevent hanging
+        synchronize: false, // Disable auto-sync
   logging: process.env.NODE_ENV === "development",
   connectTimeoutMS: 30000, // 30 second timeout
 });

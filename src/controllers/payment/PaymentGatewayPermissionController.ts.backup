@@ -7,9 +7,6 @@ import { PaymentGateway } from '../../entities/payment/PaymentGateway';
 import { Admin } from '../../entities/users/AdminUser';
 import { TechAdmin } from '../../entities/users/TechAdminUser';
 
-// WORKAROUND: In-memory storage for permissions (temporary solution)
-const permissionsStore = new Map<string, any>();
-
 // Helper to get repository based on user type
 const getUserRepository = (userType: string) => {
   if (!USER_TABLES[userType]) {
@@ -42,22 +39,22 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
-    
-    if (!currentUserPermissions?.canAssignGateway) {
+    // Check if current user has permission to grant permissions
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId }
+    });
+
+    if (!currentUserData?.paymentGatewayPermissions?.canAssignGateways) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to grant payment gateway permissions'
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
+    // Get target user repository and update permissions
     const targetUserRepo = getUserRepository(userType);
-    const targetUser = await targetUserRepo.findOne({ 
-      where: { id: userId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
-    });
+    const targetUser = await targetUserRepo.findOne({ where: { id: userId } });
 
     if (!targetUser) {
       return res.status(404).json({
@@ -66,46 +63,21 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // Store permissions in memory (temporary solution)
-    permissionsStore.set(`${userType}_${userId}`, {
-      canCreateGateway: permissions.canCreateGateway || false,
-      canManageGateway: permissions.canManageGateway || false,
-      canAssignGateway: permissions.canAssignGateway || false,
-      canProcessRequests: permissions.canProcessRequests || false,
-      restrictions: permissions.restrictions || {
-        maxGateways: 5,
-        maxAmount: 10000,
-        allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
-    });
+    // Update permissions
+    targetUser.paymentGatewayPermissions = {
+      ...targetUser.paymentGatewayPermissions,
+      ...permissions
+    };
+
+    await targetUserRepo.save(targetUser);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted successfully (workaround)',
+      message: 'Payment gateway permissions granted successfully',
       data: {
         userId,
         userType,
-        userName: targetUser.userName || targetUser.loginId,
-        permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
-        },
-        grantedBy: {
-          userId: currentUser?.userId,
-          userType: currentUser?.userType,
-          userName: currentUser?.userName || currentUser?.loginId
-        },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        permissions: targetUser.paymentGatewayPermissions
       }
     });
 
@@ -132,26 +104,26 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
-    
-    if (!currentUserPermissions?.canAssignGateway && currentUser?.userId !== userId) {
+    // Check if current user has permission to view permissions
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId }
+    });
+
+    if (!currentUserData?.paymentGatewayPermissions?.canAssignGateways && currentUser?.userId !== userId) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view payment gateway permissions'
       });
     }
 
-    // WORKAROUND: Find user and get permissions from memory store
+    // Find user across all user types
     let userData = null;
     let userType = null;
 
     for (const [type, entity] of Object.entries(USER_TABLES)) {
       const repo = AppDataSource.getRepository(entity);
-      const user = await repo.findOne({ 
-        where: { id: userId },
-        select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
-      });
+      const user = await repo.findOne({ where: { id: userId } });
       if (user) {
         userData = user;
         userType = type;
@@ -166,17 +138,12 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
       });
     }
 
-    // Get permissions from memory store
-    const permissions = permissionsStore.get(`${userType}_${userId}`) || {};
-
     res.json({
       success: true,
       data: {
         userId,
         userType,
-        userName: userData.userName || userData.loginId,
-        permissions: permissions,
-        note: 'Using workaround - permissions stored in memory'
+        permissions: userData.paymentGatewayPermissions || {}
       }
     });
 
@@ -469,11 +436,23 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
-    
+    // Check if current user has permission to view permissions
+    let currentUserData = null;
+    try {
+      const currentUserRepo = getUserRepository(currentUser?.userType || '');
+      currentUserData = await currentUserRepo.findOne({
+        where: { id: currentUser?.userId }
+      });
+    } catch (error) {
+      console.error('Error getting current user data:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type in token. Please check your authentication.'
+      });
+    }
+
     // Allow users to check their own permissions, or admins to check others
-    const canViewPermissions = currentUserPermissions?.canAssignGateway || 
+    const canViewPermissions = currentUserData?.paymentGatewayPermissions?.canAssignGateways || 
                               currentUser?.userId === targetUserId;
 
     if (!canViewPermissions) {
@@ -529,8 +508,7 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
     }
 
     // Get user's payment gateway permissions
-    // WORKAROUND: Get permissions from memory store instead of database
-    const permissions = permissionsStore.get(`${foundUserType}_${targetUserId}`) || {};
+    const permissions = userData.paymentGatewayPermissions || {};
     
     // Check if user has any payment gateway permissions
     const hasAnyPermissions = Object.values(permissions).some(value => value === true);
@@ -561,9 +539,9 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
         userName: userData.userName || userData.loginId || 'Unknown',
         hasPaymentGatewayPermissions: hasAnyPermissions,
         permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
+          canCreateGateways: permissions.canCreateGateways || false,
+          canManageGateways: permissions.canManageGateways || false,
+          canAssignGateways: permissions.canAssignGateways || false,
           canProcessRequests: permissions.canProcessRequests || false
         },
         gatewayStats: {
@@ -571,12 +549,11 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
           createdGatewaysCount
         },
         permissionSummary: {
-          canCreate: permissions.canCreateGateway || false,
-          canManage: permissions.canManageGateway || false,
-          canAssign: permissions.canAssignGateway || false,
+          canCreate: permissions.canCreateGateways || false,
+          canManage: permissions.canManageGateways || false,
+          canAssign: permissions.canAssignGateways || false,
           canProcess: permissions.canProcessRequests || false
-        },
-        note: 'Using workaround - permissions stored in memory'
+        }
       }
     });
 
@@ -614,12 +591,9 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    // WORKAROUND: Find the admin and store permissions in memory
+    // Find the admin
     const adminRepo = AppDataSource.getRepository(Admin);
-    const admin = await adminRepo.findOne({ 
-      where: { id: adminId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
-    });
+    const admin = await adminRepo.findOne({ where: { id: adminId } });
 
     if (!admin) {
       return res.status(404).json({
@@ -628,8 +602,8 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
-    permissionsStore.set(`admin_${adminId}`, {
+    // Update admin's payment gateway permissions
+    admin.paymentGatewayPermissions = {
       canCreateGateway: permissions.canCreateGateway || false,
       canManageGateway: permissions.canManageGateway || false,
       canAssignGateway: permissions.canAssignGateway || false,
@@ -638,35 +612,23 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
         maxGateways: 5,
         maxAmount: 10000,
         allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
-    });
+      }
+    };
+
+    await adminRepo.save(admin);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted to admin successfully (workaround)',
+      message: 'Payment gateway permissions granted to admin successfully',
       data: {
         adminId: admin.id,
         adminName: admin.userName || admin.loginId,
-        permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
-        },
+        permissions: admin.paymentGatewayPermissions,
         grantedBy: {
           userId: currentUser.userId,
           userType: currentUser.userType,
           userName: currentUser.userName || currentUser.loginId
-        },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        }
       }
     });
 
@@ -703,12 +665,9 @@ export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res:
       });
     }
 
-    // WORKAROUND: Find the tech admin and store permissions in memory
+    // Find the tech admin
     const techAdminRepo = AppDataSource.getRepository(TechAdmin);
-    const techAdmin = await techAdminRepo.findOne({ 
-      where: { id: techAdminId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
-    });
+    const techAdmin = await techAdminRepo.findOne({ where: { id: techAdminId } });
 
     if (!techAdmin) {
       return res.status(404).json({
@@ -717,8 +676,8 @@ export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res:
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
-    permissionsStore.set(`techAdmin_${techAdminId}`, {
+    // Update tech admin's payment gateway permissions
+    techAdmin.paymentGatewayPermissions = {
       canCreateGateway: permissions.canCreateGateway || false,
       canManageGateway: permissions.canManageGateway || false,
       canAssignGateway: permissions.canAssignGateway || false,
@@ -727,35 +686,23 @@ export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res:
         maxGateways: 5,
         maxAmount: 10000,
         allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
-    });
+      }
+    };
+
+    await techAdminRepo.save(techAdmin);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted to tech admin successfully (workaround)',
+      message: 'Payment gateway permissions granted to tech admin successfully',
       data: {
         techAdminId: techAdmin.id,
         techAdminName: techAdmin.userName || techAdmin.loginId,
-        permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
-        },
+        permissions: techAdmin.paymentGatewayPermissions,
         grantedBy: {
           userId: currentUser.userId,
           userType: currentUser.userType,
           userName: currentUser.userName || currentUser.loginId
-        },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        }
       }
     });
 
@@ -784,7 +731,7 @@ export const getAdminsForPermissionGrant = async (req: Request, res: Response) =
 
     const adminRepo = AppDataSource.getRepository(Admin);
     const admins = await adminRepo.find({
-      select: ['id', 'userName', 'loginId', 'isActive'],
+      select: ['id', 'userName', 'loginId', 'isActive', 'paymentGatewayPermissions'],
       where: { isActive: true }
     });
 
@@ -796,7 +743,7 @@ export const getAdminsForPermissionGrant = async (req: Request, res: Response) =
           userName: admin.userName || admin.loginId,
           loginId: admin.loginId,
           isActive: admin.isActive,
-          currentPermissions: permissionsStore.get(`admin_${admin.id}`) || {
+          currentPermissions: admin.paymentGatewayPermissions || {
             canCreateGateway: false,
             canManageGateway: false,
             canAssignGateway: false,
@@ -836,7 +783,7 @@ export const getTechAdminsForPermissionGrant = async (req: Request, res: Respons
 
     const techAdminRepo = AppDataSource.getRepository(TechAdmin);
     const techAdmins = await techAdminRepo.find({
-      select: ['id', 'userName', 'loginId', 'isActive'],
+      select: ['id', 'userName', 'loginId', 'isActive', 'paymentGatewayPermissions'],
       where: { isActive: true }
     });
 
@@ -848,7 +795,7 @@ export const getTechAdminsForPermissionGrant = async (req: Request, res: Respons
           userName: techAdmin.userName || techAdmin.loginId,
           loginId: techAdmin.loginId,
           isActive: techAdmin.isActive,
-          currentPermissions: permissionsStore.get(`techAdmin_${techAdmin.id}`) || {
+          currentPermissions: techAdmin.paymentGatewayPermissions || {
             canCreateGateway: false,
             canManageGateway: false,
             canAssignGateway: false,

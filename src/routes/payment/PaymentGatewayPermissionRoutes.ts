@@ -7,6 +7,10 @@ import {
   removeGatewayAssignment,
   getMyPaymentGatewayPermissions,
   checkUserPaymentGatewayPermissions,
+  grantAdminPaymentGatewayPermissions,
+  grantTechAdminPaymentGatewayPermissions,
+  getAdminsForPermissionGrant,
+  getTechAdminsForPermissionGrant,
   debugTokenInfo,
 } from '../../controllers/payment/PaymentGatewayPermissionController';
 import { 
@@ -24,6 +28,15 @@ router.get('/my-permissions', adminAndAboveAuth, getMyPaymentGatewayPermissions)
 router.get('/check-permissions', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
 router.get('/check-permissions/:userId', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
 router.get('/check-permissions/:userId/:userType', adminAndAboveAuth, checkUserPaymentGatewayPermissions);
+
+// Hierarchical Permission Granting Routes
+// Tech Admin grants permissions to Admin
+router.post('/grant-admin-permissions/:adminId', techAdminAndAboveAuth, grantAdminPaymentGatewayPermissions);
+router.get('/admins-for-grant', techAdminAndAboveAuth, getAdminsForPermissionGrant);
+
+// Developer grants permissions to Tech Admin
+router.post('/grant-techadmin-permissions/:techAdminId', developerAuth, grantTechAdminPaymentGatewayPermissions);
+router.get('/techadmins-for-grant', developerAuth, getTechAdminsForPermissionGrant);
 
 // Debug Routes
 router.get('/debug-token', adminAndAboveAuth, debugTokenInfo);

@@ -213,13 +213,18 @@ export class Admin {
   @UpdateDateColumn()
   updatedAt !: Date;
 
-  // Payment Gateway Permissions
+  // Payment Gateway Permissions - TEMPORARILY COMMENTED OUT (workaround)
   // @Column({ type: 'jsonb', nullable: true })
   // paymentGatewayPermissions!: {
-  //   canCreateGateways?: boolean;
-  //   canManageGateways?: boolean;
-  //   canAssignGateways?: boolean;
+  //   canCreateGateway?: boolean;
+  //   canManageGateway?: boolean;
+  //   canAssignGateway?: boolean;
   //   canProcessRequests?: boolean;
+  //   restrictions?: {
+  //     maxGateways?: number;
+  //     maxAmount?: number;
+  //     allowedGatewayTypes?: string[];
+  //   };
   // } | null;
 
   @OneToOne(() => SoccerSettings)
