@@ -156,7 +156,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             whiteListId,
             uplineId: uplineId || null,
             groupID: groupID || null,
-            transactionPassword: generateTransactionCode(8) || "X12341Y1",
+            transactionPassword: "",
             referallCode: referallCode || null,
             userName: userName || null,
             countryCode: countryCode || null,
@@ -167,7 +167,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             fancyLocked,
             bettingLocked,
             userLocked,
-            isActive: true,
+            isActive: false,
             whatsappNumber: whatsappNumber || null,
             topBarRunningMessage: topBarRunningMessage || null,
             __type: 'admin',
@@ -201,7 +201,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             commissionUplineType: req.__type,
             commissionUplineUserId: uplineId,
             commissionUpline,
-            commissionOwn: 100 - commissionUpline,
+            commissionOwn: 0,
             partnershipUplineType: req.__type,
             partnershipUplineUserId: uplineId,
             partnershipUpline,
@@ -223,7 +223,7 @@ export const createAdmin = async (req: Request, res: Response) => {
                 commissionUplineType: settingsData.commissionUplineType || 'admin',
                 commissionUplineUserId: settingsData.commissionUplineUserId || uplineId,
                 commissionUpline: settingsData.commissionUpline || commissionUpline || 0,
-                commissionOwn: settingsData.commissionOwn || 100 - commissionUpline || 0,
+                commissionOwn: 0,
                 partnershipUplineType: settingsData.partnershipUplineType || 'admin',
                 partnershipUplineUserId: settingsData.partnershipUplineUserId || uplineId,
                 partnershipUpline: settingsData.partnershipUpline || partnershipUpline || 0,
@@ -1037,13 +1037,13 @@ export const adminLogin = async (req: Request, res: Response) => {
             });
         }
 
-        // Authentication checks
-        if (!user.isActive) {
-            return res.status(403).json({
-                success: false,
-                error: 'Admin account is not active. Please contact TechAdmin to activate your account.'
-            });
-        }
+        // // Authentication checks
+        // if (!user.isActive) {
+        //     return res.status(403).json({
+        //         success: false,
+        //         error: 'Admin account is not active. Please contact TechAdmin to activate your account.'
+        //     });
+        // }
 
         if (user.userLocked) {
             return res.status(403).json({

@@ -9,10 +9,10 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-// Configure multer for payment proof uploads
+// Configure multer for payment proof uploads with public directory structure
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = 'uploads/PaymentProof/';
+    const uploadPath = 'public/images/payment-gateways/payment-proofs/';
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -20,7 +20,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + sanitizedName);
   }
 });
 
@@ -53,9 +54,19 @@ export const createDepositRequest = async (req: Request, res: Response) => {
     const clientId = req.user?.userId;
     const clientType = req.user?.__type;
     const uplineId = req.user?.uplineId;
-    const uplineType = req.user?.uplineType;
-    const groupId = req.user?.groupId;
-    const loginId = req.user?.loginId;
+    
+    // Get user's loginId and groupId from database
+    const user = await getUserById(req.user?.userId || req.user?.id);
+    const loginId = user?.loginId || req.user?.userId || 'unknown';
+    const groupId = user?.groupID || req.user?.groupId || null; // Allow null since no users have groupId
+    
+    // Get upline's type from database if uplineId exists
+    let uplineType = req.user?.uplineType;
+    if (uplineId && !uplineType) {
+      const uplineUser = await getUserById(uplineId);
+      uplineType = uplineUser?.__type || 'unknown';
+    }
+    
     const ipAddress = req.ip || req.connection.remoteAddress || '';
 
     // Validate required fields
@@ -92,11 +103,19 @@ export const createDepositRequest = async (req: Request, res: Response) => {
     }
 
     // Validate amount against gateway limits
-    if (!gateway.isValidAmount(depositAmount)) {
+    if (gateway.gatewayDetails?.minAmount && depositAmount < gateway.gatewayDetails.minAmount) {
       await queryRunner.rollbackTransaction();
       return res.status(400).json({
         success: false,
-        error: `Amount must be between ${gateway.gatewayDetails.minAmount || 0} and ${gateway.gatewayDetails.maxAmount || 'unlimited'}`
+        error: `Amount must be at least ${gateway.gatewayDetails.minAmount}`
+      });
+    }
+    
+    if (gateway.gatewayDetails?.maxAmount && depositAmount > gateway.gatewayDetails.maxAmount) {
+      await queryRunner.rollbackTransaction();
+      return res.status(400).json({
+        success: false,
+        error: `Amount must not exceed ${gateway.gatewayDetails.maxAmount}`
       });
     }
 
@@ -137,12 +156,15 @@ export const createDepositRequest = async (req: Request, res: Response) => {
 
     // Handle payment proof upload
     if (req.file) {
-      depositRequest.paymentProof = req.file.path;
+      // Store public URL instead of file path
+      const publicUrl = `/images/payment-gateways/payment-proofs/${path.basename(req.file.path)}`;
+      depositRequest.paymentProof = publicUrl;
       
       // Create file upload record
       const fileUpload = fileUploadRepo.create({
         fileName: req.file.originalname,
         filePath: req.file.path,
+        publicUrl: publicUrl,
         fileType: req.file.mimetype,
         fileSize: req.file.size,
         uploadType: 'paymentProof',
@@ -177,6 +199,26 @@ export const createDepositRequest = async (req: Request, res: Response) => {
   }
 };
 
+// Helper function to get user by ID from any user table
+async function getUserById(userId: string, userType?: string): Promise<any> {
+  if (userType && USER_TABLES[userType]) {
+    const repo = AppDataSource.getRepository(USER_TABLES[userType]);
+    return await repo.findOne({ where: { id: userId } });
+  }
+
+  // Search across all user types
+  for (const [type, entity] of Object.entries(USER_TABLES)) {
+    const repo = AppDataSource.getRepository(entity);
+    const user = await repo.findOne({ where: { id: userId } });
+    if (user) {
+      user.__type = type;
+      return user;
+    }
+  }
+
+  return null;
+}
+
 // Get My Deposit Requests (for clients)
 export const getMyDepositRequests = async (req: Request, res: Response) => {
   try {
@@ -209,18 +251,23 @@ export const getMyDepositRequests = async (req: Request, res: Response) => {
 export const getIncomingDepositRequests = async (req: Request, res: Response) => {
   try {
     const uplineId = req.user?.userId;
-    const groupId = req.user?.groupId;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const searchValue = req.query.searchValue as string;
+
+    if (!uplineId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID not found'
+      });
+    }
 
     const depositRequestRepo = AppDataSource.getRepository(DepositRequest);
     
     const queryBuilder = depositRequestRepo
       .createQueryBuilder('request')
       .leftJoinAndSelect('request.gateway', 'gateway')
-      .where('request.uplineId = :uplineId', { uplineId })
-      .andWhere('request.groupId = :groupId', { groupId });
+      .where('request.uplineId = :uplineId', { uplineId });
 
     // Add search functionality
     if (searchValue) {
@@ -349,9 +396,27 @@ export const updateDepositRequest = async (req: Request, res: Response) => {
         });
       }
 
-      // Update balances
-      const newAdminBalance = admin.balance - depositRequest.amount;
-      const newClientBalance = client.balance + depositRequest.amount;
+      // Update balances (ensure integer values and proper number conversion)
+      const adminBalanceNum = Number(admin.balance) || 0;
+      const clientBalanceNum = Number(client.balance) || 0;
+      const depositAmountNum = Number(depositRequest.amount) || 0;
+      
+      console.log('Balance calculation debug:', {
+        adminBalance: admin.balance,
+        adminBalanceNum,
+        clientBalance: client.balance,
+        clientBalanceNum,
+        depositAmount: depositRequest.amount,
+        depositAmountNum
+      });
+      
+      const newAdminBalance = Math.floor(adminBalanceNum - depositAmountNum);
+      const newClientBalance = Math.floor(clientBalanceNum + depositAmountNum);
+      
+      console.log('New balances:', {
+        newAdminBalance,
+        newClientBalance
+      });
 
       await adminRepo.update(adminId, { balance: newAdminBalance });
       await clientRepo.update(depositRequest.clientId, { balance: newClientBalance });
@@ -367,7 +432,7 @@ export const updateDepositRequest = async (req: Request, res: Response) => {
         gatewayId: depositRequest.gatewayId,
         balanceBefore: client.balance,
         balanceAfter: newClientBalance,
-        groupId: depositRequest.groupId
+        groupId: depositRequest.groupId || 'default'
       });
       await accountTransactionRepo.save(accountTransaction);
 
@@ -390,6 +455,13 @@ export const updateDepositRequest = async (req: Request, res: Response) => {
   } catch (error: any) {
     await queryRunner.rollbackTransaction();
     console.error('Error updating deposit request:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.requestId,
+      adminId: req.user?.userId,
+      adminType: req.user?.__type
+    });
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -399,4 +471,5 @@ export const updateDepositRequest = async (req: Request, res: Response) => {
     await queryRunner.release();
   }
 };
+
 

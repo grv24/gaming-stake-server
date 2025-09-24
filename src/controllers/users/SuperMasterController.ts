@@ -13,6 +13,7 @@ import { isUUID } from 'class-validator';
 import { Between, Like } from 'typeorm';
 import { Whitelist } from '../../entities/whitelist/Whitelist';
 import { USER_TABLES } from '../../Helpers/users/Roles';
+import { generateTransactionCode } from '../../Helpers/Request/Validation';
 
 export const createSuperMaster = async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -46,7 +47,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             loginId,
             user_password,
             groupID,
-            transactionPassword,
+            transactionPassword,     // Tech admin transaction password
             referallCode,
             userName,
             countryCode,
@@ -86,9 +87,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             commissionLena = true,
             commissionDena = false,
             commissionUpline = 0,    // Your commission as upline
-            // commissionOwn = 0,       // SuperMaster's own commission
             partnershipUpline = 0,    // Your percentage as upline
-            // partnershipOwn = 0,       // SuperMaster's own percentage
             soccerSettings = {},
             cricketSettings = {},
             tennisSettings = {},
@@ -129,7 +128,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             await queryRunner.rollbackTransaction();
             return res.status(403).json({
                 success: false,
-                error: 'Transaction password does not match'
+                error: 'Invalid transaction password'
             });
         }
 
@@ -150,7 +149,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             whiteListId,
             uplineId: uplineId || null,
             groupID: groupID || null,
-            transactionPassword: transactionPassword || null,
+            transactionPassword: "",
             referallCode: referallCode || null,
             userName: userName || null,
             countryCode: countryCode || null,
@@ -195,7 +194,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
             commissionUplineType: req.__type,
             commissionUplineUserId: uplineId,
             commissionUpline,
-            commissionOwn: 100 - commissionUpline,
+            commissionOwn: 0,
             partnershipUplineType: req.__type,
             partnershipToUserId: uplineId,
             partnershipUpline,
@@ -217,7 +216,7 @@ export const createSuperMaster = async (req: Request, res: Response) => {
                 commissionUplineType: settingsData.commissionUplineType || 'superMaster',
                 commissionUplineUserId: settingsData.commissionUplineUserId || uplineId,
                 commissionUpline: settingsData.commissionUpline || commissionUpline || 0,
-                commissionOwn: settingsData.commissionOwn || 100 - commissionUpline || 0,
+                commissionOwn: 0,
                 partnershipUplineType: settingsData.partnershipUplineType || 'superMaster',
                 partnershipUplineUserId: settingsData.partnershipUplineUserId || uplineId,
                 partnershipUpline: settingsData.partnershipUpline || partnershipUpline || 0,

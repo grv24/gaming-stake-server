@@ -20,6 +20,9 @@ export class FileUpload {
   @Column({ type: 'varchar', length: 500 })
   filePath!: string; // Stored file path
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  publicUrl!: string; // Public URL for accessing the file
+
   @Column({ type: 'varchar', length: 100 })
   fileType!: string; // MIME type
 

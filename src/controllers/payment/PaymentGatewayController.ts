@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../../server';
 import { PaymentGateway } from '../../entities/payment/PaymentGateway';
 import { FileUpload } from '../../entities/payment/FileUpload';
+import { GatewayAssignment } from '../../entities/payment/GatewayAssignment';
 import { USER_TABLES } from '../../Helpers/users/Roles';
 import multer from 'multer';
 import path from 'path';
@@ -19,23 +20,58 @@ const getUserRepository = (userType: string) => {
 const checkPaymentGatewayPermission = async (userId: string, userType: string, permission: string): Promise<boolean> => {
   try {
     const userRepo = getUserRepository(userType);
-    const user = await userRepo.findOne({ where: { id: userId } });
+    const user = await userRepo.findOne({ 
+      where: { id: userId },
+      select: ['id', 'depositWithdrawlAccess']
+    });
     
-    if (!user?.paymentGatewayPermissions) {
+    if (!user) {
+      console.log('User not found:', { userId, userType });
       return false;
     }
     
-    return user.paymentGatewayPermissions[permission as keyof typeof user.paymentGatewayPermissions] === true;
+    console.log('User found:', { 
+      userId, 
+      userType, 
+      depositWithdrawlAccess: user.depositWithdrawlAccess 
+    });
+    
+    // For tech admins, they have automatic permissions if depositWithdrawlAccess is true
+    if (userType === 'techAdmin' && user.depositWithdrawlAccess) {
+      console.log('Tech admin with depositWithdrawlAccess - granting permission');
+      return true; // Tech admins have all permissions automatically
+    }
+    
+    // For other user types, check if they have depositWithdrawlAccess
+    if (user.depositWithdrawlAccess) {
+      console.log('User with depositWithdrawlAccess - granting permission');
+      return true;
+    }
+    
+    console.log('User does not have depositWithdrawlAccess - denying permission');
+    return false;
   } catch (error) {
     console.error('Error checking payment gateway permission:', error);
     return false;
   }
 };
 
-// Configure multer for file uploads
+// Configure multer for file uploads with public directory structure
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = 'uploads/PaymentGateway/';
+    let uploadPath = 'public/images/payment-gateways/';
+    
+    // Determine subdirectory based on file field
+    if (file.fieldname === 'gatewayImage') {
+      uploadPath += 'gateway-images/';
+    } else if (file.fieldname === 'qrImage') {
+      uploadPath += 'qr-codes/';
+    } else if (file.fieldname === 'paymentProof') {
+      uploadPath += 'payment-proofs/';
+    } else {
+      uploadPath += 'misc/';
+    }
+    
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -43,7 +79,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + sanitizedName);
   }
 });
 
@@ -65,10 +102,41 @@ const upload = multer({
   }
 });
 
+// Error handling middleware for multer
+const handleMulterError = (error: any, req: any, res: any, next: any) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        success: false,
+        error: 'Unexpected field in form data',
+        message: `Field '${error.field}' is not expected. Expected fields: gatewayImage, qrImage`,
+        expectedFields: ['gatewayImage', 'qrImage']
+      });
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: 'File too large',
+        message: 'File size exceeds 5MB limit'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many files',
+        message: 'Maximum 1 file per field allowed'
+      });
+    }
+  }
+  next(error);
+};
+
 export const uploadMiddleware = upload.fields([
   { name: 'gatewayImage', maxCount: 1 },
   { name: 'qrImage', maxCount: 1 }
 ]);
+
+export { handleMulterError };
 
 // Create Payment Gateway
 export const createPaymentGateway = async (req: Request, res: Response) => {
@@ -91,12 +159,26 @@ export const createPaymentGateway = async (req: Request, res: Response) => {
       });
     }
 
-    const hasPermission = await checkPaymentGatewayPermission(createdBy, createdByType, 'canCreateGateways');
+    const hasPermission = await checkPaymentGatewayPermission(createdBy, createdByType, 'canCreateGateway');
+    
+    // Debug logging
+    console.log('Payment Gateway Permission Check:', {
+      userId: createdBy,
+      userType: createdByType,
+      permission: 'canCreateGateway',
+      hasPermission: hasPermission
+    });
+    
     if (!hasPermission) {
       await queryRunner.rollbackTransaction();
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to create payment gateways'
+        error: 'You do not have permission to create payment gateways',
+        debug: {
+          userId: createdBy,
+          userType: createdByType,
+          permission: 'canCreateGateway'
+        }
       });
     }
 
@@ -141,42 +223,60 @@ export const createPaymentGateway = async (req: Request, res: Response) => {
     
     if (files?.gatewayImage?.[0]) {
       const gatewayImageFile = files.gatewayImage[0];
-      gateway.gatewayImage = gatewayImageFile.path;
+      // Store public URL instead of file path
+      const publicUrl = `/images/payment-gateways/gateway-images/${path.basename(gatewayImageFile.path)}`;
+      gateway.gatewayImage = publicUrl;
       
       // Create file upload record
-      const fileUpload = fileUploadRepo.create({
-        fileName: gatewayImageFile.originalname,
-        filePath: gatewayImageFile.path,
-        fileType: gatewayImageFile.mimetype,
-        fileSize: gatewayImageFile.size,
-        uploadType: 'gatewayImage',
-        relatedEntityId: gateway.id,
-        relatedEntityType: 'PaymentGateway',
-        uploadedBy: createdBy,
-        uploadedByType: createdByType,
-        groupId
-      });
-      await fileUploadRepo.save(fileUpload);
+      try {
+        const fileUpload = fileUploadRepo.create({
+          fileName: gatewayImageFile.originalname,
+          filePath: gatewayImageFile.path,
+          publicUrl: publicUrl,
+          fileType: gatewayImageFile.mimetype,
+          fileSize: gatewayImageFile.size,
+          uploadType: 'gatewayImage',
+          relatedEntityId: gateway.id,
+          relatedEntityType: 'PaymentGateway',
+          uploadedBy: createdBy,
+          uploadedByType: createdByType,
+          groupId
+        });
+        await fileUploadRepo.save(fileUpload);
+        console.log('Gateway image file upload record created successfully');
+      } catch (fileError) {
+        console.error('Error creating gateway image file upload record:', fileError);
+        // Continue without failing the entire request
+      }
     }
 
     if (files?.qrImage?.[0]) {
       const qrImageFile = files.qrImage[0];
-      gateway.qrImage = qrImageFile.path;
+      // Store public URL instead of file path
+      const publicUrl = `/images/payment-gateways/qr-codes/${path.basename(qrImageFile.path)}`;
+      gateway.qrImage = publicUrl;
       
       // Create file upload record
-      const fileUpload = fileUploadRepo.create({
-        fileName: qrImageFile.originalname,
-        filePath: qrImageFile.path,
-        fileType: qrImageFile.mimetype,
-        fileSize: qrImageFile.size,
-        uploadType: 'qrImage',
-        relatedEntityId: gateway.id,
-        relatedEntityType: 'PaymentGateway',
-        uploadedBy: createdBy,
-        uploadedByType: createdByType,
-        groupId
-      });
-      await fileUploadRepo.save(fileUpload);
+      try {
+        const fileUpload = fileUploadRepo.create({
+          fileName: qrImageFile.originalname,
+          filePath: qrImageFile.path,
+          publicUrl: publicUrl,
+          fileType: qrImageFile.mimetype,
+          fileSize: qrImageFile.size,
+          uploadType: 'qrImage',
+          relatedEntityId: gateway.id,
+          relatedEntityType: 'PaymentGateway',
+          uploadedBy: createdBy,
+          uploadedByType: createdByType,
+          groupId
+        });
+        await fileUploadRepo.save(fileUpload);
+        console.log('QR image file upload record created successfully');
+      } catch (fileError) {
+        console.error('Error creating QR image file upload record:', fileError);
+        // Continue without failing the entire request
+      }
     }
 
     await paymentGatewayRepo.save(gateway);
@@ -231,30 +331,63 @@ export const getCreatedGateways = async (req: Request, res: Response) => {
 // Get Assigned Gateways (for clients)
 export const getAssignedGateways = async (req: Request, res: Response) => {
   try {
+    const clientId = req.user?.userId;
+    const clientType = req.user?.__type;
     const uplineId = req.user?.uplineId;
+    const uplineType = req.user?.uplineType;
     const groupId = req.user?.groupId;
 
-    if (!uplineId) {
+    if (!clientId || !uplineId) {
       return res.status(400).json({
         success: false,
-        error: 'No upline user found'
+        error: 'Client authentication required'
       });
     }
 
     const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const gatewayAssignmentRepo = AppDataSource.getRepository(GatewayAssignment);
     
-    const gateways = await paymentGatewayRepo.find({
-      where: { 
-        createdBy: uplineId, 
+    let gateways: PaymentGateway[] = [];
+
+    // Priority 1: Check for explicit gateway assignments by upline
+    const explicitAssignments = await gatewayAssignmentRepo.find({
+      where: {
+        assignedToUserId: clientId,
+        assignedToUserType: clientType,
+        assignedByUserId: uplineId,
+        assignedByUserType: uplineType,
         groupId,
-        isActive: true 
+        isActive: true
       },
-      order: { createdAt: 'DESC' }
+      relations: ['gateway']
     });
+
+    if (explicitAssignments.length > 0) {
+      // Use explicitly assigned gateways
+      gateways = explicitAssignments
+        .map(assignment => assignment.gateway)
+        .filter(gateway => gateway && gateway.isActive);
+      
+      console.log(`Found ${gateways.length} explicitly assigned gateways for client ${clientId}`);
+    } else {
+      // Priority 2: Fallback to gateways created by upline
+      const uplineGateways = await paymentGatewayRepo.find({
+        where: { 
+          createdBy: uplineId, 
+          groupId,
+          isActive: true 
+        },
+        order: { createdAt: 'DESC' }
+      });
+      
+      gateways = uplineGateways;
+      console.log(`No explicit assignments found, using ${gateways.length} upline-created gateways for client ${clientId}`);
+    }
 
     return res.status(200).json({
       success: true,
-      data: gateways
+      data: gateways,
+      assignmentType: explicitAssignments.length > 0 ? 'explicit' : 'inherited'
     });
 
   } catch (error: any) {
@@ -288,7 +421,7 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
       });
     }
 
-    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateways');
+    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateway');
     if (!hasPermission) {
       await queryRunner.rollbackTransaction();
       return res.status(403).json({
@@ -327,12 +460,17 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
     
     if (files?.gatewayImage?.[0]) {
       // Delete old file if exists
-      if (gateway.gatewayImage && fs.existsSync(gateway.gatewayImage)) {
-        fs.unlinkSync(gateway.gatewayImage);
+      if (gateway.gatewayImage) {
+        const oldFilePath = gateway.gatewayImage.replace('/images/payment-gateways/gateway-images/', 'public/images/payment-gateways/gateway-images/');
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
       }
       
       const gatewayImageFile = files.gatewayImage[0];
-      gateway.gatewayImage = gatewayImageFile.path;
+      // Store public URL instead of file path
+      const publicUrl = `/images/payment-gateways/gateway-images/${path.basename(gatewayImageFile.path)}`;
+      gateway.gatewayImage = publicUrl;
       
       // Update file upload record
       await fileUploadRepo.update(
@@ -340,6 +478,7 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
         {
           fileName: gatewayImageFile.originalname,
           filePath: gatewayImageFile.path,
+          publicUrl: publicUrl,
           fileType: gatewayImageFile.mimetype,
           fileSize: gatewayImageFile.size
         }
@@ -348,12 +487,17 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
 
     if (files?.qrImage?.[0]) {
       // Delete old file if exists
-      if (gateway.qrImage && fs.existsSync(gateway.qrImage)) {
-        fs.unlinkSync(gateway.qrImage);
+      if (gateway.qrImage) {
+        const oldFilePath = gateway.qrImage.replace('/images/payment-gateways/qr-codes/', 'public/images/payment-gateways/qr-codes/');
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
       }
       
       const qrImageFile = files.qrImage[0];
-      gateway.qrImage = qrImageFile.path;
+      // Store public URL instead of file path
+      const publicUrl = `/images/payment-gateways/qr-codes/${path.basename(qrImageFile.path)}`;
+      gateway.qrImage = publicUrl;
       
       // Update file upload record
       await fileUploadRepo.update(
@@ -361,6 +505,7 @@ export const updatePaymentGateway = async (req: Request, res: Response) => {
         {
           fileName: qrImageFile.originalname,
           filePath: qrImageFile.path,
+          publicUrl: publicUrl,
           fileType: qrImageFile.mimetype,
           fileSize: qrImageFile.size
         }
@@ -410,7 +555,7 @@ export const deletePaymentGateway = async (req: Request, res: Response) => {
       });
     }
 
-    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateways');
+    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateway');
     if (!hasPermission) {
       await queryRunner.rollbackTransaction();
       return res.status(403).json({
@@ -483,7 +628,7 @@ export const toggleGatewayStatus = async (req: Request, res: Response) => {
       });
     }
 
-    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateways');
+    const hasPermission = await checkPaymentGatewayPermission(userId, userType, 'canManageGateway');
     if (!hasPermission) {
       return res.status(403).json({
         success: false,

@@ -66,7 +66,7 @@ export class DepositRequest {
     gatewayDetails: any;
   }; // Embedded gateway details snapshot
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   groupId!: string; // User group identifier
 
   @Column({ type: 'varchar', length: 100 })

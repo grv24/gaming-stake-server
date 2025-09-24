@@ -11,6 +11,8 @@ import {
   grantTechAdminPaymentGatewayPermissions,
   getAdminsForPermissionGrant,
   getTechAdminsForPermissionGrant,
+  updateGatewayAssignmentPermissions,
+  manageGatewayAssignment,
   debugTokenInfo,
 } from '../../controllers/payment/PaymentGatewayPermissionController';
 import { 
@@ -45,6 +47,8 @@ router.get('/debug-token', adminAndAboveAuth, debugTokenInfo);
 router.post('/assign-gateway', adminAndAboveAuth, assignGatewayToUser);
 router.get('/assigned-gateways/:userId', adminAndAboveAuth, getAssignedGateways);
 router.delete('/remove-assignment/:assignmentId', adminAndAboveAuth, removeGatewayAssignment);
+router.put('/manage-assignment/:assignmentId', adminAndAboveAuth, manageGatewayAssignment);
+router.put('/update-assignment-permissions/:assignmentId', adminAndAboveAuth, updateGatewayAssignmentPermissions);
 
 export default router;
 

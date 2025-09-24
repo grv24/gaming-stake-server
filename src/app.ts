@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 
 import userRouter from "./routes/users/UserRoutes";
 import developerUserRouter from './routes/users/DeveloperRoutes';
@@ -29,6 +30,9 @@ const app: Application = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
+
+// Serve static files from public directory
+app.use('/images', express.static(path.join(__dirname, '../public/images')));
 
 // Global API performance tracking
 app.use(trackApiPerformance);

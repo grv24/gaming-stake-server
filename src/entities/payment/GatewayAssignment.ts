@@ -42,6 +42,26 @@ export class GatewayAssignment {
   @Column({ type: 'text', nullable: true })
   notes!: string; // Optional notes about the assignment
 
+  // Granular permissions for this gateway assignment
+  @Column({ type: 'boolean', default: false })
+  canCreateGateway!: boolean; // Can create new gateways
+
+  @Column({ type: 'boolean', default: false })
+  canManageGateway!: boolean; // Can manage existing gateways
+
+  @Column({ type: 'boolean', default: false })
+  canAssignGateway!: boolean; // Can assign gateways to other users
+
+  @Column({ type: 'boolean', default: false })
+  canProcessRequests!: boolean; // Can process deposit/withdrawal requests
+
+  @Column({ type: 'jsonb', nullable: true })
+  restrictions!: {
+    maxGateways?: number;
+    maxAmount?: number;
+    allowedGatewayTypes?: string[];
+  } | null; // Optional restrictions for this assignment
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -68,6 +88,41 @@ export class GatewayAssignment {
 
   public getAssignmentInfo(): string {
     return `Gateway ${this.gatewayId} assigned to ${this.assignedToUserType} (${this.assignedToUserId}) by ${this.assignedByUserType} (${this.assignedByUserId})`;
+  }
+
+  // Permission helper methods
+  public hasPermission(permission: 'canCreateGateway' | 'canManageGateway' | 'canAssignGateway' | 'canProcessRequests'): boolean {
+    return this.isActive && this[permission];
+  }
+
+  public getAllPermissions(): {
+    canCreateGateway: boolean;
+    canManageGateway: boolean;
+    canAssignGateway: boolean;
+    canProcessRequests: boolean;
+  } {
+    return {
+      canCreateGateway: this.canCreateGateway,
+      canManageGateway: this.canManageGateway,
+      canAssignGateway: this.canAssignGateway,
+      canProcessRequests: this.canProcessRequests
+    };
+  }
+
+  public setPermissions(permissions: {
+    canCreateGateway?: boolean;
+    canManageGateway?: boolean;
+    canAssignGateway?: boolean;
+    canProcessRequests?: boolean;
+  }): void {
+    this.canCreateGateway = permissions.canCreateGateway ?? this.canCreateGateway;
+    this.canManageGateway = permissions.canManageGateway ?? this.canManageGateway;
+    this.canAssignGateway = permissions.canAssignGateway ?? this.canAssignGateway;
+    this.canProcessRequests = permissions.canProcessRequests ?? this.canProcessRequests;
+  }
+
+  public hasAnyPermission(): boolean {
+    return this.canCreateGateway || this.canManageGateway || this.canAssignGateway || this.canProcessRequests;
   }
 }
 

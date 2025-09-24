@@ -47,7 +47,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             loginId,
             user_password,
             groupID,
-            transactionPassword,
+            transactionPassword,     // Tech admin transaction password
             referallCode,
             userName,
             countryCode,
@@ -128,7 +128,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             await queryRunner.rollbackTransaction();
             return res.status(403).json({
                 success: false,
-                error: 'Transaction password does not match'
+                error: 'Invalid transaction password'
             });
         }
 
@@ -149,7 +149,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             whiteListId,
             uplineId: uplineId || null,
             groupID: groupID || null,
-            transactionPassword: generateTransactionCode(12) || "SUPERAGENT123",
+            transactionPassword: "",
             referallCode: referallCode || null,
             userName: userName || null,
             countryCode: countryCode || null,
@@ -194,7 +194,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
             commissionUplineType: req.__type,
             commissionUplineUserId: uplineId,
             commissionUpline,
-            commissionOwn: 100 - commissionUpline,
+            commissionOwn: 0,
             partnershipUplineType: req.__type,
             partnershipUplineUserId: uplineId,
             partnershipUpline,
@@ -216,7 +216,7 @@ export const createSuperAgent = async (req: Request, res: Response) => {
                 commissionUplineType: settingsData.commissionUplineType || 'superAgent',
                 commissionUplineUserId: settingsData.commissionUplineUserId || uplineId,
                 commissionUpline: settingsData.commissionUpline || commissionUpline || 0,
-                commissionOwn: settingsData.commissionOwn || 100 - commissionUpline || 0,
+                commissionOwn: 0,
                 partnershipUplineType: settingsData.partnershipUplineType || 'superAgent',
                 partnershipUplineUserId: settingsData.partnershipUplineUserId || uplineId,
                 partnershipUpline: settingsData.partnershipUpline || partnershipUpline || 0,

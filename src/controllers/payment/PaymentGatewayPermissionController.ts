@@ -7,9 +7,6 @@ import { PaymentGateway } from '../../entities/payment/PaymentGateway';
 import { Admin } from '../../entities/users/AdminUser';
 import { TechAdmin } from '../../entities/users/TechAdminUser';
 
-// WORKAROUND: In-memory storage for permissions (temporary solution)
-const permissionsStore = new Map<string, any>();
-
 // Helper to get repository based on user type
 const getUserRepository = (userType: string) => {
   if (!USER_TABLES[userType]) {
@@ -18,21 +15,21 @@ const getUserRepository = (userType: string) => {
   return AppDataSource.getRepository(USER_TABLES[userType]);
 };
 
-// Grant payment gateway permissions to a user
+// Grant payment gateway permissions to a user via GatewayAssignment
 export const grantPaymentGatewayPermissions = async (req: Request, res: Response) => {
   try {
-    const { userId, userType, permissions } = req.body;
+    const { userId, userType, gatewayId, permissions, notes } = req.body;
     const currentUser = req.user;
 
-    if (!userId || !userType || !permissions) {
+    if (!userId || !userType || !gatewayId || !permissions) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: userId, userType, permissions'
+        message: 'Missing required fields: userId, userType, gatewayId, permissions'
       });
     }
 
     // Validate permissions object
-    const validPermissions = ['canCreateGateways', 'canManageGateways', 'canAssignGateways', 'canProcessRequests'];
+    const validPermissions = ['canCreateGateway', 'canManageGateway', 'canAssignGateway', 'canProcessRequests'];
     const hasValidPermissions = validPermissions.some(perm => permissions[perm] !== undefined);
     
     if (!hasValidPermissions) {
@@ -42,21 +39,36 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
-    
-    if (!currentUserPermissions?.canAssignGateway) {
+    // Check if current user has deposit/withdraw access (payment gateway permission)
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId', 'groupID']
+    });
+
+    if (!currentUserData?.depositWithdrawlAccess) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to grant payment gateway permissions'
+        message: 'You do not have deposit/withdraw access required for payment gateway permissions'
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
+    // Check if gateway exists
+    const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
+
+    if (!gateway) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment gateway not found'
+      });
+    }
+
+    // Find target user
     const targetUserRepo = getUserRepository(userType);
     const targetUser = await targetUserRepo.findOne({ 
       where: { id: userId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
+      select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess']
     });
 
     if (!targetUser) {
@@ -66,8 +78,32 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
-    // Store permissions in memory (temporary solution)
-    permissionsStore.set(`${userType}_${userId}`, {
+    // Check if assignment already exists
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const existingAssignment = await assignmentRepo.findOne({
+      where: {
+        gatewayId,
+        assignedToUserId: userId,
+        isActive: true
+      }
+    });
+
+    if (existingAssignment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gateway is already assigned to this user'
+      });
+    }
+
+    // Create new gateway assignment with granular permissions
+    const assignment = assignmentRepo.create({
+      gatewayId,
+      assignedToUserId: userId,
+      assignedToUserType: userType,
+      assignedByUserId: currentUser?.userId || '',
+      assignedByUserType: currentUser?.userType || '',
+      groupId: currentUserData?.groupID || '',
+      notes: notes || `Payment gateway permissions granted by ${currentUser?.userType}`,
       canCreateGateway: permissions.canCreateGateway || false,
       canManageGateway: permissions.canManageGateway || false,
       canAssignGateway: permissions.canAssignGateway || false,
@@ -76,36 +112,39 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
         maxGateways: 5,
         maxAmount: 10000,
         allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
+      }
     });
+
+    await assignmentRepo.save(assignment);
+
+    // Enable deposit/withdraw access for the target user
+    targetUser.depositWithdrawlAccess = true;
+    await targetUserRepo.save(targetUser);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted successfully (workaround)',
+      message: 'Payment gateway permissions granted successfully via assignment',
       data: {
+        assignmentId: assignment.id,
         userId,
         userType,
         userName: targetUser.userName || targetUser.loginId,
+        gatewayId,
+        gatewayName: gateway.gatewayMethod,
+        hasDepositWithdrawAccess: true,
         permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
+          canCreateGateway: assignment.canCreateGateway,
+          canManageGateway: assignment.canManageGateway,
+          canAssignGateway: assignment.canAssignGateway,
+          canProcessRequests: assignment.canProcessRequests
         },
-        grantedBy: {
+        restrictions: assignment.restrictions,
+        assignedBy: {
           userId: currentUser?.userId,
           userType: currentUser?.userType,
           userName: currentUser?.userName || currentUser?.loginId
         },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        assignmentInfo: assignment.getAssignmentInfo()
       }
     });
 
@@ -119,7 +158,7 @@ export const grantPaymentGatewayPermissions = async (req: Request, res: Response
   }
 };
 
-// Get user's payment gateway permissions
+// Get user's payment gateway permissions via GatewayAssignment
 export const getUserPaymentGatewayPermissions = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -132,17 +171,24 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
+    // Check if current user has deposit/withdraw access (payment gateway permission)
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
+    });
+
+    const hasBasicAccess = currentUserData?.depositWithdrawlAccess;
+    const isOwnAccount = currentUser?.userId === userId;
     
-    if (!currentUserPermissions?.canAssignGateway && currentUser?.userId !== userId) {
+    if (!hasBasicAccess && !isOwnAccount) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to view payment gateway permissions'
+        message: 'You do not have deposit/withdraw access required to view payment gateway permissions'
       });
     }
 
-    // WORKAROUND: Find user and get permissions from memory store
+    // Find user across all user types
     let userData = null;
     let userType = null;
 
@@ -150,7 +196,7 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
       const repo = AppDataSource.getRepository(entity);
       const user = await repo.findOne({ 
         where: { id: userId },
-        select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
+        select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess']
       });
       if (user) {
         userData = user;
@@ -166,8 +212,16 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
       });
     }
 
-    // Get permissions from memory store
-    const permissions = permissionsStore.get(`${userType}_${userId}`) || {};
+    // Get user's gateway assignments
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignments = await assignmentRepo.find({
+      where: {
+        assignedToUserId: userId,
+        isActive: true
+      },
+      relations: ['gateway'],
+      order: { createdAt: 'DESC' }
+    });
 
     res.json({
       success: true,
@@ -175,8 +229,28 @@ export const getUserPaymentGatewayPermissions = async (req: Request, res: Respon
         userId,
         userType,
         userName: userData.userName || userData.loginId,
-        permissions: permissions,
-        note: 'Using workaround - permissions stored in memory'
+        hasDepositWithdrawAccess: userData.depositWithdrawlAccess,
+        hasPaymentGatewayPermissions: userData.depositWithdrawlAccess,
+        gatewayAssignments: assignments.map(assignment => ({
+          assignmentId: assignment.id,
+          gatewayId: assignment.gatewayId,
+          gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+          assignedBy: {
+            userId: assignment.assignedByUserId,
+            userType: assignment.assignedByUserType
+          },
+          notes: assignment.notes,
+          createdAt: assignment.createdAt,
+          assignmentInfo: assignment.getAssignmentInfo(),
+          permissions: {
+            canCreateGateway: assignment.canCreateGateway,
+            canManageGateway: assignment.canManageGateway,
+            canAssignGateway: assignment.canAssignGateway,
+            canProcessRequests: assignment.canProcessRequests
+          },
+          restrictions: assignment.restrictions
+        })),
+        totalAssignments: assignments.length
       }
     });
 
@@ -203,16 +277,17 @@ export const assignGatewayToUser = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if current user has permission to assign gateways
+    // Check if current user has deposit/withdraw access (basic payment gateway permission)
     const currentUserRepo = getUserRepository(currentUser?.userType || '');
     const currentUserData = await currentUserRepo.findOne({
-      where: { id: currentUser?.userId }
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
     });
 
-    if (!currentUserData?.paymentGatewayPermissions?.canAssignGateways) {
+    if (!currentUserData?.depositWithdrawlAccess) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to assign gateways'
+        message: 'You do not have deposit/withdraw access required to assign gateways'
       });
     }
 
@@ -291,16 +366,20 @@ export const getAssignedGateways = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if current user has permission to view assignments
+    // Check if current user has deposit/withdraw access (basic payment gateway permission)
     const currentUserRepo = getUserRepository(currentUser?.userType || '');
     const currentUserData = await currentUserRepo.findOne({
-      where: { id: currentUser?.userId }
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
     });
 
-    if (!currentUserData?.paymentGatewayPermissions?.canAssignGateways && currentUser?.userId !== userId) {
+    const hasBasicAccess = currentUserData?.depositWithdrawlAccess;
+    const isOwnAccount = currentUser?.userId === userId;
+    
+    if (!hasBasicAccess && !isOwnAccount) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to view gateway assignments'
+        message: 'You do not have deposit/withdraw access required to view gateway assignments'
       });
     }
 
@@ -351,16 +430,17 @@ export const removeGatewayAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if current user has permission to remove assignments
+    // Check if current user has deposit/withdraw access (basic payment gateway permission)
     const currentUserRepo = getUserRepository(currentUser?.userType || '');
     const currentUserData = await currentUserRepo.findOne({
-      where: { id: currentUser?.userId }
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
     });
 
-    if (!currentUserData?.paymentGatewayPermissions?.canAssignGateways) {
+    if (!currentUserData?.depositWithdrawlAccess) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to remove gateway assignments'
+        message: 'You do not have deposit/withdraw access required to remove gateway assignments'
       });
     }
 
@@ -409,7 +489,8 @@ export const getMyPaymentGatewayPermissions = async (req: Request, res: Response
 
     const userRepo = getUserRepository(currentUser.userType);
     const userData = await userRepo.findOne({
-      where: { id: currentUser.userId }
+      where: { id: currentUser.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
     });
 
     if (!userData) {
@@ -419,12 +500,77 @@ export const getMyPaymentGatewayPermissions = async (req: Request, res: Response
       });
     }
 
+    // Check if user has payment gateway permissions (depositWithdrawlAccess)
+    const hasPaymentGatewayPermissions = userData.depositWithdrawlAccess;
+    
+    // For tech admins, they have automatic permissions if depositWithdrawlAccess is true
+    let automaticPermissions = null;
+    if (currentUser.userType === 'techAdmin' && userData.depositWithdrawlAccess) {
+      automaticPermissions = {
+        canCreateGateway: true,
+        canManageGateway: true,
+        canAssignGateway: true,
+        canProcessRequests: true
+      };
+    }
+    
+    // Get assigned gateways with details (for admins who receive assignments)
+    const gatewayAssignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignments = await gatewayAssignmentRepo.find({
+      where: { 
+        assignedToUserId: currentUser.userId,
+        isActive: true 
+      },
+      relations: ['gateway'],
+      order: { createdAt: 'DESC' }
+    });
+
+    // Get created gateways count (for tech admins who create gateways)
+    const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const createdGatewaysCount = await paymentGatewayRepo.count({
+      where: { 
+        createdBy: currentUser.userId,
+        isActive: true 
+      }
+    });
+
     res.json({
       success: true,
       data: {
         userId: currentUser.userId,
         userType: currentUser.userType,
-        permissions: userData.paymentGatewayPermissions || {}
+        userName: userData.userName || userData.loginId,
+        hasPaymentGatewayPermissions: hasPaymentGatewayPermissions,
+        hasDepositWithdrawAccess: userData.depositWithdrawlAccess,
+        automaticPermissions: automaticPermissions,
+        gatewayStats: {
+          assignedGatewaysCount: assignments.length,
+          createdGatewaysCount: createdGatewaysCount
+        },
+        gatewayAssignments: assignments.map(assignment => ({
+          assignmentId: assignment.id,
+          gatewayId: assignment.gatewayId,
+          gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+          assignedBy: {
+            userId: assignment.assignedByUserId,
+            userType: assignment.assignedByUserType
+          },
+          notes: assignment.notes,
+          createdAt: assignment.createdAt,
+          assignmentInfo: assignment.getAssignmentInfo(),
+          permissions: {
+            canCreateGateway: assignment.canCreateGateway,
+            canManageGateway: assignment.canManageGateway,
+            canAssignGateway: assignment.canAssignGateway,
+            canProcessRequests: assignment.canProcessRequests
+          },
+          restrictions: assignment.restrictions
+        })),
+        note: currentUser.userType === 'techAdmin' && userData.depositWithdrawlAccess ? 
+          'You have automatic permissions and can create/manage gateways' : 
+          currentUser.userType === 'admin' && assignments.length > 0 ?
+          'You have gateway assignments with specific permissions' :
+          'You need depositWithdrawlAccess to be enabled for payment gateway permissions'
       }
     });
 
@@ -469,12 +615,18 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
       });
     }
 
-    // WORKAROUND: Check permissions from memory store instead of database
-    const currentUserPermissions = permissionsStore.get(`${currentUser?.userType}_${currentUser?.userId}`);
+    // Check if current user has deposit/withdraw access (payment gateway permission)
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
+    });
+
+    const hasBasicAccess = currentUserData?.depositWithdrawlAccess;
+    const isOwnAccount = currentUser?.userId === targetUserId;
     
-    // Allow users to check their own permissions, or admins to check others
-    const canViewPermissions = currentUserPermissions?.canAssignGateway || 
-                              currentUser?.userId === targetUserId;
+    // Allow users to check their own permissions, or admins with access to check others
+    const canViewPermissions = hasBasicAccess || isOwnAccount;
 
     if (!canViewPermissions) {
       return res.status(403).json({
@@ -528,23 +680,32 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
       });
     }
 
-    // Get user's payment gateway permissions
-    // WORKAROUND: Get permissions from memory store instead of database
-    const permissions = permissionsStore.get(`${foundUserType}_${targetUserId}`) || {};
+    // Check if user has payment gateway permissions (depositWithdrawlAccess)
+    const hasPaymentGatewayPermissions = userData.depositWithdrawlAccess;
     
-    // Check if user has any payment gateway permissions
-    const hasAnyPermissions = Object.values(permissions).some(value => value === true);
+    // For tech admins, they have automatic permissions if depositWithdrawlAccess is true
+    let automaticPermissions = null;
+    if (foundUserType === 'techAdmin' && userData.depositWithdrawlAccess) {
+      automaticPermissions = {
+        canCreateGateway: true,
+        canManageGateway: true,
+        canAssignGateway: true,
+        canProcessRequests: true
+      };
+    }
     
-    // Get assigned gateways count
+    // Get assigned gateways with details (for admins who receive assignments)
     const gatewayAssignmentRepo = AppDataSource.getRepository(GatewayAssignment);
-    const assignedGatewaysCount = await gatewayAssignmentRepo.count({
+    const assignments = await gatewayAssignmentRepo.find({
       where: { 
         assignedToUserId: targetUserId,
         isActive: true 
-      }
+      },
+      relations: ['gateway'],
+      order: { createdAt: 'DESC' }
     });
 
-    // Get created gateways count
+    // Get created gateways count (for tech admins who create gateways)
     const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
     const createdGatewaysCount = await paymentGatewayRepo.count({
       where: { 
@@ -559,24 +720,32 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
         userId: targetUserId,
         userType: foundUserType,
         userName: userData.userName || userData.loginId || 'Unknown',
-        hasPaymentGatewayPermissions: hasAnyPermissions,
-        permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false
-        },
+        hasPaymentGatewayPermissions: hasPaymentGatewayPermissions,
+        hasDepositWithdrawAccess: userData.depositWithdrawlAccess,
+        automaticPermissions: automaticPermissions,
         gatewayStats: {
-          assignedGatewaysCount,
+          assignedGatewaysCount: assignments.length,
           createdGatewaysCount
         },
-        permissionSummary: {
-          canCreate: permissions.canCreateGateway || false,
-          canManage: permissions.canManageGateway || false,
-          canAssign: permissions.canAssignGateway || false,
-          canProcess: permissions.canProcessRequests || false
-        },
-        note: 'Using workaround - permissions stored in memory'
+        gatewayAssignments: assignments.map(assignment => ({
+          assignmentId: assignment.id,
+          gatewayId: assignment.gatewayId,
+          gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+          assignedBy: {
+            userId: assignment.assignedByUserId,
+            userType: assignment.assignedByUserType
+          },
+          notes: assignment.notes,
+          createdAt: assignment.createdAt,
+          assignmentInfo: assignment.getAssignmentInfo(),
+          permissions: {
+            canCreateGateway: assignment.canCreateGateway,
+            canManageGateway: assignment.canManageGateway,
+            canAssignGateway: assignment.canAssignGateway,
+            canProcessRequests: assignment.canProcessRequests
+          },
+          restrictions: assignment.restrictions
+        }))
       }
     });
 
@@ -591,11 +760,11 @@ export const checkUserPaymentGatewayPermissions = async (req: Request, res: Resp
 };
 
 
-// Grant payment gateway permissions to admin by tech admin
+// Grant payment gateway permissions to admin by tech admin via GatewayAssignment
 export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
-    const { permissions } = req.body;
+    const { gatewayId, permissions, notes } = req.body;
     const currentUser = req.user;
 
     // Check if current user is tech admin
@@ -606,19 +775,29 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    // Validate permissions object
-    if (!permissions || typeof permissions !== 'object') {
+    if (!gatewayId || !permissions) {
       return res.status(400).json({
         success: false,
-        message: 'Permissions object is required'
+        message: 'Gateway ID and permissions are required'
       });
     }
 
-    // WORKAROUND: Find the admin and store permissions in memory
+    // Check if gateway exists
+    const gatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const gateway = await gatewayRepo.findOne({ where: { id: gatewayId } });
+
+    if (!gateway) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment gateway not found'
+      });
+    }
+
+    // Find the admin
     const adminRepo = AppDataSource.getRepository(Admin);
     const admin = await adminRepo.findOne({ 
       where: { id: adminId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
+      select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess', 'groupID']
     });
 
     if (!admin) {
@@ -628,8 +807,32 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
-    permissionsStore.set(`admin_${adminId}`, {
+    // Check if assignment already exists
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const existingAssignment = await assignmentRepo.findOne({
+      where: {
+        gatewayId,
+        assignedToUserId: adminId,
+        isActive: true
+      }
+    });
+
+    if (existingAssignment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gateway is already assigned to this admin'
+      });
+    }
+
+    // Create new gateway assignment with granular permissions
+    const assignment = assignmentRepo.create({
+      gatewayId,
+      assignedToUserId: adminId,
+      assignedToUserType: 'admin',
+      assignedByUserId: currentUser?.userId || '',
+      assignedByUserType: currentUser?.userType || '',
+      groupId: admin?.groupID || '',
+      notes: notes || `Payment gateway permissions granted to admin by tech admin`,
       canCreateGateway: permissions.canCreateGateway || false,
       canManageGateway: permissions.canManageGateway || false,
       canAssignGateway: permissions.canAssignGateway || false,
@@ -638,35 +841,38 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
         maxGateways: 5,
         maxAmount: 10000,
         allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
+      }
     });
+
+    await assignmentRepo.save(assignment);
+
+    // Enable deposit/withdraw access for payment gateway permissions
+    admin.depositWithdrawlAccess = true;
+    await adminRepo.save(admin);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted to admin successfully (workaround)',
+      message: 'Payment gateway permissions granted to admin successfully via assignment',
       data: {
+        assignmentId: assignment.id,
         adminId: admin.id,
         adminName: admin.userName || admin.loginId,
+        gatewayId,
+        gatewayName: gateway.gatewayMethod,
+        hasDepositWithdrawAccess: true,
         permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
+          canCreateGateway: assignment.canCreateGateway,
+          canManageGateway: assignment.canManageGateway,
+          canAssignGateway: assignment.canAssignGateway,
+          canProcessRequests: assignment.canProcessRequests
         },
+        restrictions: assignment.restrictions,
         grantedBy: {
           userId: currentUser.userId,
           userType: currentUser.userType,
           userName: currentUser.userName || currentUser.loginId
         },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        assignmentInfo: assignment.getAssignmentInfo()
       }
     });
 
@@ -680,11 +886,10 @@ export const grantAdminPaymentGatewayPermissions = async (req: Request, res: Res
   }
 };
 
-// Grant payment gateway permissions to tech admin by developer
+// Grant payment gateway permissions to tech admin by developer (SIMPLIFIED)
 export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res: Response) => {
   try {
     const { techAdminId } = req.params;
-    const { permissions } = req.body;
     const currentUser = req.user;
 
     // Check if current user is developer
@@ -695,19 +900,11 @@ export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res:
       });
     }
 
-    // Validate permissions object
-    if (!permissions || typeof permissions !== 'object') {
-      return res.status(400).json({
-        success: false,
-        message: 'Permissions object is required'
-      });
-    }
-
-    // WORKAROUND: Find the tech admin and store permissions in memory
+    // Find the tech admin
     const techAdminRepo = AppDataSource.getRepository(TechAdmin);
     const techAdmin = await techAdminRepo.findOne({ 
       where: { id: techAdminId },
-      select: ['id', 'userName', 'loginId', 'isActive'] // Only select existing columns
+      select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess', 'groupID']
     });
 
     if (!techAdmin) {
@@ -717,45 +914,29 @@ export const grantTechAdminPaymentGatewayPermissions = async (req: Request, res:
       });
     }
 
-    // WORKAROUND: Store permissions in memory instead of database
-    permissionsStore.set(`techAdmin_${techAdminId}`, {
-      canCreateGateway: permissions.canCreateGateway || false,
-      canManageGateway: permissions.canManageGateway || false,
-      canAssignGateway: permissions.canAssignGateway || false,
-      canProcessRequests: permissions.canProcessRequests || false,
-      restrictions: permissions.restrictions || {
-        maxGateways: 5,
-        maxAmount: 10000,
-        allowedGatewayTypes: ["UPI", "Bank Transfer"]
-      },
-      grantedBy: currentUser?.userId,
-      grantedAt: new Date(),
-      grantedByType: currentUser?.userType
-    });
+    // Enable deposit/withdraw access for payment gateway permissions
+    techAdmin.depositWithdrawlAccess = true;
+    await techAdminRepo.save(techAdmin);
 
     res.json({
       success: true,
-      message: 'Payment gateway permissions granted to tech admin successfully (workaround)',
+      message: 'Payment gateway permissions granted to tech admin successfully',
       data: {
         techAdminId: techAdmin.id,
         techAdminName: techAdmin.userName || techAdmin.loginId,
-        permissions: {
-          canCreateGateway: permissions.canCreateGateway || false,
-          canManageGateway: permissions.canManageGateway || false,
-          canAssignGateway: permissions.canAssignGateway || false,
-          canProcessRequests: permissions.canProcessRequests || false,
-          restrictions: permissions.restrictions || {
-            maxGateways: 5,
-            maxAmount: 10000,
-            allowedGatewayTypes: ["UPI", "Bank Transfer"]
-          }
+        hasDepositWithdrawAccess: true,
+        automaticPermissions: {
+          canCreateGateway: true,
+          canManageGateway: true,
+          canAssignGateway: true,
+          canProcessRequests: true
         },
         grantedBy: {
           userId: currentUser.userId,
           userType: currentUser.userType,
           userName: currentUser.userName || currentUser.loginId
         },
-        note: 'Permissions stored temporarily - database column needs to be added by admin'
+        note: 'Tech admin can now create gateways and manage permissions for admins'
       }
     });
 
@@ -784,30 +965,57 @@ export const getAdminsForPermissionGrant = async (req: Request, res: Response) =
 
     const adminRepo = AppDataSource.getRepository(Admin);
     const admins = await adminRepo.find({
-      select: ['id', 'userName', 'loginId', 'isActive'],
+      select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess'],
       where: { isActive: true }
     });
 
-    res.json({
-      success: true,
-      data: {
-        admins: admins.map(admin => ({
+    // Get gateway assignments for each admin
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const adminsWithAssignments = await Promise.all(
+      admins.map(async (admin) => {
+        const assignments = await assignmentRepo.find({
+          where: {
+            assignedToUserId: admin.id,
+            isActive: true
+          },
+          relations: ['gateway'],
+          order: { createdAt: 'DESC' }
+        });
+
+        return {
           id: admin.id,
           userName: admin.userName || admin.loginId,
           loginId: admin.loginId,
           isActive: admin.isActive,
-          currentPermissions: permissionsStore.get(`admin_${admin.id}`) || {
-            canCreateGateway: false,
-            canManageGateway: false,
-            canAssignGateway: false,
-            canProcessRequests: false,
-            restrictions: {
-              maxGateways: 5,
-              maxAmount: 10000,
-              allowedGatewayTypes: ["UPI", "Bank Transfer"]
-            }
-          }
-        }))
+          hasDepositWithdrawAccess: admin.depositWithdrawlAccess,
+          hasPaymentGatewayPermissions: admin.depositWithdrawlAccess,
+          gatewayAssignments: assignments.map(assignment => ({
+            assignmentId: assignment.id,
+            gatewayId: assignment.gatewayId,
+            gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+            assignedBy: {
+              userId: assignment.assignedByUserId,
+              userType: assignment.assignedByUserType
+            },
+            notes: assignment.notes,
+            createdAt: assignment.createdAt,
+            permissions: {
+              canCreateGateway: assignment.canCreateGateway,
+              canManageGateway: assignment.canManageGateway,
+              canAssignGateway: assignment.canAssignGateway,
+              canProcessRequests: assignment.canProcessRequests
+            },
+            restrictions: assignment.restrictions
+          })),
+          totalAssignments: assignments.length
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        admins: adminsWithAssignments
       }
     });
 
@@ -836,35 +1044,228 @@ export const getTechAdminsForPermissionGrant = async (req: Request, res: Respons
 
     const techAdminRepo = AppDataSource.getRepository(TechAdmin);
     const techAdmins = await techAdminRepo.find({
-      select: ['id', 'userName', 'loginId', 'isActive'],
+      select: ['id', 'userName', 'loginId', 'isActive', 'depositWithdrawlAccess'],
       where: { isActive: true }
     });
 
-    res.json({
-      success: true,
-      data: {
-        techAdmins: techAdmins.map(techAdmin => ({
+    // Get created gateways count for each tech admin (they create their own gateways)
+    const paymentGatewayRepo = AppDataSource.getRepository(PaymentGateway);
+    const techAdminsWithStats = await Promise.all(
+      techAdmins.map(async (techAdmin) => {
+        const createdGatewaysCount = await paymentGatewayRepo.count({
+          where: { 
+            createdBy: techAdmin.id,
+            isActive: true 
+          }
+        });
+
+        // Tech admins have automatic permissions if depositWithdrawlAccess is true
+        const automaticPermissions = techAdmin.depositWithdrawlAccess ? {
+          canCreateGateway: true,
+          canManageGateway: true,
+          canAssignGateway: true,
+          canProcessRequests: true
+        } : null;
+
+        return {
           id: techAdmin.id,
           userName: techAdmin.userName || techAdmin.loginId,
           loginId: techAdmin.loginId,
           isActive: techAdmin.isActive,
-          currentPermissions: permissionsStore.get(`techAdmin_${techAdmin.id}`) || {
-            canCreateGateway: false,
-            canManageGateway: false,
-            canAssignGateway: false,
-            canProcessRequests: false,
-            restrictions: {
-              maxGateways: 5,
-              maxAmount: 10000,
-              allowedGatewayTypes: ["UPI", "Bank Transfer"]
-            }
-          }
-        }))
+          hasDepositWithdrawAccess: techAdmin.depositWithdrawlAccess,
+          hasPaymentGatewayPermissions: techAdmin.depositWithdrawlAccess,
+          automaticPermissions: automaticPermissions,
+          gatewayStats: {
+            createdGatewaysCount: createdGatewaysCount,
+            assignedGatewaysCount: 0 // Tech admins don't receive assignments
+          },
+          note: techAdmin.depositWithdrawlAccess ? 
+            'Tech admin has automatic permissions and can create/manage gateways' : 
+            'Tech admin needs depositWithdrawlAccess to be enabled'
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        techAdmins: techAdminsWithStats
       }
     });
 
   } catch (error: any) {
     console.error('Error getting tech admins for permission grant:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Update permissions for an existing gateway assignment
+export const updateGatewayAssignmentPermissions = async (req: Request, res: Response) => {
+  try {
+    const { assignmentId } = req.params;
+    const { permissions, restrictions, notes } = req.body;
+    const currentUser = req.user;
+
+    if (!assignmentId || !permissions) {
+      return res.status(400).json({
+        success: false,
+        message: 'Assignment ID and permissions are required'
+      });
+    }
+
+    // Check if current user has deposit/withdraw access
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
+    });
+
+    if (!currentUserData?.depositWithdrawlAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have deposit/withdraw access required to update gateway assignment permissions'
+      });
+    }
+
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignment = await assignmentRepo.findOne({
+      where: { id: assignmentId },
+      relations: ['gateway']
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gateway assignment not found'
+      });
+    }
+
+    // Update permissions using the entity method
+    assignment.setPermissions(permissions);
+    
+    if (restrictions) {
+      assignment.restrictions = restrictions;
+    }
+    
+    if (notes) {
+      assignment.notes = notes;
+    }
+
+    await assignmentRepo.save(assignment);
+
+    res.json({
+      success: true,
+      message: 'Gateway assignment permissions updated successfully',
+      data: {
+        assignmentId: assignment.id,
+        gatewayId: assignment.gatewayId,
+        gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+        assignedToUserId: assignment.assignedToUserId,
+        assignedToUserType: assignment.assignedToUserType,
+        permissions: assignment.getAllPermissions(),
+        restrictions: assignment.restrictions,
+        notes: assignment.notes,
+        updatedBy: {
+          userId: currentUser?.userId,
+          userType: currentUser?.userType,
+          userName: currentUser?.userName || currentUser?.loginId
+        },
+        assignmentInfo: assignment.getAssignmentInfo()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error updating gateway assignment permissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Manage gateway assignment (activate/deactivate)
+export const manageGatewayAssignment = async (req: Request, res: Response) => {
+  try {
+    const { assignmentId } = req.params;
+    const { action } = req.body; // 'activate' or 'deactivate'
+    const currentUser = req.user;
+
+    if (!assignmentId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: 'Assignment ID and action are required'
+      });
+    }
+
+    if (!['activate', 'deactivate'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action must be either "activate" or "deactivate"'
+      });
+    }
+
+    // Check if current user has deposit/withdraw access
+    const currentUserRepo = getUserRepository(currentUser?.userType || '');
+    const currentUserData = await currentUserRepo.findOne({
+      where: { id: currentUser?.userId },
+      select: ['id', 'depositWithdrawlAccess', 'userName', 'loginId']
+    });
+
+    if (!currentUserData?.depositWithdrawlAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have deposit/withdraw access required to manage gateway assignments'
+      });
+    }
+
+    const assignmentRepo = AppDataSource.getRepository(GatewayAssignment);
+    const assignment = await assignmentRepo.findOne({
+      where: { id: assignmentId },
+      relations: ['gateway']
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gateway assignment not found'
+      });
+    }
+
+    // Update assignment status
+    if (action === 'activate') {
+      assignment.activateAssignment();
+    } else {
+      assignment.deactivateAssignment();
+    }
+
+    await assignmentRepo.save(assignment);
+
+    res.json({
+      success: true,
+      message: `Gateway assignment ${action}d successfully`,
+      data: {
+        assignmentId: assignment.id,
+        gatewayId: assignment.gatewayId,
+        gatewayName: assignment.gateway?.gatewayMethod || 'Unknown',
+        assignedToUserId: assignment.assignedToUserId,
+        assignedToUserType: assignment.assignedToUserType,
+        isActive: assignment.isActive,
+        assignmentInfo: assignment.getAssignmentInfo(),
+        managedBy: {
+          userId: currentUser?.userId,
+          userType: currentUser?.userType,
+          userName: currentUser?.userName || currentUser?.loginId
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error managing gateway assignment:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
