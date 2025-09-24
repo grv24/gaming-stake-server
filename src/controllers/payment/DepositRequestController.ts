@@ -250,12 +250,13 @@ export const getMyDepositRequests = async (req: Request, res: Response) => {
 // Get Incoming Deposit Requests (for admin users)
 export const getIncomingDepositRequests = async (req: Request, res: Response) => {
   try {
-    const uplineId = req.user?.userId;
+    const currentUserId = req.user?.userId;
+    const currentUserType = req.user?.__type;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const searchValue = req.query.searchValue as string;
 
-    if (!uplineId) {
+    if (!currentUserId) {
       return res.status(400).json({
         success: false,
         error: 'User ID not found'
@@ -264,10 +265,16 @@ export const getIncomingDepositRequests = async (req: Request, res: Response) =>
 
     const depositRequestRepo = AppDataSource.getRepository(DepositRequest);
     
+    // Build query to show deposit requests where:
+    // 1. Current user created the payment gateway used in the request (primary)
+    // 2. Current user is the direct upline AND no gateway creator exists (fallback)
     const queryBuilder = depositRequestRepo
       .createQueryBuilder('request')
       .leftJoinAndSelect('request.gateway', 'gateway')
-      .where('request.uplineId = :uplineId', { uplineId });
+      .where(
+        'gateway.createdBy = :currentUserId OR (gateway.createdBy IS NULL AND request.uplineId = :currentUserId)',
+        { currentUserId }
+      );
 
     // Add search functionality
     if (searchValue) {

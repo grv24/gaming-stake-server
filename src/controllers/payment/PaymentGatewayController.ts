@@ -333,14 +333,37 @@ export const getAssignedGateways = async (req: Request, res: Response) => {
   try {
     const clientId = req.user?.userId;
     const clientType = req.user?.__type;
-    const uplineId = req.user?.uplineId;
-    const uplineType = req.user?.uplineType;
     const groupId = req.user?.groupId;
 
-    if (!clientId || !uplineId) {
+    if (!clientId) {
       return res.status(400).json({
         success: false,
         error: 'Client authentication required'
+      });
+    }
+
+    // Fetch client data from database to get upline information
+    const clientRepo = AppDataSource.getRepository(USER_TABLES.client);
+    const client = await clientRepo.findOne({
+      where: { id: clientId },
+      select: ['id', 'uplineId', 'commissionUplineType', 'commissionUplineUserId', 'groupID']
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Client not found'
+      });
+    }
+
+    const uplineId = client.uplineId;
+    const uplineType = client.commissionUplineType;
+    const clientGroupId = client.groupID || groupId;
+
+    if (!uplineId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Client upline not found'
       });
     }
 
@@ -348,15 +371,48 @@ export const getAssignedGateways = async (req: Request, res: Response) => {
     const gatewayAssignmentRepo = AppDataSource.getRepository(GatewayAssignment);
     
     let gateways: PaymentGateway[] = [];
+    let assignmentType = 'inherited';
 
-    // Priority 1: Check for explicit gateway assignments by upline
+    // Helper function to find user with gateway access by traversing up the hierarchy
+    const findUserWithGatewayAccess = async (userId: string, userType: string): Promise<{userId: string, userType: string} | null> => {
+      if (!userId || !userType) return null;
+      
+      try {
+        // Check if current user has gateway access
+        const hasAccess = await checkPaymentGatewayPermission(userId, userType, 'canCreateGateway');
+        if (hasAccess) {
+          console.log(`Found user with gateway access: ${userId} (${userType})`);
+          return { userId, userType };
+        }
+        
+        // If not, find the upline and check them
+        const userRepo = AppDataSource.getRepository(USER_TABLES[userType as keyof typeof USER_TABLES]);
+        const user = await userRepo.findOne({ 
+          where: { id: userId },
+          select: ['uplineId', 'commissionUplineType']
+        });
+        
+        if (user?.uplineId && user?.commissionUplineType) {
+          console.log(`Checking upline: ${user.uplineId} (${user.commissionUplineType})`);
+          return await findUserWithGatewayAccess(user.uplineId, user.commissionUplineType);
+        }
+        
+        console.log(`No upline found for user: ${userId} (${userType})`);
+        return null;
+      } catch (error) {
+        console.error('Error finding user with gateway access:', error);
+        return null;
+      }
+    };
+
+    // Priority 1: Check for explicit gateway assignments by direct upline
     const explicitAssignments = await gatewayAssignmentRepo.find({
       where: {
         assignedToUserId: clientId,
         assignedToUserType: clientType,
         assignedByUserId: uplineId,
         assignedByUserType: uplineType,
-        groupId,
+        groupId: clientGroupId,
         isActive: true
       },
       relations: ['gateway']
@@ -368,26 +424,49 @@ export const getAssignedGateways = async (req: Request, res: Response) => {
         .map(assignment => assignment.gateway)
         .filter(gateway => gateway && gateway.isActive);
       
+      assignmentType = 'explicit';
       console.log(`Found ${gateways.length} explicitly assigned gateways for client ${clientId}`);
     } else {
-      // Priority 2: Fallback to gateways created by upline
-      const uplineGateways = await paymentGatewayRepo.find({
-        where: { 
-          createdBy: uplineId, 
-          groupId,
-          isActive: true 
-        },
-        order: { createdAt: 'DESC' }
-      });
+      // Priority 2: Find user with gateway access in the hierarchy
+      console.log(`No explicit assignments found for client ${clientId}, searching hierarchy from upline ${uplineId} (${uplineType})`);
+      const gatewayUser = await findUserWithGatewayAccess(uplineId, uplineType);
       
-      gateways = uplineGateways;
-      console.log(`No explicit assignments found, using ${gateways.length} upline-created gateways for client ${clientId}`);
+      if (gatewayUser) {
+        // Get gateways created by the user with gateway access
+        const gatewayUserGateways = await paymentGatewayRepo.find({
+          where: { 
+            createdBy: gatewayUser.userId, 
+            groupId: clientGroupId,
+            isActive: true 
+          },
+          order: { createdAt: 'DESC' }
+        });
+        
+        gateways = gatewayUserGateways;
+        assignmentType = 'inherited';
+        console.log(`✅ Found ${gateways.length} gateways from user ${gatewayUser.userId} (${gatewayUser.userType}) for client ${clientId}`);
+      } else {
+        // Priority 3: Fallback to direct upline gateways (even if they don't have access)
+        console.log(`No gateway access found in hierarchy, checking direct upline gateways...`);
+        const uplineGateways = await paymentGatewayRepo.find({
+          where: { 
+            createdBy: uplineId, 
+            groupId: clientGroupId,
+            isActive: true 
+          },
+          order: { createdAt: 'DESC' }
+        });
+        
+        gateways = uplineGateways;
+        assignmentType = 'inherited';
+        console.log(`⚠️ No gateway access found in hierarchy, using ${gateways.length} direct upline gateways for client ${clientId}`);
+      }
     }
 
     return res.status(200).json({
       success: true,
       data: gateways,
-      assignmentType: explicitAssignments.length > 0 ? 'explicit' : 'inherited'
+      assignmentType
     });
 
   } catch (error: any) {
