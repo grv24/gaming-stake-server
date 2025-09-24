@@ -39,6 +39,20 @@ app.use(express.json());
 // Serve static files from public directory
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
 
+// Additional route to serve public files with explicit path
+app.use('/public', express.static(path.join(__dirname, '../public')));
+
+// Handle malformed URLs (missing slash between domain and public)
+app.get('/public/images/*', (req, res) => {
+  res.redirect(`/images${req.path.replace('/public/images', '')}`);
+});
+
+// Handle URLs that are missing the slash (e.g., domain.compublic -> domain.com/public)
+app.get('*public/images/*', (req, res) => {
+  const correctedPath = req.path.replace(/public\/images\//, '/images/');
+  res.redirect(correctedPath);
+});
+
 // Global API performance tracking
 app.use(trackApiPerformance);
 

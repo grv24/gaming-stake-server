@@ -183,3 +183,4 @@ ADD COLUMN IF NOT EXISTS "publicUrl" varchar(500) DEFAULT NULL;
 
 
 
+
