@@ -7,9 +7,21 @@ export const fetchOddsData = async (sportId: string, eventId: string) => {
   try {
     const apiUrl = `${process.env.THIRD_PARTY_URL}/api/new/getdataodds?sport_id=${sportId}&eventid=${eventId}`;
     
+    console.log(`[ODDS] Fetching odds for sport ${sportId}, event ${eventId}`);
+    console.log(`[ODDS] API URL: ${apiUrl}`);
+    console.log(`[ODDS] THIRD_PARTY_URL: ${process.env.THIRD_PARTY_URL}`);
+    
     // Fetch from API
     const response = await axios.get(apiUrl, { timeout: 5000 });
     const apiData = response.data;
+
+    console.log(`[ODDS] API response for ${sportId}/${eventId}:`, {
+      status: response.status,
+      dataType: typeof apiData,
+      isArray: Array.isArray(apiData),
+      dataLength: Array.isArray(apiData) ? apiData.length : 'Not array',
+      hasData: !!apiData
+    });
 
     return {
       success: true,
@@ -19,7 +31,13 @@ export const fetchOddsData = async (sportId: string, eventId: string) => {
       timestamp: Date.now()
     };
   } catch (err: any) {
-    console.error(`[ODDS] Failed to fetch odds for sport ${sportId}, event ${eventId}:`, err.message);
+    console.error(`[ODDS] Failed to fetch odds for sport ${sportId}, event ${eventId}:`, {
+      message: err.message,
+      code: err.code,
+      status: err.response?.status,
+      statusText: err.response?.statusText,
+      url: err.config?.url
+    });
     return {
       success: false,
       sport_id: sportId,

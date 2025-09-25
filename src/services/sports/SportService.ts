@@ -9,6 +9,13 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
   try {
     const redisClient = getRedisClient();
 
+    // Check Redis cache first with new key pattern
+    const cachedMatches = await redisClient.get(`d247_${sportType}_full`);
+    if (cachedMatches) {
+      console.log(`[SPORTS] Returning cached ${sportType} data from Redis (key: d247_${sportType}_full)`);
+      return JSON.parse(cachedMatches);
+    }
+
     let apiUrl = '';
 
     // Determine API endpoint based on sport type
@@ -26,20 +33,40 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
         throw new Error(`Unknown sport type: ${sportType}`);
     }
 
+    console.log(`[SPORTS] Fetching ${sportType} data from API...`);
+    const startTime = Date.now();
+
     // Fetch from API
     const response = await axios.get(apiUrl);
     const apiData = response.data;
 
-    // Store data in Redis with expiration
+    // Extract actual match data from the API response
+    let matchData = [];
+    if (apiData && apiData.data && apiData.data.t1) {
+      matchData = apiData.data.t1;
+    } else if (apiData && Array.isArray(apiData)) {
+      // Fallback for cricket data which might be directly an array
+      matchData = apiData;
+    }
+
+    // Store both full API data and extracted match data in Redis with new key pattern
     await redisClient.set(
-      `sports:${sportType}:data`,
+      `d247_${sportType}_full`,
       JSON.stringify(apiData),
       "EX",
-      300 // 5 minutes expiration
+      600 // 10 minutes expiration
+    );
+    
+    await redisClient.set(
+      `d247_${sportType}`,
+      JSON.stringify(matchData),
+      "EX",
+      600 // 10 minutes expiration
     );
 
-    console.log(`[SPORTS] Stored data for ${sportType} in Redis`);
-    return apiData;
+    const fetchTime = Date.now() - startTime;
+    console.log(`[SPORTS] Fetched and stored ${sportType} data in ${fetchTime}ms. Found ${matchData.length} matches.`);
+    return matchData;
 
   } catch (err: any) {
     console.error(`[SPORTS] Failed to fetch data for ${sportType}:`, err.message);

@@ -23,6 +23,7 @@ import PaymentGatewayRouter from './routes/payment/PaymentGatewayRoutes';
 import PaymentGatewayPermissionRouter from './routes/payment/PaymentGatewayPermissionRoutes';
 import ActivityRouter from './routes/activity/ActivityRoutes';
 import { trackApiPerformance } from './middlewares/ActivityTrackingMiddleware';
+import AdminSportsRouter from './routes/admin/sports';
 
 
 const app: Application = express();
@@ -84,6 +85,7 @@ app.use('/api/v1/balance', BalanceManagementRouter);
 app.use('/api/v1/payment', PaymentGatewayRouter);
 app.use('/api/v1/payment-permissions', PaymentGatewayPermissionRouter);
 app.use('/api/v1/activity', ActivityRouter);
+app.use('/api/v1/admin/sports', AdminSportsRouter);
 
 export default app;
 
