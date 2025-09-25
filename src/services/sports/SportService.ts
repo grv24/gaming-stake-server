@@ -10,9 +10,9 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
     const redisClient = getRedisClient();
 
     // Check Redis cache first with new key pattern
-    const cachedMatches = await redisClient.get(`d247_${sportType}_full`);
+    const cachedMatches = await redisClient.get(`d247_${sportType}`);
     if (cachedMatches) {
-      console.log(`[SPORTS] Returning cached ${sportType} data from Redis (key: d247_${sportType}_full)`);
+      console.log(`[SPORTS] Returning cached ${sportType} data from Redis (key: d247_${sportType})`);
       return JSON.parse(cachedMatches);
     }
 
@@ -42,11 +42,33 @@ export const fetchAndStoreSportsData = async (sportType: SportType) => {
 
     // Extract actual match data from the API response
     let matchData = [];
+    console.log(`[SPORTS] API response structure for ${sportType}:`, {
+      hasData: !!apiData,
+      dataType: typeof apiData,
+      hasDataProperty: !!(apiData && apiData.data),
+      hasT1Property: !!(apiData && apiData.data && apiData.data.t1),
+      isArray: Array.isArray(apiData),
+      dataKeys: apiData ? Object.keys(apiData) : 'No data'
+    });
+    
     if (apiData && apiData.data && apiData.data.t1) {
       matchData = apiData.data.t1;
+      console.log(`[SPORTS] Extracted ${matchData.length} matches from ${sportType} API response (t1 property)`);
     } else if (apiData && Array.isArray(apiData)) {
       // Fallback for cricket data which might be directly an array
       matchData = apiData;
+      console.log(`[SPORTS] Using ${sportType} data directly as array (${matchData.length} matches)`);
+    } else if (apiData && apiData.data && Array.isArray(apiData.data)) {
+      // Another fallback - data might be directly in apiData.data
+      matchData = apiData.data;
+      console.log(`[SPORTS] Using ${sportType} data from apiData.data (${matchData.length} matches)`);
+    } else {
+      console.warn(`[SPORTS] No valid data structure found for ${sportType}:`, {
+        apiData: apiData,
+        hasData: !!(apiData && apiData.data),
+        dataType: typeof apiData,
+        dataKeys: apiData ? Object.keys(apiData) : 'No keys'
+      });
     }
 
     // Store both full API data and extracted match data in Redis with new key pattern
@@ -137,13 +159,17 @@ export const getAllSportsData = async () => {
 };
 
 const getSportDataWithFallback = async (sportType: SportType) => {
-
-  const redisData = await getSportsData(sportType);
-
-  if (redisData) {
-    return redisData;
+  const redisClient = getRedisClient();
+  
+  // Check Redis cache with new key pattern
+  const cachedData = await redisClient.get(`d247_${sportType}`);
+  if (cachedData) {
+    console.log(`[FILTERED] Using cached ${sportType} data for filtered matches`);
+    return JSON.parse(cachedData);
   }
 
+  // If not in cache, fetch fresh data
+  console.log(`[FILTERED] No cached ${sportType} data, fetching fresh data`);
   return await fetchAndStoreSportsData(sportType);
 };
 
@@ -154,36 +180,51 @@ export const getFilteredIPlayMatches = async (limit: number = 10) => {
 
     for (const sportType of sports) {
       const sportData = await getSportDataWithFallback(sportType);
+      
+      console.log(`[FILTERED] Processing ${sportType} data:`, {
+        hasData: !!sportData,
+        isArray: Array.isArray(sportData),
+        length: sportData ? sportData.length : 'No data',
+        dataType: typeof sportData
+      });
 
-      if (sportType == 'cricket') {
+      // Extract match data - now all sports should return arrays directly
+      let matchData = sportData;
+      if (sportData && typeof sportData === 'object' && sportData.data && sportData.data.t1) {
+        matchData = sportData.data.t1;
+        console.log(`[FILTERED] Extracted ${matchData.length} ${sportType} matches from API response`);
+      } else if (sportData && Array.isArray(sportData)) {
+        matchData = sportData;
+        console.log(`[FILTERED] Using ${sportType} data directly as array (${matchData.length} matches)`);
+      } else if (sportData && typeof sportData === 'object' && sportData.data && Array.isArray(sportData.data)) {
+        matchData = sportData.data;
+        console.log(`[FILTERED] Using ${sportType} data from sportData.data (${matchData.length} matches)`);
+      } else {
+        console.warn(`[FILTERED] No valid data structure found for ${sportType}:`, sportData);
+        continue;
+      }
 
-        const iplayMatches = sportData
+      // Filter for iplay matches
+      if (matchData && Array.isArray(matchData)) {
+        const iplayMatches = matchData
           .filter((match: any) => match.iplay === true)
           .map((match: any) => ({
             ...match,
             sportType
           }));
 
+        console.log(`[FILTERED] Found ${iplayMatches.length} iplay matches for ${sportType}`);
         allMatches.push(...iplayMatches);
-
-      } else {
-        if (sportData && sportData.success && sportData.data && sportData.data.t1) {
-
-          const iplayMatches = sportData.data.t1
-            .filter((match: any) => match.iplay === true)
-            .map((match: any) => ({
-              ...match,
-              sportType
-            }));
-
-          allMatches.push(...iplayMatches);
-        }
       }
     }
 
-    return allMatches
+    // Sort by start time and limit results
+    const sortedMatches = allMatches
       .sort((a, b) => new Date(a.stime).getTime() - new Date(b.stime).getTime())
       .slice(0, limit);
+
+    console.log(`[FILTERED] Returning ${sortedMatches.length} filtered matches`);
+    return sortedMatches;
 
   } catch (error) {
     console.error('Error getting filtered iplay matches:', error);

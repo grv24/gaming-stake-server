@@ -20,22 +20,38 @@ import axios from "axios";
 // Controller to get cricket data
 export const getCricketData = async (req: Request, res: Response) => {
   try {
-    const data = await getSportsData("cricket");
-
-    // If no data in Redis, fetch from API
-    if (!data) {
-      const freshData = await fetchCricketData();
+    const startTime = Date.now();
+    const redisClient = getRedisClient();
+    
+    // Check Redis cache first with new key pattern
+    const cachedData = await redisClient.get("d247_cricket");
+    if (cachedData) {
+      console.log("Returning cached cricket data (key: d247_cricket)");
+      const parsedData = JSON.parse(cachedData);
       return res.json({
         success: true,
-        data: freshData,
-        source: "api",
+        data: parsedData,
+        source: "redis",
+        cacheTime: Date.now() - startTime
       });
     }
 
+    // If no data in Redis, fetch from API
+    console.log("Cricket data not in cache, fetching from API...");
+    const freshData = await fetchCricketData();
+    
+    // Cache the fresh data for 10 minutes
+    if (freshData) {
+      await redisClient.setex("d247_cricket", 600, JSON.stringify(freshData));
+      console.log("Cached fresh cricket data for 10 minutes");
+    }
+    
+    const totalTime = Date.now() - startTime;
     res.json({
       success: true,
-      data: data,
-      source: "redis",
+      data: freshData,
+      source: "api",
+      processingTime: totalTime
     });
   } catch (error) {
     console.error("Error getting cricket data:", error);
@@ -49,22 +65,38 @@ export const getCricketData = async (req: Request, res: Response) => {
 // Controller to get soccer data
 export const getSoccerData = async (req: Request, res: Response) => {
   try {
-    const data = await getSportsData("soccer");
-
-    // If no data in Redis, fetch from API
-    if (!data) {
-      const freshData = await fetchSoccerData();
+    const startTime = Date.now();
+    const redisClient = getRedisClient();
+    
+    // Check Redis cache first with new key pattern
+    const cachedData = await redisClient.get("d247_soccer");
+    if (cachedData) {
+      console.log("Returning cached soccer data (key: d247_soccer)");
+      const parsedData = JSON.parse(cachedData);
       return res.json({
         success: true,
-        data: freshData,
-        source: "api",
+        data: parsedData,
+        source: "redis",
+        cacheTime: Date.now() - startTime
       });
     }
 
+    // If no data in Redis, fetch from API
+    console.log("Soccer data not in cache, fetching from API...");
+    const freshData = await fetchSoccerData();
+    
+    // Cache the fresh data for 10 minutes
+    if (freshData) {
+      await redisClient.setex("d247_soccer", 600, JSON.stringify(freshData));
+      console.log("Cached fresh soccer data for 10 minutes");
+    }
+    
+    const totalTime = Date.now() - startTime;
     res.json({
       success: true,
-      data: data,
-      source: "redis",
+      data: freshData,
+      source: "api",
+      processingTime: totalTime
     });
   } catch (error) {
     console.error("Error getting soccer data:", error);
@@ -78,22 +110,38 @@ export const getSoccerData = async (req: Request, res: Response) => {
 // Controller to get tennis data
 export const getTennisData = async (req: Request, res: Response) => {
   try {
-    const data = await getSportsData("tennis");
-
-    // If no data in Redis, fetch from API
-    if (!data) {
-      const freshData = await fetchTennisData();
+    const startTime = Date.now();
+    const redisClient = getRedisClient();
+    
+    // Check Redis cache first with new key pattern
+    const cachedData = await redisClient.get("d247_tennis");
+    if (cachedData) {
+      console.log("Returning cached tennis data (key: d247_tennis)");
+      const parsedData = JSON.parse(cachedData);
       return res.json({
         success: true,
-        data: freshData,
-        source: "api",
+        data: parsedData,
+        source: "redis",
+        cacheTime: Date.now() - startTime
       });
     }
 
+    // If no data in Redis, fetch from API
+    console.log("Tennis data not in cache, fetching from API...");
+    const freshData = await fetchTennisData();
+    
+    // Cache the fresh data for 10 minutes
+    if (freshData) {
+      await redisClient.setex("d247_tennis", 600, JSON.stringify(freshData));
+      console.log("Cached fresh tennis data for 10 minutes");
+    }
+    
+    const totalTime = Date.now() - startTime;
     res.json({
       success: true,
-      data: data,
-      source: "redis",
+      data: freshData,
+      source: "api",
+      processingTime: totalTime
     });
   } catch (error) {
     console.error("Error getting tennis data:", error);
@@ -110,39 +158,52 @@ export const getAllSportsDataController = async (
   res: Response
 ) => {
   try {
-    const data = await getAllSportsData();
-
-    // Check if any data is missing and fetch if needed
-    let fetchedFromApi = false;
-    const sports: any[] = ["cricket", "soccer", "tennis"];
-
-    for (const sport of sports) {
-      if (!data[sport]) {
-        fetchedFromApi = true;
-        switch (sport) {
-          case "cricket":
-            data.cricket = await fetchCricketData();
-            break;
-          case "soccer":
-            data.soccer = await fetchSoccerData();
-            break;
-          case "tennis":
-            data.tennis = await fetchTennisData();
-            break;
-        }
-      }
+    const startTime = Date.now();
+    const redisClient = getRedisClient();
+    
+    // Check Redis cache first for all sports combined
+    const cachedAllSports = await redisClient.get("d247_all_sports");
+    if (cachedAllSports) {
+      console.log("Returning cached all sports data (key: d247_all_sports)");
+      const parsedData = JSON.parse(cachedAllSports);
+      return res.json({
+        success: true,
+        data: parsedData,
+        source: "redis",
+        cacheTime: Date.now() - startTime
+      });
     }
 
+    // If not in cache, fetch all sports data concurrently
+    console.log("All sports data not in cache, fetching from API...");
+    const [cricketData, soccerData, tennisData] = await Promise.all([
+      fetchCricketData(),
+      fetchSoccerData(),
+      fetchTennisData()
+    ]);
+
+    const allSportsData = {
+      cricket: cricketData,
+      soccer: soccerData,
+      tennis: tennisData
+    };
+
+    // Cache the combined data for 10 minutes
+    await redisClient.setex("d247_all_sports", 600, JSON.stringify(allSportsData));
+    console.log("Cached fresh all sports data for 10 minutes");
+    
+    const totalTime = Date.now() - startTime;
     res.json({
       success: true,
-      data: data,
-      source: fetchedFromApi ? "mixed" : "redis",
+      data: allSportsData,
+      source: "api",
+      processingTime: totalTime
     });
   } catch (error) {
     console.error("Error getting all sports data:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch sports data",
+      message: "Failed to fetch all sports data",
     });
   }
 };
@@ -214,25 +275,63 @@ export const getOddsData = async (req: Request, res: Response) => {
 
 export const getFIlteredData = async (req: Request, res: Response) => {
   try {
+    const startTime = Date.now();
+    const redisClient = getRedisClient();
+    
+    // Check Redis cache first
+    const cachedFilteredData = await redisClient.get("d247_filtered_matches");
+    if (cachedFilteredData) {
+      const parsedData = JSON.parse(cachedFilteredData);
+      if (parsedData && parsedData.length > 0) {
+        console.log("Returning cached filtered matches data (key: d247_filtered_matches)");
+        return res.json({
+          success: true,
+          message: "Successfully fetched result",
+          data: parsedData,
+          source: "redis",
+          cacheTime: Date.now() - startTime
+        });
+      } else {
+        console.log("Cached filtered matches data is empty, clearing cache and fetching fresh data");
+        await redisClient.del("d247_filtered_matches");
+      }
+    }
+
+    // If not in cache, fetch from service
+    console.log("Filtered matches data not in cache, fetching from service...");
     let data = await getFilteredIPlayMatches(10);
 
-    if (!data) {
+    if (!data || data.length === 0) {
+      console.log("No filtered matches found, clearing cache and retrying...");
+      // Clear the cache and try again
+      await redisClient.del("d247_filtered_matches");
+      data = await getFilteredIPlayMatches(10);
+    }
+
+    if (!data || data.length === 0) {
       return res.status(400).json({
         success: false,
         message: "No active match present",
       });
     }
 
+    // Cache the filtered data for 5 minutes
+    await redisClient.setex("d247_filtered_matches", 300, JSON.stringify(data));
+    console.log("Cached fresh filtered matches data for 5 minutes");
+
+    const totalTime = Date.now() - startTime;
     res.status(200).json({
       success: true,
       message: "Successfully fetched result",
       data,
+      source: "api",
+      processingTime: totalTime
     });
   } catch (error) {
-    console.error("Error getting odds data:", error);
+    console.error("Error getting filtered data:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch odds data",
+      message: "Failed to fetch filtered data",
     });
   }
 };

@@ -63,14 +63,35 @@ const getOddsDataFromRedis = async (gmid: string, etid: string) => {
 
 // Helper function to create tree structure for any sport
 const createSportTreeStructure = async (sportData: any, sportName: string, sportId: number) => {
+  console.log(`[TREE] Creating tree structure for ${sportName}:`, {
+    hasData: !!sportData,
+    dataType: typeof sportData,
+    isArray: Array.isArray(sportData),
+    length: sportData ? sportData.length : 'No data',
+    hasDataProperty: !!(sportData && sportData.data),
+    hasT1Property: !!(sportData && sportData.data && sportData.data.t1),
+    sampleData: sportData ? sportData[0] : 'No sample'
+  });
+
   // Extract actual match data from API response if needed
   let matchData = sportData;
   if (sportData && typeof sportData === 'object' && sportData.data && sportData.data.t1) {
     matchData = sportData.data.t1;
-    console.log(`Extracted ${matchData.length} ${sportName.toLowerCase()} matches from API response`);
+    console.log(`[TREE] Extracted ${matchData.length} ${sportName.toLowerCase()} matches from API response`);
   } else if (sportData && Array.isArray(sportData)) {
     matchData = sportData;
-    console.log(`Using ${sportName.toLowerCase()} data directly as array (${matchData.length} matches)`);
+    console.log(`[TREE] Using ${sportName.toLowerCase()} data directly as array (${matchData.length} matches)`);
+  } else if (sportData && typeof sportData === 'object' && sportData.data && Array.isArray(sportData.data)) {
+    // Another fallback - data might be directly in sportData.data
+    matchData = sportData.data;
+    console.log(`[TREE] Using ${sportName.toLowerCase()} data from sportData.data (${matchData.length} matches)`);
+  } else {
+    console.warn(`[TREE] No valid data structure found for ${sportName}:`, {
+      sportData: sportData,
+      hasData: !!(sportData && sportData.data),
+      dataType: typeof sportData,
+      dataKeys: sportData ? Object.keys(sportData) : 'No keys'
+    });
   }
 
   // Check if match data exists and is valid
@@ -872,9 +893,18 @@ router.get("/tree", async (req, res) => {
 
     // Process all sports concurrently instead of sequentially
     const sportPromises = sports.map(async (sport) => {
+      console.log(`Processing ${sport.name} data:`, {
+        hasData: !!sport.data,
+        isArray: Array.isArray(sport.data),
+        length: sport.data ? sport.data.length : 'No data',
+        dataType: typeof sport.data,
+        sampleData: sport.data ? sport.data[0] : 'No sample'
+      });
+      
       if (sport.data && Array.isArray(sport.data) && sport.data.length > 0) {
         return await createSportTreeStructure(sport.data, sport.name, sport.sportId);
       } else {
+        console.log(`${sport.name} data is empty or invalid, creating empty sport node`);
         return {
           data: {
             name: sport.name,
