@@ -5,6 +5,7 @@ import { USER_TABLES } from "../Helpers/users/Roles";
 import { DataSource } from "typeorm";
 import * as fs from "fs";
 import * as path from "path";
+import { config } from "./env";
 
 // Casino Socket Handler Logging System
 const LOG_DIRECTORY = path.join(process.cwd(), "logs", "casino-socket");
@@ -640,23 +641,31 @@ const checkRedisCasinoData = async () => {
 export function setupSocket(server: HttpServer, dataSource: DataSource) {
   const io = new Server(server, {
     cors: {
-      origin: "*",
-      methods: ["GET", "POST", "OPTIONS"],
-      credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      origin: config.socket.cors.origin,
+      methods: config.socket.cors.methods,
+      credentials: config.socket.cors.credentials,
+      allowedHeaders: config.socket.cors.allowedHeaders,
     },
     transports: ["polling", "websocket"],
     allowEIO3: true,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    upgradeTimeout: 10000,
-    maxHttpBufferSize: 1e8,
+    pingTimeout: config.socket.pingTimeout,
+    pingInterval: config.socket.pingInterval,
+    upgradeTimeout: config.socket.upgradeTimeout,
+    maxHttpBufferSize: config.socket.maxHttpBufferSize,
     path: "/socket.io/",
     serveClient: false,
     cookie: false,
     // Add these for proxy support
     allowRequest: (req, callback) => {
-      callback(null, true); // Allow all requests
+      // Enhanced request validation
+      const origin = req.headers.origin;
+      const allowedOrigins = config.socket.cors.origin;
+      
+      if (allowedOrigins === "*" || (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin))) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
     },
   });
 
@@ -1115,10 +1124,10 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
   });
 
   /**
-   * DATABASE UPDATE INTERVAL - 60 seconds
+   * DATABASE UPDATE INTERVAL - Configurable
    *
    * Purpose: Updates casino_match_new table with current match data and winner information
-   * Frequency: Every 60 seconds (optimized for database performance)
+   * Frequency: Configurable via CASINO_SETTLEMENT_INTERVAL (default: 60 seconds)
    *
    * What it does:
    * - Fetches all casino data from Redis (casino_data:* and r_* keys)
@@ -1145,13 +1154,13 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       logError("Error in single batch update", { error: error.message, stack: error.stack });
       // Continue execution - database errors shouldn't crash the socket service
     }
-  }, 60 * 1000); // 60 seconds
+  }, config.casino.settlementInterval);
 
   /**
-   * CHANGE DETECTION INTERVAL - 10 seconds
+   * CHANGE DETECTION INTERVAL - Configurable
    *
    * Purpose: Real-time broadcasting of casino data changes with time-based game state analysis
-   * Frequency: Every 10 seconds (optimized for fast real-time updates)
+   * Frequency: Configurable via CASINO_CHANGE_DETECTION_INTERVAL (default: 10 seconds)
    *
    * What it does:
    * - Monitors Redis keys for casino data changes using cache comparison
@@ -1179,13 +1188,13 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
   setInterval(async () => {
     logDebug("Change detection triggered");
     await checkAndBroadcastChanges(io, dataSource);
-  }, 10 * 1000); // 10 seconds
+  }, config.casino.changeDetectionInterval);
 
   /**
-   * FALLBACK BROADCAST INTERVAL - 30 seconds
+   * FALLBACK BROADCAST INTERVAL - Configurable
    *
    * Purpose: Ensures all casino data is delivered to clients even if change detection misses updates
-   * Frequency: Every 30 seconds (reliable data delivery)
+   * Frequency: Configurable via CASINO_FALLBACK_BROADCAST_INTERVAL (default: 30 seconds)
    *
    * What it does:
    * - Checks for active subscribers before broadcasting
@@ -1216,13 +1225,13 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
     } else {
       logDebug("Fallback broadcast - no active subscribers, skipping");
     }
-  }, 30 * 1000); // 30 seconds
+  }, config.casino.fallbackBroadcastInterval);
 
   /**
-   * AUTOMATIC SETTLEMENT INTERVAL - 60 seconds
+   * AUTOMATIC SETTLEMENT INTERVAL - Configurable
    *
    * Purpose: Automatically settle completed casino matches using pub/sub pattern
-   * Frequency: Every 60 seconds (optimized for faster settlement processing)
+   * Frequency: Configurable via CASINO_SETTLEMENT_INTERVAL (default: 60 seconds)
    *
    * What it does:
    * - Monitors Redis results data for completed matches
@@ -1371,13 +1380,13 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       logError("Error in automatic settlement", { error: error.message, stack: error.stack });
       // Continue execution - settlement errors shouldn't crash the socket service
     }
-  }, 60 * 1000); // 60 seconds
+  }, config.casino.settlementInterval);
 
   /**
-   * AUTOMATIC SPORT SETTLEMENT INTERVAL - 60 seconds
+   * AUTOMATIC SPORT SETTLEMENT INTERVAL - Configurable
    *
    * Purpose: Automatically settle completed sport matches using third-party APIs
-   * Frequency: Every 60 seconds (optimized for faster settlement processing)
+   * Frequency: Configurable via SPORTS_SETTLEMENT_INTERVAL (default: 60 seconds)
    *
    * What it does:
    * - Monitors SportMatch table for events with null result data
@@ -1478,7 +1487,7 @@ export function setupSocket(server: HttpServer, dataSource: DataSource) {
       
       // Continue execution - settlement errors shouldn't crash the socket service
     }
-  }, 60 * 1000); // 60 seconds
+  }, config.sports.settlementInterval);
 
   return io;
 }

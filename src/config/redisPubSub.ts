@@ -28,3 +28,21 @@ export const getRedisSubscriber = (): Redis => {
   if (!redisSubscriber) throw new Error("Redis subscriber not initialized. Call initRedisPubSub first.");
   return redisSubscriber;
 };
+
+// Close PubSub connections
+export const closeRedisPubSub = async (): Promise<void> => {
+  try {
+    if (redisPublisher) {
+      await redisPublisher.quit();
+      redisPublisher = null;
+    }
+    if (redisSubscriber) {
+      await redisSubscriber.quit();
+      redisSubscriber = null;
+    }
+    console.log("🔌 Redis PubSub connections closed");
+  } catch (error) {
+    console.error("❌ Error closing Redis PubSub connections:", error);
+    throw error;
+  }
+};
