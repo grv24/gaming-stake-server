@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../server";
 import { SportBet } from "../../entities/sports/SportBet";
 import { Client } from "../../entities/users/ClientUser";
+import { AccountTrasaction } from "../../entities/Transactions/AccountTransactions";
 import { In } from "typeorm";
 
 export const getDownlineBets = async (req: Request, res: Response) => {
@@ -128,6 +129,20 @@ export const updateBet = async (req: Request, res: Response) => {
     // Merge other updates
     Object.assign(bet, updates);
 
+    // Create account transaction if status changed
+    if (oldStatus !== newStatus) {
+      const accountTransactionRepo = AppDataSource.getRepository(AccountTrasaction);
+      const accountTransaction = accountTransactionRepo.create({
+        uplineUserId: client.uplineId || client.id,
+        downlineUserId: client.id,
+        remarks: `[MANUAL-BET-UPDATE] Bet ${bet.id} status changed from ${oldStatus} to ${newStatus} - Stake: ${stake}, P/L: ${profit}`,
+        type: newStatus === "won" ? "deposit" : "withdraw",
+        amount: newStatus === "won" ? Number(profit) : Number(stake),
+        createdAt: new Date()
+      });
+      await accountTransactionRepo.save(accountTransaction);
+    }
+
     await betRepo.save(bet);
     await clientRepo.save(client);
 
@@ -171,6 +186,18 @@ export const reopenBet = async (req: Request, res: Response) => {
     }
 
     bet.status = "pending";
+
+    // Create account transaction for bet reopening
+    const accountTransactionRepo = AppDataSource.getRepository(AccountTrasaction);
+    const accountTransaction = accountTransactionRepo.create({
+      uplineUserId: client.uplineId || client.id,
+      downlineUserId: client.id,
+      remarks: `[BET-REOPENED] Bet ${bet.id} reopened from ${oldStatus} to pending - Stake: ${stake}, Previous P/L: ${profit}`,
+      type: oldStatus === "won" ? "withdraw" : "deposit",
+      amount: oldStatus === "won" ? Number(profit) : Number(loss),
+      createdAt: new Date()
+    });
+    await accountTransactionRepo.save(accountTransaction);
 
     await betRepo.save(bet);
     await clientRepo.save(client);

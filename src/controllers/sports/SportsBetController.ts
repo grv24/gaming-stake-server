@@ -501,7 +501,39 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
 
           user.exposure = Number(user.exposure) - stakeAmount;
 
-          // Console log sports settlement (database update disabled due to issues)
+          // Update bet status and result data
+          currentBet.status = newStatus;
+          currentBet.betData = {
+            ...currentBet.betData,
+            result: {
+              marketId: result.market_id,
+              marketName: marketName,
+              marketType: marketType,
+              finalResult: finalResult,
+              settledAt: new Date().toISOString(),
+              profitLoss: profitLoss,
+              stake: stakeAmount,
+              isWinner: isWinner,
+              status: newStatus
+            }
+          };
+
+          // Save bet with updated status and result data
+          await transactionalEntityManager.save(currentBet);
+
+          // Create account transaction record
+          const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+          const accountTransaction = accountTransactionRepo.create({
+            uplineUserId: user.uplineId || userId,
+            downlineUserId: userId,
+            remarks: `[SPORT-BET-SETTLED] ${marketName || 'Unknown'} (Event: ${eventId}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+            type: profitLoss > 0 ? "deposit" : "withdraw",
+            amount: Math.abs(profitLoss),
+            createdAt: new Date()
+          });
+          await accountTransactionRepo.save(accountTransaction);
+
+          // Console log sports settlement
           console.log(`[SPORT-SETTLEMENT-LOG] Manual Settlement Account Statement Entry:`, {
             uplineUserId: user.uplineId || userId,
             downlineUserId: userId,
@@ -511,18 +543,10 @@ export const settleUserSportBets = async (req: Request, res: Response) => {
             timestamp: new Date().toISOString()
           });
 
-          // TODO: Re-enable database update when issues are resolved
-          // const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
-          // const accountTransaction = accountTransactionRepo.create({
-          //   uplineUserId: user.uplineId || userId,
-          //   downlineUserId: userId,
-          //   remarks: `[SPORT-BET-SETTLED] ${marketName || 'Unknown'} (Event: ${eventId}) - ${newStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
-          //   type: profitLoss > 0 ? "deposit" : "withdraw",
-          //   amount: Math.abs(profitLoss),
-          // });
-          // await accountTransactionRepo.save(accountTransaction);
+          // Save user with updated balance and exposure
+          await transactionalEntityManager.save(user);
 
-          // Console log bet status update (database update disabled due to issues)
+          // Console log bet status update
           console.log(`[SPORT-SETTLEMENT-LOG] Manual Bet Status Update:`, {
             betId: bet.id,
             userId: userId,

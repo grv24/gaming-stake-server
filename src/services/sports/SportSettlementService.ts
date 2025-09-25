@@ -1071,16 +1071,17 @@ export class SportSettlementService {
               timestamp: new Date().toISOString()
             });
 
-            // TODO: Re-enable database update when issues are resolved
-            // const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
-            // const accountTransaction = accountTransactionRepo.create({
-            //   uplineUserId: (user as any).uplineId || userId,
-            //   downlineUserId: userId,
-            //   remarks: `[SPORT-BET-SETTLED] ${betData.marketName || 'Unknown'} (Event: ${betData.eventId || marketId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
-            //   type: profitLoss > 0 ? "deposit" : "withdraw",
-            //   amount: Math.abs(profitLoss),
-            // });
-            // await accountTransactionRepo.save(accountTransaction);
+            // Create account transaction record
+            const accountTransactionRepo = transactionalEntityManager.getRepository(AccountTrasaction);
+            const accountTransaction = accountTransactionRepo.create({
+              uplineUserId: (user as any).uplineId || userId,
+              downlineUserId: userId,
+              remarks: `[SPORT-BET-SETTLED] ${betData.marketName || 'Unknown'} (Event: ${betData.eventId || marketId}) - ${finalStatus} - Stake: ${stakeAmount}, P/L: ${profitLoss}`,
+              type: profitLoss > 0 ? "deposit" : "withdraw",
+              amount: Math.abs(profitLoss),
+              createdAt: new Date()
+            });
+            await accountTransactionRepo.save(accountTransaction);
 
             // Console log bet status update (database update disabled due to issues)
             console.log(`[SPORT-SETTLEMENT-LOG] Bet Status Update:`, {
@@ -1101,33 +1102,33 @@ export class SportSettlementService {
               calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
             });
 
-            // TODO: Re-enable database update when issues are resolved
-            // await transactionalEntityManager.update(
-            //   SportBet,
-            //   { id: bet.id },
-            //   {
-            //     status: finalStatus,
-            //     betData: {
-            //       ...betData,
-            //       result: {
-            //         marketId: marketId,
-            //         marketName: betData.marketName || "",
-            //         marketType: marketType,
-            //         finalResult: resultData,
-            //         settledAt: new Date(),
-            //         profitLoss: profitLoss,
-            //         stake: stakeAmount,
-            //         betRate: betRate,
-            //         status: finalStatus,
-            //         settled: true,
-            //         isWinner: isWinner,
-            //         originalStake: stakeAmount,
-            //         calculatedProfit: isWinner ? profitLoss : 0,
-            //         calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
-            //       }
-            //     }
-            //   }
-            // );
+            // Update bet status and result data
+            await transactionalEntityManager.update(
+              SportBet,
+              { id: bet.id },
+              {
+                status: finalStatus,
+                betData: {
+                  ...betData,
+                  result: {
+                    marketId: marketId,
+                    marketName: betData.marketName || "",
+                    marketType: marketType,
+                    finalResult: resultData,
+                    settledAt: new Date(),
+                    profitLoss: profitLoss,
+                    stake: stakeAmount,
+                    betRate: betRate,
+                    status: finalStatus,
+                    settled: true,
+                    isWinner: isWinner,
+                    originalStake: stakeAmount,
+                    calculatedProfit: isWinner ? profitLoss : 0,
+                    calculatedLoss: !isWinner ? Math.abs(profitLoss) : 0
+                  }
+                }
+              }
+            );
 
             settledCount++;
 
@@ -1145,8 +1146,8 @@ export class SportSettlementService {
           timestamp: new Date().toISOString()
         });
 
-        // TODO: Re-enable database update when issues are resolved
-        // await transactionalEntityManager.save(user);
+        // Save user with updated balance and exposure
+        await transactionalEntityManager.save(user);
 
       });
 
