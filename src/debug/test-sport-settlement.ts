@@ -110,7 +110,7 @@ async function testSettlementScenarios() {
       console.log("Sample SportMatch:", {
         id: sportMatches[0].id,
         eventId: sportMatches[0].eventId,
-        sportId: sportMatches[0].sportId,
+        sportType: sportMatches[0].sportType,
         categories: sportMatches[0].categories?.length || 0
       });
     }
